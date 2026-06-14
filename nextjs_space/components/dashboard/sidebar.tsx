@@ -352,7 +352,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
       sections.push({
         id: 'security', label: 'Bảo mật', icon: Shield,
         items: [
-          { label: 'Kiểm tra Bảo mật', icon: Shield, href: '/dashboard/security/audit', roles: ['SECURITY_AUDITOR'] },
+          { label: 'Bảng kiểm soát bảo mật', icon: Shield, href: '/dashboard/security', roles: ['SECURITY_AUDITOR'] },
         ]
       })
     }

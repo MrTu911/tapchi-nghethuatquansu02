@@ -5,7 +5,10 @@ import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BookOpen, Crown, ShieldHalf, ClipboardList, ArrowRight, CheckCircle2 } from 'lucide-react'
+import {
+  BookOpen, Crown, ShieldHalf, ClipboardList, ArrowRight, CheckCircle2,
+  PenLine, FileText, Layers, ShieldAlert, Monitor, Settings, UserCheck,
+} from 'lucide-react'
 
 /**
  * Trung tâm Hướng dẫn sử dụng trong ứng dụng.
@@ -21,7 +24,7 @@ interface RoleGuide {
   title: string
   icon: React.ElementType
   dashboard: string
-  screenshot: string
+  screenshot?: string
   summary: string
   bullets: { label: string; href: string }[]
   note?: string
@@ -78,6 +81,111 @@ const GUIDES: RoleGuide[] = [
       { label: 'Quản lý Số tạp chí', href: '/dashboard/admin/issues' },
     ],
   },
+  {
+    key: 'section-editor',
+    role: 'SECTION_EDITOR',
+    title: 'Biên tập viên chuyên mục',
+    icon: FileText,
+    dashboard: '/dashboard/editor',
+    screenshot: '/help/screenshots/section-editor-dashboard.png',
+    summary:
+      'Xử lý các bài ĐƯỢC PHÂN CÔNG: gán phản biện, theo dõi tiến độ, ra quyết định biên tập. Chỉ thấy bài được giao cho mình.',
+    bullets: [
+      { label: 'Bài cần xử lý (được giao)', href: '/dashboard/editor/submissions' },
+      { label: 'Gán phản biện', href: '/dashboard/editor/assign-reviewers' },
+      { label: 'Quy trình & Deadline', href: '/dashboard/editor/workflow' },
+    ],
+    note: 'Không ký xuất bản, không đưa vào sản xuất, không phân công biên tập viên.',
+  },
+  {
+    key: 'layout',
+    role: 'LAYOUT_EDITOR',
+    title: 'Biên tập viên dàn trang',
+    icon: Layers,
+    dashboard: '/dashboard/layout/production',
+    screenshot: '/help/screenshots/layout-production.png',
+    summary:
+      'Phụ trách sản xuất: hiệu đính, dàn trang, hoàn thiện tệp xuất bản và metadata. Trình bài đã dàn trang lên Tổng biên tập ký.',
+    bullets: [
+      { label: 'Hàng đợi Sản xuất', href: '/dashboard/layout/production' },
+      { label: 'Kiểm tra đạo văn', href: '/dashboard/plagiarism' },
+    ],
+    note: 'Không có nút Xuất bản — bước ký cuối thuộc Tổng biên tập.',
+  },
+  {
+    key: 'reviewer',
+    role: 'REVIEWER',
+    title: 'Phản biện viên',
+    icon: UserCheck,
+    dashboard: '/dashboard/reviewer',
+    screenshot: '/help/screenshots/reviewer-dashboard.png',
+    summary:
+      'Đánh giá độc lập chất lượng khoa học của bài nộp theo nguyên tắc phản biện kín. Nhận/từ chối lời mời, nộp và sửa phản biện.',
+    bullets: [
+      { label: 'Bài cần phản biện', href: '/dashboard/reviewer/assignments' },
+      { label: 'Lịch sử phản biện', href: '/dashboard/reviewer/history' },
+    ],
+    note: 'Không liên hệ trực tiếp tác giả (blind review).',
+  },
+  {
+    key: 'author',
+    role: 'AUTHOR',
+    title: 'Tác giả',
+    icon: PenLine,
+    dashboard: '/dashboard/author',
+    screenshot: '/help/screenshots/author-dashboard.png',
+    summary:
+      'Gửi bài nghiên cứu, theo dõi quá trình phản biện, phản hồi yêu cầu chỉnh sửa và xem quyết định biên tập.',
+    bullets: [
+      { label: 'Nộp bài mới', href: '/dashboard/author/submit' },
+      { label: 'Bài đã nộp của tôi', href: '/dashboard/author/submissions' },
+      { label: 'Báo cáo công bố của tôi', href: '/dashboard/reports/publications?mode=author' },
+    ],
+  },
+  {
+    key: 'security',
+    role: 'SECURITY_AUDITOR',
+    title: 'Kiểm định bảo mật',
+    icon: ShieldAlert,
+    dashboard: '/dashboard/security',
+    screenshot: '/help/screenshots/security-dashboard.png',
+    summary:
+      'Giám sát an toàn hệ thống (cảnh báo, phiên đăng nhập, nhật ký kiểm toán) và ĐỒNG KÝ bài mật cùng Tổng biên tập (quy tắc hai người).',
+    bullets: [
+      { label: 'Bảng kiểm soát bảo mật', href: '/dashboard/security' },
+    ],
+    note: 'Đồng ký bài SECRET/TOP_SECRET — cần đủ chữ ký Tổng biên tập + Kiểm định bảo mật.',
+  },
+  {
+    key: 'commander',
+    role: 'COMMANDER',
+    title: 'Chỉ huy Học viện',
+    icon: Monitor,
+    dashboard: '/dashboard/commander',
+    screenshot: '/help/screenshots/commander-dashboard.png',
+    summary:
+      'Xem báo cáo tổng hợp, giám sát toàn cảnh hoạt động Tạp chí. Vai trò chỉ đọc, không can thiệp nghiệp vụ biên tập.',
+    bullets: [
+      { label: 'Trung tâm Chỉ huy', href: '/dashboard/commander' },
+      { label: 'Báo cáo Điều hành', href: '/dashboard/commander/report' },
+      { label: 'Báo cáo công bố (tổng hợp)', href: '/dashboard/reports/publications' },
+    ],
+  },
+  {
+    key: 'sysadmin',
+    role: 'SYSADMIN',
+    title: 'Quản trị hệ thống',
+    icon: Settings,
+    dashboard: '/dashboard/admin',
+    summary:
+      'Toàn quyền kỹ thuật & vận hành: người dùng, phân quyền RBAC, tích hợp, cấu hình, bảo mật. Vai trò duy nhất gán được vai trò cấp cao.',
+    bullets: [
+      { label: 'Tất cả Người dùng', href: '/dashboard/admin/users' },
+      { label: 'Phân quyền RBAC', href: '/dashboard/admin/permissions' },
+      { label: 'Cài đặt Website', href: '/dashboard/admin/cms/settings' },
+      { label: 'Tích hợp & hệ thống', href: '/dashboard/admin/integrations' },
+    ],
+  },
 ]
 
 export default async function HelpCenterPage() {
@@ -113,15 +221,23 @@ export default async function HelpCenterPage() {
             <CardDescription className="mt-1">{featured.summary}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5 lg:grid-cols-2">
-            <div className="rounded-lg border overflow-hidden">
-              <Image
-                src={featured.screenshot}
-                alt={`Bảng điều khiển ${featured.title}`}
-                width={1440}
-                height={900}
-                className="w-full h-auto"
-              />
-            </div>
+            {featured.screenshot ? (
+              <div className="rounded-lg border overflow-hidden">
+                <Image
+                  src={featured.screenshot}
+                  alt={`Bảng điều khiển ${featured.title}`}
+                  width={1440}
+                  height={900}
+                  className="w-full h-auto"
+                />
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-muted/40 flex items-center justify-center p-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Mở bảng điều khiển để xem giao diện trực tiếp.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Truy cập nhanh các chức năng chính:</p>
               {featured.bullets.map(b => (

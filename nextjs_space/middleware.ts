@@ -32,7 +32,7 @@ const dashboardAccessControl: Record<string, string[]> = {
   '/dashboard/deputy': ['DEPUTY_EIC', 'EIC', 'SYSADMIN'],
   '/dashboard/eic': ['EIC', 'DEPUTY_EIC', 'SYSADMIN'],
   '/dashboard/managing': ['MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
-  '/dashboard/editor': ['SECTION_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
+  '/dashboard/editor': ['SECTION_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN', 'SECURITY_AUDITOR'],
   '/dashboard/layout': ['LAYOUT_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
   '/dashboard/security': ['SECURITY_AUDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
   '/dashboard/reviewer': ['REVIEWER', 'SECTION_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
