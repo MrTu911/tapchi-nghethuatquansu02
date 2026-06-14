@@ -27,8 +27,14 @@ Mỗi tài liệu có sẵn bản **Markdown** (xem trong repo) và bản **Word
 | Chỉ huy Học viện | `COMMANDER` | `/dashboard/commander` | [chi-huy-hoc-vien.md](./chi-huy-hoc-vien.md) · `.docx` | chihuy@tapchintqsvn.edu.vn |
 | Quản trị hệ thống | `SYSADMIN` | `/dashboard/admin` | [quan-tri-he-thong.md](./quan-tri-he-thong.md) · `.docx` | admin@tapchintqsvn.edu.vn |
 
-> **Mật khẩu demo chung:** `TapChi@2025`. Tài khoản `admin@` có bật 2FA.
-> **READER (Độc giả):** không có dashboard riêng — đọc nội dung trên trang công khai của Tạp chí, không cần tài liệu hướng dẫn dashboard.
+> **Mật khẩu demo chung:** `TapChi@2025`.
+
+### Độc giả (trang công khai)
+| Vai trò | Role | Khu vực | Tài liệu |
+|---|---|---|---|
+| Độc giả | `READER` | Trang công khai (không cần đăng nhập) | [doc-gia.md](./doc-gia.md) · `.docx` |
+
+> Độc giả đọc nội dung trên trang công khai (số tạp chí, bài báo, tìm kiếm, thư viện) — không có dashboard riêng.
 
 ## Sơ đồ vai trò trong quy trình
 ```

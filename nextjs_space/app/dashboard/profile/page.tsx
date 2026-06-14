@@ -33,7 +33,18 @@ export default async function ProfilePage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.uid },
-    include: {
+    // Chỉ select các field cần hiển thị — KHÔNG dùng include để tránh rò
+    // passwordHash và các trường nhạy cảm khác vào client payload của RSC.
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      org: true,
+      bio: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
       _count: {
         select: {
           submissions: true,
@@ -187,7 +198,7 @@ export default async function ProfilePage() {
       </div>
 
       <Tabs defaultValue="info" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto">
           <TabsTrigger value="info" className="gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Thông tin</span>

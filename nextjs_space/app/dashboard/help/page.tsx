@@ -177,6 +177,7 @@ const GUIDES: RoleGuide[] = [
     title: 'Quản trị hệ thống',
     icon: Settings,
     dashboard: '/dashboard/admin',
+    screenshot: '/help/screenshots/admin-dashboard.png',
     summary:
       'Toàn quyền kỹ thuật & vận hành: người dùng, phân quyền RBAC, tích hợp, cấu hình, bảo mật. Vai trò duy nhất gán được vai trò cấp cao.',
     bullets: [

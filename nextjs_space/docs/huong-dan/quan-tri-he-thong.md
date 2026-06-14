@@ -32,7 +32,9 @@ Kiểm định bảo mật, Quản trị) cho người khác.
 ## 2. Đăng nhập & bảng điều khiển
 Vào `/auth/login` (demo: `admin@tapchintqsvn.edu.vn` / `TapChi@2025`) → **Bảng điều khiển Quản trị** (`/dashboard/admin`).
 
-Dashboard tổng hợp tình trạng hệ thống: người dùng, bài/đợt xuất bản, hoạt động, cảnh báo.
+![Bảng điều khiển Quản trị](../../public/help/screenshots/admin-dashboard.png)
+
+Dashboard tổng hợp tình trạng hệ thống: người dùng theo vai trò, bài báo & trạng thái, hoạt động gần đây (nhật ký), người dùng mới.
 
 ---
 
