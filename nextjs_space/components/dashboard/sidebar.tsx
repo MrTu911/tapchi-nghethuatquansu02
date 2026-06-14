@@ -164,6 +164,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
         { label: 'Thông báo', icon: Bell, href: '/dashboard/notifications', roles: ['ALL'] },
         { label: 'Tin nhắn', icon: MessageSquare, href: '/dashboard/messages', roles: ['ALL'] },
         { label: 'Hồ sơ cá nhân', icon: User, href: '/dashboard/profile', roles: ['ALL'] },
+        { label: 'Hướng dẫn sử dụng', icon: BookOpen, href: '/dashboard/help', roles: ['ALL'] },
       ]
     })
 
@@ -383,6 +384,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
   const getRoleLabel = (role: string) => {
     const map: Record<string, string> = {
       SYSADMIN: 'Quản trị viên', EIC: 'Tổng biên tập',
+      DEPUTY_EIC: 'Phó Tổng biên tập',
       MANAGING_EDITOR: 'Thư ký tòa soạn', SECTION_EDITOR: 'Biên tập viên',
       REVIEWER: 'Phản biện', AUTHOR: 'Tác giả',
       LAYOUT_EDITOR: 'Biên tập bố cục', SECURITY_AUDITOR: 'Kiểm định bảo mật',
@@ -401,7 +403,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
               <BookText className="h-6 w-6 text-military-900" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-wide">HCQS Journal</h2>
+              <h2 className="text-sm font-bold text-white tracking-wide">Tạp chí NTQS</h2>
               <p className="text-[10px] text-military-300 font-medium">Dashboard v2.1</p>
             </div>
           </div>
