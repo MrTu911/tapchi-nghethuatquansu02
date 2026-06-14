@@ -381,7 +381,7 @@ export default async function EICDashboardPage() {
                       </div>
                     </div>
                     <Button size="sm" variant="default" asChild className="bg-emerald-700 hover:bg-emerald-800">
-                      <Link href="/dashboard/production">
+                      <Link href="/dashboard/layout/production">
                         Xuất bản <ArrowRight className="h-3 w-3 ml-1" />
                       </Link>
                     </Button>
@@ -406,7 +406,7 @@ export default async function EICDashboardPage() {
               { href: '/dashboard/editor/submissions', icon: FileText, label: 'Quản lý bài', color: 'text-blue-500' },
               { href: '/dashboard/managing/issues', icon: BookOpen, label: 'Quản lý số', color: 'text-green-500' },
               { href: '/dashboard/admin/users', icon: Users, label: 'Người dùng', color: 'text-purple-500' },
-              { href: '/dashboard/production', icon: Zap, label: 'Xuất bản', color: 'text-emerald-600' },
+              { href: '/dashboard/layout/production', icon: Zap, label: 'Xuất bản', color: 'text-emerald-600' },
               { href: '/dashboard/admin/categories', icon: Target, label: 'Chuyên mục', color: 'text-orange-500' },
             ].map(({ href, icon: Icon, label, color }) => (
               <Button key={href} asChild variant="outline" className="h-auto py-4 flex-col gap-2">
