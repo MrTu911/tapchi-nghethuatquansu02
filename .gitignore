@@ -1,0 +1,52 @@
+# Claude Code local settings (personal, not for team)
+nextjs_space/.claude/settings.local.json
+
+# Dependencies
+nextjs_space/node_modules/
+node_modules/
+
+# Next.js build output
+nextjs_space/.next/
+.next/
+
+# Python virtual environments
+deployment/venv/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+nextjs_space/.env
+nextjs_space/.env.*
+nextjs_space/.env.backup*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Upload files — actual PDFs and images are served from public/uploads/
+# but binary files must not be committed; only .gitkeep placeholders are tracked
+nextjs_space/public/uploads/**/*.pdf
+nextjs_space/public/uploads/**/*.PDF
+nextjs_space/public/uploads/**/*.png
+nextjs_space/public/uploads/**/*.jpg
+nextjs_space/public/uploads/**/*.jpeg
+nextjs_space/public/uploads/**/*.webp
+nextjs_space/public/uploads/**/*.gif
+nextjs_space/public/uploads/**/*.doc
+nextjs_space/public/uploads/**/*.docx
+# Keep .gitkeep so empty directories are tracked
+!nextjs_space/public/uploads/**/.gitkeep

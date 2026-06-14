@@ -1,0 +1,161 @@
+01. Sửa lại kiểu chữ cho đẹp hơn (tiêu đề của các mục. Riêng tiêu đề của silde ảnh không để tiêu đề.) 02. Xây dựng module quản lý cơ sở dữ liệu các bài báo. Đây là mô tả, phân tích của tôi :Tuyệt vời 👏 — bạn đang mô tả đúng **trung tâm dữ liệu học thuật của toàn hệ thống**:
+một **Module “Quản lý & khai thác Cơ sở dữ liệu bài báo khoa học (Scientific Article Repository System)”**,
+liên thông với Workflow (biên tập, phản biện, xuất bản) **và phục vụ cho tra cứu, đọc, tải, kiểm tra đạo văn**.
+
+Dưới đây là **bản đặc tả chức năng hoàn chỉnh (Functional Specification)**, được thiết kế để AI hoặc nhóm phát triển có thể thực hiện tự động từng phần.
+
+---
+
+# 🧠 MÔ-ĐUN: **Quản lý & Khai thác Cơ sở Dữ liệu Bài Báo Khoa học (Article Repository)**
+
+---
+
+## 🎯 **MỤC TIÊU CHÍNH**
+
+| STT | Mục tiêu                                                                  | Mô tả                                                                                                        |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1️⃣ | **Tập trung toàn bộ bài báo đã có trong hệ thống (published + rejected)** | Gộp dữ liệu từ các bài **đã xuất bản** và các bài **không được duyệt**, lưu vào một cơ sở dữ liệu trung tâm. |
+| 2️⃣ | **Cung cấp chức năng tra cứu công khai**                                  | Người dùng không cần tài khoản vẫn có thể **tìm kiếm, đọc tóm tắt**, xem thông tin các bài báo.              |
+| 3️⃣ | **Quản lý truy cập nâng cao cho người có tài khoản**                      | Người dùng có tài khoản được phép **đọc toàn văn, tải file PDF, trích dẫn**.                                 |
+| 4️⃣ | **Cho phép thêm mới bài báo thủ công**                                    | Admin hoặc biên tập viên có thể thêm bài từ nguồn ngoài (tạp chí cũ, bài hợp tác, bài tham khảo).            |
+| 5️⃣ | **Cung cấp nguồn dữ liệu cho kiểm tra đạo văn**                           | Mọi bài trong repository trở thành **corpus cho plagiarism check**.                                          |
+
+---
+
+# ⚙️ CẤU TRÚC CHỨC NĂNG
+
+---
+
+## 🧩 **01. Quản lý & hiển thị toàn bộ bài báo trong hệ thống**
+
+### 🎯 Mục tiêu:
+
+Tập hợp, hiển thị và phân quyền truy cập cho tất cả bài báo (kể cả bị từ chối hoặc chưa xuất bản).
+
+### 📘 Tính năng chi tiết:
+
+| Nhóm chức năng                                  | Mô tả                                                                                  | Đối tượng sử dụng         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------- |
+| **1.1. Tổng hợp bài báo**                       | Tự động đồng bộ dữ liệu từ module Workflow (bài đã duyệt, bị từ chối, bài nộp).        | Hệ thống (background job) |
+| **1.2. Lưu trữ metadata**                       | Lưu tiêu đề, tác giả, tóm tắt, từ khóa, DOI, năm, issue, link PDF, category.           | DB                        |
+| **1.3. Tra cứu công khai (Public Search)**      | Người không đăng nhập có thể tìm kiếm bài theo: năm, chủ đề, từ khóa, tên tác giả.     | Mọi người                 |
+| **1.4. Chi tiết bài báo (Article Detail View)** | Hiển thị tiêu đề, tóm tắt, tác giả, DOI, category, link “Tải về” (nếu được phép).      | Mọi người                 |
+| **1.5. Xem toàn văn**                           | Mở PDF trong viewer nhúng (`pdf.js`, `Next PDF Viewer`).                               | Người đăng nhập           |
+| **1.6. Kiểm soát tải về**                       | Chỉ người có tài khoản hợp lệ (`author`, `reviewer`, `editor`, `admin`) được tải file. | Người đăng nhập           |
+| **1.7. Ghi nhận thống kê**                      | Lưu lượt xem (`viewCount`), lượt tải (`downloadCount`), ngày cuối truy cập.            | Hệ thống tự động          |
+
+### ⚙️ Kỹ thuật:
+
+* **CSDL:** `ArticleRepository` + `RepositoryFile`
+* **API:** `/api/repository/search`, `/api/repository/[id]`, `/api/repository/download/[id]`
+* **Giao diện:** `/repository`, `/repository/[id]`
+* **Service:** `RepositoryService` (CRUD + thống kê + quyền tải)
+* **Cron đồng bộ:** `syncPublishedArticles()` (chạy hàng ngày)
+
+---
+
+## 🧩 **02. Module thêm mới & cập nhật dữ liệu bài báo**
+
+### 🎯 Mục tiêu:
+
+Cho phép thêm mới, chỉnh sửa, cập nhật dữ liệu bài báo (từ nguồn ngoài hoặc upload trực tiếp).
+
+### 📘 Tính năng chi tiết:
+
+| Nhóm chức năng                           | Mô tả                                                                                  | Quyền          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | -------------- |
+| **2.1. Thêm mới bài báo thủ công**       | Form nhập thông tin: tiêu đề, tác giả, năm, category, DOI, từ khóa, tóm tắt, file PDF. | Editor / Admin |
+| **2.2. Upload file bài báo**             | Upload file PDF và tài liệu phụ (`.docx`, `.zip`).                                     | Editor / Admin |
+| **2.3. Cập nhật metadata**               | Sửa nội dung: tiêu đề, DOI, từ khóa, trạng thái `isPublic`, `isDownloadable`.          | Editor / Admin |
+| **2.4. Đồng bộ từ Workflow**             | Lấy dữ liệu từ bảng `Article` / `Submission` đã xuất bản.                              | Hệ thống       |
+| **2.5. Quản lý danh mục & chuyên ngành** | Gắn bài vào category (`Y học quân sự`, `Kỹ thuật hậu cần`, `Kinh tế quốc phòng`, …).   | Admin          |
+| **2.6. Kiểm soát hiển thị**              | Đặt trạng thái công khai / nội bộ (`isPublic`, `isDownloadable`).                      | Editor         |
+| **2.7. Ghi nhật ký chỉnh sửa (Audit)**   | Lưu log ai chỉnh, thời điểm, hành động.                                                | Hệ thống       |
+
+### ⚙️ Giao diện:
+
+* `/dashboard/repository`
+* `/dashboard/repository/new`
+* `/dashboard/repository/[id]/edit`
+
+### ⚙️ API:
+
+* `/api/repository/create`
+* `/api/repository/update/[id]`
+* `/api/repository/upload`
+
+---
+
+## 🧩 **03. Cơ sở dữ liệu làm nguồn kiểm tra đạo văn (Plagiarism Corpus)**
+
+### 🎯 Mục tiêu:
+
+Biến kho bài báo thành tập dữ liệu chuẩn để đối chiếu trùng lặp với các bài nộp mới.
+
+### 📘 Tính năng chi tiết:
+
+| Nhóm chức năng                        | Mô tả                                                                      | Ghi chú                                    |
+| ------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
+| **3.1. Index toàn văn bài báo**       | Tách text từ file PDF của từng bài, lưu vào bảng `ArticleIndex`.           | Dùng `pdf-parse`                           |
+| **3.2. Cập nhật chỉ mục định kỳ**     | Cron job chạy hằng tuần để cập nhật dữ liệu mới.                           | Node Cron                                  |
+| **3.3. API phục vụ kiểm tra đạo văn** | `/api/plagiarism/check` gửi text, trả về độ tương đồng.                    | JSON                                       |
+| **3.4. Cấu trúc lưu kết quả**         | Lưu độ trùng (`similarityScore`), danh sách bài trùng (`matchedArticles`). | Prisma Model                               |
+| **3.5. Giới hạn truy cập API**        | Chỉ `editor` hoặc `plagiarismService` có thể gọi API này.                  | Token-based auth                           |
+| **3.6. Báo cáo kết quả**              | Giao diện hiển thị danh sách bài trùng và đoạn văn tương tự.               | `/dashboard/editor/plagiarism-report/[id]` |
+
+---
+
+# 🧩 **04. Chức năng phụ trợ đề xuất (tăng tính hoàn chỉnh)**
+
+| Chức năng bổ sung                             | Mô tả chi tiết                                                  | Mục tiêu                           |
+| --------------------------------------------- | --------------------------------------------------------------- | ---------------------------------- |
+| **🔍 Bộ lọc nâng cao (Advanced Search)**      | Cho phép lọc bài theo năm, tác giả, từ khóa, DOI, chuyên ngành. | Hỗ trợ người đọc tra cứu sâu       |
+| **📊 Thống kê & phân tích**                   | Số lượng bài theo năm, chuyên ngành, lượt tải.                  | Hiển thị tại Dashboard             |
+| **🔗 Citation Export**                        | Tạo trích dẫn định dạng APA, IEEE, BibTeX.                      | Hỗ trợ tác giả & học viên          |
+| **📥 Batch Import**                           | Cho phép import hàng loạt bài từ Excel hoặc JSON.               | Cập nhật bài cũ nhanh              |
+| **🔒 Kiểm soát truy cập thông minh**          | Phân quyền: public / internal / restricted (chỉ editor).        | Bảo mật dữ liệu                    |
+| **🧾 Metadata API (OpenAPI)**                 | Cho phép truy cập metadata qua REST API công khai.              | Kết nối thư viện / viện nghiên cứu |
+| **🧠 Tích hợp AI semantic search (tùy chọn)** | Cho phép tìm kiếm theo ngữ nghĩa (embedding + vector search).   | Giai đoạn 2                        |
+
+---
+
+# 🧱 CẤU TRÚC KỸ THUẬT ĐỀ XUẤT
+
+```txt
+app/
+ ┣ repository/               # Public-facing repository
+ ┃ ┣ page.tsx                # Trang tra cứu chính
+ ┃ ┣ [id]/page.tsx           # Chi tiết bài báo
+ ┃ ┣ search-bar.tsx
+ ┣ dashboard/repository/     # Dashboard nội bộ
+ ┃ ┣ page.tsx
+ ┃ ┣ new/page.tsx
+ ┃ ┣ [id]/edit/page.tsx
+ ┣ api/repository/
+ ┃ ┣ search/route.ts
+ ┃ ┣ create/route.ts
+ ┃ ┣ update/[id]/route.ts
+ ┃ ┣ download/[id]/route.ts
+ ┣ api/plagiarism/
+ ┃ ┣ check/route.ts
+ ┗ ┣ index/route.ts
+lib/
+ ┣ services/
+ ┃ ┣ RepositoryService.ts
+ ┃ ┗ PlagiarismService.ts
+ ┣ utils/pdf-extractor.ts
+ ┣ utils/text-similarity.ts
+```
+
+---
+
+# 🧭 **TỔNG KẾT**
+
+| Mục tiêu                                 | Kết quả sau khi hoàn thiện                                      |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| ✅ **Tập trung toàn bộ bài báo hệ thống** | Có cơ sở dữ liệu thống nhất, phục vụ cả xuất bản lẫn nghiên cứu |
+| ✅ **Công khai tra cứu và đọc bài**       | Tăng tính minh bạch, quảng bá khoa học                          |
+| ✅ **Tải bài có kiểm soát (role-based)**  | Bảo vệ bản quyền, kiểm soát truy cập                            |
+| ✅ **Thêm mới bài thủ công / import**     | Cập nhật bài cũ hoặc bài hợp tác dễ dàng                        |
+| ✅ **Nguồn dữ liệu cho kiểm tra đạo văn** | Cung cấp corpus text chuẩn cho plagiarism check engine          |
+| ✅ **Tương thích AI & OpenAPI**           | Sẵn sàng tích hợp tra cứu ngữ nghĩa và liên thông hệ thống      |

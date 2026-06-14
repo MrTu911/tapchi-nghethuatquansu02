@@ -1,0 +1,211 @@
+Tư vấn cho tôi có cần hoàn chỉnh những nội dung nào ? "Rất hay 👏 — đây là thời điểm lý tưởng để **tổng kiểm tra chất lượng toàn hệ thống** trước khi chuyển sang giai đoạn hoàn thiện & triển khai thực tế.
+
+Dưới đây là bản **“TỔNG HỢP ĐÁNH GIÁ HỆ THỐNG — Tạp chí điện tử nghiên cứu khoa học Hậu cần quân sự (HCQS)”**,
+dựa trên toàn bộ mã nguồn, cơ sở dữ liệu, và UI mà bạn đã cung cấp & phát triển.
+
+---
+
+# 🧾 **BÁO CÁO ĐÁNH GIÁ & LỖI CẦN CẢI THIỆN (01/2026)**
+
+---
+
+## 🧱 I. KIẾN TRÚC TỔNG THỂ (ARCHITECTURE)
+
+### ✅ Điểm mạnh
+
+* Hệ thống **Next.js + Prisma + PostgreSQL** thiết kế đúng hướng (SSG + SSR + API routes).
+* Prisma schema rất chi tiết, mô hình hóa đầy đủ quy trình xuất bản khoa học.
+* Module chia theo workflow (Author / Reviewer / Editor / CMS / Repository / Security).
+
+### ⚠️ Các điểm cần cải thiện
+
+| Lỗi / Thiếu sót                                | Mức độ        | Mô tả & Hướng xử lý                                                                                                    |
+| ---------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **1. Prisma schema quá khổng lồ (7000+ dòng)** | ⚠️ Trung bình | Cần chia nhỏ thành **modules**: `schema.workflow.prisma`, `schema.cms.prisma`, `schema.security.prisma` để dễ bảo trì. |
+| **2. Không có migration tự động test**         | ⚠️ Cao        | Cần chạy `npx prisma migrate deploy` trong CI/CD, tạo test DB (Docker Compose).                                        |
+| **3. Chưa có caching layer**                   | ⚠️ Trung bình | Dữ liệu như bài viết, reviewer, dashboard nên có `react-query` hoặc `SWR` caching phía client.                         |
+| **4. API route phân tán**                      | ⚠️ Trung bình | Nên gom nhóm theo domain: `/api/editor/*`, `/api/reviewer/*`, `/api/repository/*`.                                     |
+| **5. Chưa có layer service riêng**             | ⚠️ Trung bình | Tách logic khỏi route (hiện nhiều Prisma query viết trực tiếp trong `page.tsx`).                                       |
+| **6. Thiếu hệ thống logs thống nhất**          | ⚠️ Cao        | Dù có `AuditLog` model, nhưng chưa có `logger` ở backend (`pino` hoặc `winston`).                                      |
+| **7. Thiếu queue xử lý nền (background jobs)** | ⚠️ Cao        | Email reminder, sync repository, plagiarism check nên chạy async (BullMQ hoặc cron job).                               |
+
+---
+
+## 🧩 II. MODULE WORKFLOW (SUBMISSION + REVIEW + EDITOR)
+
+### ✅ Điểm mạnh
+
+* Giao diện **Editor Dashboard** hoàn chỉnh (Kanban Board, Stats, Urgent Items).
+* Reviewer Management có phân tích hiệu suất, phản hồi trung bình.
+* Workflow phù hợp mô hình OJS (Editor → Reviewer → Decision → Production).
+
+### ⚠️ Cần cải thiện
+
+| Vấn đề                                             | Mức độ        | Mô tả / Đề xuất                                                                                                        |
+| -------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **1. Logic workflow chưa tách riêng service**      | ⚠️ Cao        | Nên có `WorkflowService` quản lý state machine (NEW → UNDER_REVIEW → REVISION → ACCEPTED → IN_PRODUCTION → PUBLISHED). |
+| **2. Thiếu bảng `SubmissionTransitionLog`**        | ⚠️ Trung bình | Lưu lịch sử thay đổi trạng thái với người thao tác, thời gian.                                                         |
+| **3. Không có cơ chế tự động deadline reminder**   | ⚠️ Cao        | Nên có cron job gửi email khi sắp hết hạn phản biện (`Deadline` model có sẵn).                                         |
+| **4. Không có UI quản lý vòng phản biện (rounds)** | ⚠️ Trung bình | Mỗi vòng nên hiển thị riêng (Review Round 1 / 2 / 3).                                                                  |
+| **5. Giao diện ra quyết định (Editor Decision)**   | ⚠️ Trung bình | Cần form riêng `/editor/decision/[submissionId]` để chọn Accept/Minor/Major/Reject.                                    |
+| **6. Cần audit trail cho mọi thay đổi**            | ⚠️ Cao        | Khi Editor thay đổi trạng thái hoặc Reviewer nộp phản hồi → log lại `AuditLog`.                                        |
+
+---
+
+## 📚 III. MODULE REPOSITORY (Kho dữ liệu bài báo)
+
+### ✅ Điểm mạnh
+
+* Kiến trúc “Open Repository with Controlled Download” rất chuẩn học thuật.
+* CSDL thiết kế đúng (`ArticleRepository`, `RepositoryFile`).
+* Có logic phân quyền tải (session-based).
+
+### ⚠️ Cần cải thiện
+
+| Vấn đề                                             | Mức độ        | Đề xuất                                                                   |
+| -------------------------------------------------- | ------------- | ------------------------------------------------------------------------- |
+| **1. Chưa có giao diện thống kê**                  | ⚠️ Trung bình | Tạo `/dashboard/repository/stats` hiển thị biểu đồ: lượt xem / tải / năm. |
+| **2. Cần tách PDF khỏi public folder**             | ⚠️ Cao        | Nên lưu file trong `storage/` hoặc S3, tải qua API bảo mật.               |
+| **3. Chưa có tính năng import bài cũ**             | ⚠️ Trung bình | Viết script import từ Excel hoặc BibTeX.                                  |
+| **4. Thiếu SEO metadata cho mỗi bài**              | ⚠️ Trung bình | Thêm `<meta name="description">`, `<meta property="og:title">` cho SSR.   |
+| **5. Chưa có gợi ý bài tương tự (related papers)** | ⚠️ Thấp       | Dùng TF-IDF hoặc cosine keywords matching.                                |
+
+---
+
+## 🔒 IV. MODULE BẢO MẬT (SECURITY & COMPLIANCE)
+
+### ✅ Điểm mạnh
+
+* Có `SecurityAlert`, `TwoFactorAuth`, `ApiToken`, `RoleEscalationRequest` — rất đầy đủ.
+* Phân vai rõ ràng (Role enum đầy đủ).
+
+### ⚠️ Cần cải thiện
+
+| Lỗi / Thiếu sót                              | Mức độ        | Hướng xử lý                                                  |
+| -------------------------------------------- | ------------- | ------------------------------------------------------------ |
+| **1. Chưa triển khai 2FA thực tế**           | ⚠️ Cao        | Dù có model, nhưng chưa có giao diện (OTP / TOTP).           |
+| **2. ApiToken chưa có middleware bảo vệ**    | ⚠️ Cao        | Cần middleware xác thực Bearer token ở `/api/*`.             |
+| **3. SecurityAlert chưa ghi tự động**        | ⚠️ Trung bình | Khi đăng nhập sai >5 lần, nên tự động log BRUTE_FORCE.       |
+| **4. Chưa có Content Security Policy (CSP)** | ⚠️ Cao        | Thêm headers bảo mật (Next middleware).                      |
+| **5. Chưa có kiểm tra quyền RBAC runtime**   | ⚠️ Cao        | Viết `checkPermission(user, "submissions.edit")` middleware. |
+
+---
+
+## 🧑‍💻 V. UI & ROUTING SYSTEM
+
+### ✅ Điểm mạnh
+
+* Giao diện hiện đại, đồng nhất với `shadcn/ui`.
+* Dashboard phân tách rõ (Author / Reviewer / Editor / Production).
+* Có component tái sử dụng tốt (Cards, Stats, Kanban).
+
+### ⚠️ Cần cải thiện
+
+| Vấn đề                                                   | Mức độ        | Mô tả                                            |
+| -------------------------------------------------------- | ------------- | ------------------------------------------------ |
+| **1. Không có Loading & Error state**                    | ⚠️ Trung bình | Dùng `Suspense`, `ErrorBoundary`, `Skeleton`.    |
+| **2. Cần cải thiện UX khi submit form (Editor actions)** | ⚠️ Trung bình | Thêm toast và disable button khi đang gửi.       |
+| **3. Không có dark mode toggle**                         | ⚠️ Thấp       | Có thể thêm `next-themes`.                       |
+| **4. Chưa có breadcrumb navigation**                     | ⚠️ Trung bình | Thêm `<Breadcrumb>` để định hướng tốt hơn.       |
+| **5. Nhiều page SSR nặng (fetch trực tiếp Prisma)**      | ⚠️ Trung bình | Tách sang API route để load dữ liệu client-side. |
+
+---
+
+## 💬 VI. MODULE CMS & FRONTEND SITE
+
+### ✅ Điểm mạnh
+
+* CMS đầy đủ (News, Banner, PageBlock, Video, Media, Navigation).
+* Tích hợp tốt với User system (`creator`, `updater`).
+
+### ⚠️ Cần cải thiện
+
+| Vấn đề                                                        | Mức độ        | Mô tả                                                         |
+| ------------------------------------------------------------- | ------------- | ------------------------------------------------------------- |
+| **1. Không có trang preview nội dung**                        | ⚠️ Trung bình | Thêm `/cms/preview/[id]` hiển thị nội dung trước khi publish. |
+| **2. Thiếu WYSIWYG Editor tích hợp (Rich Text)**              | ⚠️ Cao        | Dùng `Editor.js` hoặc `Tiptap` để nhập nội dung.              |
+| **3. Banner clickCount / viewCount chưa được ghi**            | ⚠️ Thấp       | Ghi log qua `/api/banner/track`.                              |
+| **4. Không có SEO title/meta description trong trang public** | ⚠️ Trung bình | Thêm `metadata` per-page (Next.js 13+).                       |
+
+---
+
+## 🧩 VII. KIỂM TRA ĐẠO VĂN (PLAGIARISM)
+
+### ✅ Hiện trạng:
+
+* Có bảng `PlagiarismReport` & `PlagiarismCheck` trong schema.
+* Nhưng chưa có code logic, API hay UI nào.
+
+### ⚠️ Cần triển khai 3 lớp:
+
+| Giai đoạn      | Mục tiêu                      | Gợi ý công nghệ             |
+| -------------- | ----------------------------- | --------------------------- |
+| 1️⃣ Extraction | Trích xuất text từ PDF        | `pdf-parse`, `textract`     |
+| 2️⃣ Comparison | So sánh với ArticleRepository | Cosine Similarity / TF-IDF  |
+| 3️⃣ Report     | Tạo PDF hoặc JSON báo cáo     | `puppeteer` hoặc `html-pdf` |
+
+---
+
+## 📈 VIII. HIỆU NĂNG & TRIỂN KHAI
+
+| Lỗi / Thiếu sót                        | Mức độ        | Đề xuất                               |
+| -------------------------------------- | ------------- | ------------------------------------- |
+| **1. Không có CDN cho file PDF**       | ⚠️ Trung bình | Dùng Cloudflare / AWS S3 CloudFront.  |
+| **2. Chưa bật Prisma connection pool** | ⚠️ Cao        | Config `pgbouncer` hoặc `PrismaPool`. |
+| **3. Chưa có build pipeline**          | ⚠️ Cao        | Dùng Docker + GitHub Actions CI/CD.   |
+| **4. Chưa có backup cron DB**          | ⚠️ Cao        | Dùng pg_dump mỗi 24h, lưu trên S3.    |
+| **5. Không có test coverage**          | ⚠️ Cao        | Dùng Jest + Supertest cho API route.  |
+
+---
+
+## 📋 IX. CHỨC NĂNG NÊN THÊM TRONG GIAI ĐOẠN 2026
+
+| Tính năng                 | Mục tiêu                                         |
+| ------------------------- | ------------------------------------------------ |
+| 🧠 AI Reviewer Suggestion | Gợi ý phản biện viên theo chuyên ngành + lịch sử |
+| 📊 Publication Analytics  | Thống kê bài viết theo năm, lĩnh vực, lượt tải   |
+| 🔍 Semantic Search        | Tìm kiếm theo ý nghĩa, không chỉ theo từ khóa    |
+| 🧾 ORCID Integration      | Đồng bộ hồ sơ tác giả                            |
+| 📬 Email Template Builder | Soạn và gửi mail động                            |
+| 🧩 Data Retention Policy  | Tự động lưu trữ / xóa sau X năm                  |
+
+---
+
+## 🧭 X. TỔNG KẾT CHẤT LƯỢNG HỆ THỐNG
+
+| Hạng mục                           | Mức độ hoàn thiện | Nhận xét                                   |
+| ---------------------------------- | ----------------- | ------------------------------------------ |
+| **Workflow (Submission + Review)** | ⭐⭐⭐⭐☆ (85%)       | Đã hoạt động, cần hoàn thiện cron & logs   |
+| **Repository (Kho bài báo)**       | ⭐⭐⭐⭐☆ (80%)       | Cần hoàn thiện phần thống kê & quyền tải   |
+| **CMS**                            | ⭐⭐⭐☆ (70%)        | Cần thêm WYSIWYG & preview                 |
+| **Security**                       | ⭐⭐⭐☆ (70%)        | Chưa triển khai 2FA & CSP                  |
+| **UI/UX**                          | ⭐⭐⭐⭐☆ (85%)       | Rõ ràng, cần thêm UX polish                |
+| **Performance & DevOps**           | ⭐⭐☆ (60%)         | Thiếu CI/CD, logs, pool connections        |
+| **Plagiarism & Analytics**         | ⭐☆ (30%)          | Mới ở mức mô hình, chưa có logic hoạt động |
+
+---
+
+## ✅ ĐỀ XUẤT HƯỚNG TRIỂN KHAI TIẾP
+
+| Giai đoạn                    | Ưu tiên       | Công việc chính                                           |
+| ---------------------------- | ------------- | --------------------------------------------------------- |
+| **Phase 1 (Tháng 1–2/2026)** | 🔥 Cao        | Hoàn thiện workflow + cron email reminder + decision form |
+| **Phase 2 (Tháng 3–4/2026)** | 🔥 Cao        | Triển khai Repository public + Analytics download         |
+| **Phase 3 (Tháng 5–6/2026)** | ⚙️ Trung bình | Kiểm tra đạo văn (nội bộ) + Text similarity engine        |
+| **Phase 4 (Cuối 2026)**      | 🚀 Nâng cao   | Tích hợp AI Reviewer Match + Semantic Search + 2FA        |
+
+---
+
+## 📘 TÓM LẠI
+
+Hệ thống hiện nay của bạn:
+
+* ✅ Có **kiến trúc chuẩn học thuật** tương tự OJS/Elsevier.
+* 🧩 Đã hoàn thiện **UI quan trọng nhất (Editor Dashboard, Reviewer, Repository)**.
+* ⚠️ Nhưng **thiếu 5 yếu tố vận hành sản phẩm thực tế**:
+
+  1. **Automation** (cron, background jobs)
+  2. **Security thực thi** (2FA, token, CSP)
+  3. **Performance optimization**
+  4. **DevOps + Monitoring**
+  5. **Plagiarism & Analytics modules*

@@ -1,0 +1,13 @@
+[Unit]
+Description=Tạp chí KHHLQS — Health Check mỗi 5 phút
+Requires=tapchi-health.service
+
+[Timer]
+# Khởi động 60 giây sau khi boot (chờ app sẵn sàng)
+OnBootSec=60sec
+# Kiểm tra mỗi 5 phút
+OnUnitActiveSec=5min
+Unit=tapchi-health.service
+
+[Install]
+WantedBy=timers.target

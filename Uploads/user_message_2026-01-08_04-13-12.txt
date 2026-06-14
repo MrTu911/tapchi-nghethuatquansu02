@@ -1,0 +1,219 @@
+Tôi cần tiếp tục hoàn thiện các tính năng của phần mềm. Tôi đã phân tích của tôi, bạn hãy tham khảo và hoàn thiện phần mềm phù hợp cho tôi. Làm chức năng nào phải hoàn chỉnh ngay, không phải làm lại. "Câu hỏi cực kỳ trọng tâm 🎯 — và đúng là lúc này chúng ta phải “soi kỹ giao diện” để bảo đảm **UI đủ để vận hành trơn tru toàn bộ workflow**, không chỉ “đẹp mắt”.
+
+Dưới đây là **bản phân tích chuyên sâu UI cần thiết cho Workflow thực tế của Hệ thống HCQS**, dựa trên schema bạn gửi, code Next.js thực tế (`app/`, `components/`, `CMS`) và toàn bộ luồng xử lý mà bạn đang hướng đến:
+
+---
+
+# 🧱 PHÂN TÍCH HỆ THỐNG UI HIỆN TẠI & ĐỀ XUẤT HOÀN THIỆN WORKFLOW HCQS
+
+---
+
+## 🧩 1️⃣ Mục tiêu tổng quát UI
+
+Hệ thống cần đảm bảo:
+
+* Mỗi **vai trò (Role)** có không gian làm việc riêng.
+* Mọi **trạng thái workflow** có thể được quan sát, cập nhật, hoặc phê duyệt qua giao diện.
+* Giao diện phản ánh **tiến độ** và **trách nhiệm** (SLA, deadline, history).
+
+Hiện tại UI của bạn (qua `app/` và `components/`) đã có:
+
+* Giao diện công khai (Articles, News, Homepage CMS).
+* Giao diện quản trị (Admin Panel).
+* Giao diện phản biện viên (`/reviewer/page.tsx`).
+* Giao diện người dùng (`/auth/login`, `register`).
+
+Nhưng **với Workflow học thuật chuẩn OJS**, cần thêm **5 nhóm giao diện chuyên dụng**.
+
+---
+
+## 🧩 2️⃣ Cấu trúc UI lý tưởng cho Workflow
+
+### **A. Author Dashboard (Tác giả)**
+
+📁 `/app/author/*`
+
+| Giao diện                 | Chức năng                                      | Thành phần cần có                                                    |
+| ------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
+| `/author/dashboard`       | Danh sách bài đã nộp, trạng thái, hạn phản hồi | `SubmissionTable`, `StatusBadge`, `DeadlineProgress`                 |
+| `/author/submission/new`  | Giao diện nộp bài                              | `FileUploader`, `CategorySelector`, `RichTextEditor`, `KeywordInput` |
+| `/author/submission/[id]` | Theo dõi chi tiết bài, phản hồi biên tập       | `Timeline`, `EditorMessage`, `UploadRevision`                        |
+| `/author/notifications`   | Thông báo phản biện & quyết định               | `NotificationList`, `FilterDropdown`                                 |
+
+✅ *Tác giả không cần admin UI, chỉ cần theo dõi trạng thái và nộp file đúng hạn.*
+
+---
+
+### **B. Reviewer Dashboard (Phản biện viên)**
+
+📁 `/app/reviewer/*`
+
+| Giao diện               | Chức năng                        | Thành phần cần có                                                         |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------- |
+| `/reviewer/dashboard`   | Danh sách bài được mời phản biện | `ReviewCard`, `DeadlineIndicator`, `AcceptDeclineButtons`                 |
+| `/reviewer/review/[id]` | Biểu mẫu phản biện               | `ReviewForm`, `RecommendationSelect`, `FileUploader`, `ConfidentialNotes` |
+| `/reviewer/profile`     | Cập nhật chuyên môn              | `ExpertiseInput`, `KeywordTags`, `AvailabilityToggle`                     |
+
+💡 *Nên có chế độ "ẩn danh" (blinding) — không hiện tên tác giả cho reviewer.*
+
+---
+
+### **C. Editor Dashboard (Biên tập viên & EIC)**
+
+📁 `/app/editor/*`
+
+| Giao diện                 | Chức năng                                              | Thành phần cần có                                        |
+| ------------------------- | ------------------------------------------------------ | -------------------------------------------------------- |
+| `/editor/dashboard`       | Tổng quan pipeline bài (NEW → UNDER_REVIEW → REVISION) | `KanbanBoard`, `FilterByCategory`, `StatusCounters`      |
+| `/editor/submission/[id]` | Quản lý phản biện, ra quyết định                       | `ReviewerAssignModal`, `DecisionForm`, `HistoryTimeline` |
+| `/editor/reviewers`       | Quản lý reviewer                                       | `ReviewerList`, `ExpertiseTags`, `PerformanceStats`      |
+| `/editor/issues`          | Quản lý số tạp chí & xuất bản                          | `IssueTable`, `AddIssueModal`, `PDFUploader`             |
+
+💡 *Đây là UI quan trọng nhất — nếu thiếu, workflow sẽ bị “ngắt mạch”.*
+
+---
+
+### **D. Copyeditor & Production Dashboard**
+
+📁 `/app/production/*`
+
+| Giao diện               | Chức năng                         | Thành phần                                        |
+| ----------------------- | --------------------------------- | ------------------------------------------------- |
+| `/production/dashboard` | Danh sách bài đã chấp nhận        | `ProductionTable`, `StatusBadge`, `FilePreview`   |
+| `/production/edit/[id]` | Biên tập nội dung & upload layout | `PDFPreviewer`, `NotesInput`, `ApprovalForm`      |
+| `/production/issues`    | Dàn trang, tổng hợp số tạp chí    | `IssueComposer`, `CoverUploader`, `PublishButton` |
+
+✅ *Khi bài chuyển sang IN_PRODUCTION, Copyeditor & Layout editor sẽ hoạt động tại đây.*
+
+---
+
+### **E. Managing & Security UI**
+
+📁 `/app/admin/*`
+
+| Giao diện       | Chức năng           | Thành phần                                                  |
+| --------------- | ------------------- | ----------------------------------------------------------- |
+| `/admin/users`  | Duyệt tài khoản mới | `UserTable`, `ApproveRejectButtons`, `CVViewer`             |
+| `/admin/audit`  | Nhật ký hành động   | `AuditLogTable`, `FilterByActor`, `DiffModal`               |
+| `/admin/alerts` | Cảnh báo bảo mật    | `SecurityAlertTable`, `SeverityBadge`, `MarkResolvedButton` |
+| `/admin/roles`  | Quản lý quyền       | `RolePermissionMatrix`, `RoleEscalationQueue`               |
+
+💡 *UI này giúp SysAdmin & SecurityAuditor theo dõi toàn bộ hoạt động.*
+
+---
+
+## 🧩 3️⃣ Giao diện phụ trợ cần thiết (phục vụ workflow)
+
+| Giao diện                  | Mô tả                                    | Liên quan                                 |
+| -------------------------- | ---------------------------------------- | ----------------------------------------- |
+| `/notifications`           | Hiển thị thông báo chung toàn hệ thống   | `NotificationCenter` component            |
+| `/deadlines`               | Danh sách deadline sắp đến hạn           | `DeadlineCard`, `RemindButton`            |
+| `/audit`                   | Nhật ký trạng thái bài viết              | `StatusTimeline` component                |
+| `/messages/[submissionId]` | Hộp thư trao đổi biên tập viên – tác giả | `MessageThread`, `ReplyBox`               |
+| `/reports`                 | Dashboard thống kê bài theo trạng thái   | `StatusChart`, `ReviewerPerformanceChart` |
+
+---
+
+## 🧭 4️⃣ Tình trạng hiện tại của UI trong code bạn gửi
+
+| Nhóm              | Trạng thái hiện tại                  | Thiếu / Cần bổ sung                          |
+| ----------------- | ------------------------------------ | -------------------------------------------- |
+| Author UI         | Có `/app/articles`, `/auth/register` | Thiếu `/author/dashboard`, `/submission/new` |
+| Reviewer UI       | Có `/app/reviewer/page.tsx`          | Thiếu form review và list bài                |
+| Editor UI         | Một phần trong `/app/admin`          | Thiếu `/editor/dashboard` và `/reviewers`    |
+| Production UI     | Chưa có                              | Cần thêm `/production/dashboard`             |
+| Admin/Security UI | Có `/app/admin/page.tsx`             | Thiếu audit log và cảnh báo bảo mật UI       |
+| CMS               | Đầy đủ                               | ✅ OK (News, Banner, HomepageSection)         |
+
+---
+
+## 🧱 5️⃣ Gợi ý cấu trúc thư mục UI hoàn chỉnh
+
+```
+app/
+ ┣ author/
+ ┃ ┣ dashboard/page.tsx
+ ┃ ┣ submission/[id]/page.tsx
+ ┣ reviewer/
+ ┃ ┣ dashboard/page.tsx
+ ┃ ┣ review/[id]/page.tsx
+ ┣ editor/
+ ┃ ┣ dashboard/page.tsx
+ ┃ ┣ submission/[id]/page.tsx
+ ┃ ┣ reviewers/page.tsx
+ ┣ production/
+ ┃ ┣ dashboard/page.tsx
+ ┣ admin/
+ ┃ ┣ users/page.tsx
+ ┃ ┣ audit/page.tsx
+ ┃ ┣ alerts/page.tsx
+ ┣ notifications/page.tsx
+ ┣ deadlines/page.tsx
+ ┣ reports/page.tsx
+```
+
+---
+
+## ⚙️ 6️⃣ Công nghệ đề xuất cho UI Workflow
+
+| Thành phần              | Công cụ đề xuất                                           | Ghi chú                          |
+| ----------------------- | --------------------------------------------------------- | -------------------------------- |
+| Bảng dữ liệu            | **TanStack Table v8**                                     | Hiệu năng cao, dễ filter/sort    |
+| Form                    | **react-hook-form + zod**                                 | Kiểm soát nhập liệu chuẩn        |
+| Modal / Dialog          | **shadcn/ui**                                             | Giao diện đồng bộ, có modal form |
+| Upload                  | **Next.js Route Handler + AWS S3 hoặc local storage**     | Cho file PDF, Word               |
+| Notification            | **Server Action + Toast + Prisma**                        | Gửi + đọc đồng bộ                |
+| Realtime (chat, status) | **Next.js Server Actions + WebSocket (Ably / Socket.io)** | Cập nhật tức thời                |
+
+---
+
+## 🧩 7️⃣ Sơ đồ mapping UI ↔ Workflow
+
+```text
+[AUTHOR]
+  ↳ /author/submission/new → create Submission(NEW)
+  ↳ /author/dashboard → xem status
+
+[EDITOR]
+  ↳ /editor/dashboard → assign Reviewer
+  ↳ /editor/submission/[id] → create Review
+
+[REVIEWER]
+  ↳ /reviewer/dashboard → accept/decline
+  ↳ /reviewer/review/[id] → submit Review
+
+[EDITOR]
+  ↳ /editor/submission/[id] → EditorDecision
+  ↳ Decision(ACCEPTED) → Copyedit stage
+
+[PRODUCTION]
+  ↳ /production/dashboard → upload layout
+  ↳ /production/issues → publish Issue
+
+[ADMIN]
+  ↳ /admin/audit → xem nhật ký
+  ↳ /admin/alerts → theo dõi bảo mật
+```
+
+---
+
+## 🧭 8️⃣ Kết luận chuyên gia
+
+| Nhóm                | Đánh giá hiện tại | Mức độ ưu tiên bổ sung    |
+| ------------------- | ----------------- | ------------------------- |
+| Author workflow     | 60%               | 🔥 Cao                    |
+| Reviewer workflow   | 50%               | 🔥 Cao                    |
+| Editor workflow     | 40%               | 🔥 Rất cao                |
+| Production workflow | 0%                | ⚙️ Phải thêm              |
+| Admin/Security      | 70%               | ⚙️ Bổ sung log & alert UI |
+| CMS                 | 100%              | ✅ Hoàn thiện              |
+
+---
+
+## 🚀 9️⃣ Đề xuất hành động ngay
+
+1️⃣ **Tạo thư mục `/app/editor` và `/app/author`**
+2️⃣ **Bổ sung bảng và modal quản lý phản biện** (`ReviewerAssignModal`, `DecisionForm`)
+3️⃣ **Triển khai DeadlineMonitor UI** – hiển thị tiến độ phản biện.
+4️⃣ **Tích hợp NotificationCenter toàn cục (icon bell)**
+5️⃣ **Xây dựng WorkflowDashboard tổng hợp** – trạng thái toàn bộ bài viết theo giai đoạn.

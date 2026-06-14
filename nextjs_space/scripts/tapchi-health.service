@@ -1,0 +1,17 @@
+[Unit]
+Description=Tạp chí KHHLQS — Health Check Monitor
+Documentation=file:///opt/tapchi/scripts/cron-health-check.sh
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/tapchi/backup.env
+ExecStart=/opt/tapchi/scripts/cron-health-check.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tapchi-health
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

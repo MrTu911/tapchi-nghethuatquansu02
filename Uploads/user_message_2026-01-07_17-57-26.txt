@@ -1,0 +1,250 @@
+Tôi đã upload được ảnh. Tuy nhiên khi chèn ảnh vào bài viết không hiển thị nội dung của ảnh! Tối ưu thêm công cụ hơn nữa của trình soạn thảo tin tức. Bạn hãy tham khảo phân tích của tôi: Rồi 👾 — hiểu rồi.
+Bạn đang cần **2 thứ cực kỳ quan trọng trong hệ thống tạp chí điện tử**:
+
+1️⃣ Một **trình soạn thảo tin tức (News Editor)** hoàn chỉnh như CMS (giống WordPress hoặc Medium) → cho phép **chọn font, cỡ chữ, màu, ảnh, liên kết, bảng, trích dẫn, heading, embed video, v.v.**
+2️⃣ Ảnh **đã upload thành công nhưng không hiển thị trong bài viết**, cần fix đường dẫn và tích hợp lại vào Tiptap editor.
+
+---
+
+## ⚙️ **I. Nguyên nhân ảnh không hiển thị trong bài viết**
+
+### 🔍 Vấn đề:
+
+* Ảnh upload lên `/public/uploads/...` nhưng **trình soạn thảo chỉ lưu đường dẫn cục bộ hoặc URL sai**.
+* Khi render bài viết, HTML lưu dạng:
+
+  ```html
+  <img src="uploads/abc.png">
+  ```
+
+  → Trình duyệt tìm sai (thiếu dấu `/` đầu).
+* Hoặc Next.js chặn ảnh do **CSP / Image domain chưa khai báo**.
+
+---
+
+### ✅ **Cách khắc phục hiển thị ảnh**
+
+#### 1. Trong Tiptap `Image` extension, phải cấu hình URL tuyệt đối
+
+Thêm cấu hình sau khi khởi tạo editor:
+
+```js
+import Image from '@tiptap/extension-image';
+
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    Image.configure({
+      HTMLAttributes: {
+        class: 'rounded-lg mx-auto my-4',
+      },
+    }),
+  ],
+});
+```
+
+Sau khi upload, chèn ảnh vào bài viết bằng:
+
+```js
+editor.chain().focus().setImage({ src: `/uploads/${fileName}` }).run();
+```
+
+> ⚠️ Quan trọng: phải có dấu **/** trước `/uploads/...` để Next.js phục vụ đúng ảnh từ thư mục `public/uploads`.
+
+---
+
+#### 2. Nếu dùng Next.js Image Optimization
+
+Khai báo domain cho ảnh nội bộ:
+
+```js
+// next.config.js
+images: {
+  domains: ['localhost', 'tapchinckhhcqs.abacusai.app'],
+  unoptimized: true, // vì ảnh nằm local
+},
+```
+
+---
+
+#### 3. Kiểm tra URL trong trình duyệt
+
+Truy cập thử:
+👉 `https://tapchinckhhcqs.abacusai.app/uploads/yourimage.jpg`
+Nếu ảnh hiển thị → đường dẫn đúng. Nếu 404 → đường dẫn sai hoặc file chưa được serve.
+
+---
+
+## 🧩 **II. Tạo công cụ soạn thảo tin tức (News Editor Tool)**
+
+Dưới đây là phiên bản **trình soạn thảo Tiptap nâng cao** với:
+
+* Thay đổi **font chữ, kích thước, màu**
+* **Chèn ảnh, link, heading, quote, video, code**
+* Hỗ trợ **dark mode** và toolbar gọn gàng
+* **Preview HTML đầu ra**
+
+---
+
+### 📁 `/components/editor/NewsEditor.js`
+
+```js
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
+import TextAlign from '@tiptap/extension-text-align';
+import Youtube from '@tiptap/extension-youtube';
+import { useState } from 'react';
+
+export default function NewsEditor({ value, onChange }) {
+  const [font, setFont] = useState('Inter');
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({ openOnClick: false }),
+      Image.configure({ inline: false, allowBase64: true }),
+      TextStyle,
+      Color,
+      FontFamily.configure({
+        types: ['textStyle'],
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Youtube.configure({
+        width: 640,
+        height: 360,
+      }),
+    ],
+    content: value || '<p>Nhập nội dung bài viết...</p>',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-lg focus:outline-none max-w-none',
+        style: `font-family: ${font};`,
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      onChange && onChange(html);
+    },
+  });
+
+  if (!editor) return null;
+
+  const addImage = () => {
+    const url = prompt('URL ảnh:');
+    if (url) editor.chain().focus().setImage({ src: url }).run();
+  };
+
+  const addYoutube = () => {
+    const url = prompt('URL YouTube:');
+    if (url) editor.chain().focus().setYoutubeVideo({ src: url }).run();
+  };
+
+  return (
+    <div className="border rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <select
+          className="border rounded px-2 py-1 text-sm"
+          value={font}
+          onChange={(e) => setFont(e.target.value)}
+        >
+          <option>Inter</option>
+          <option>Times New Roman</option>
+          <option>Arial</option>
+          <option>Roboto</option>
+          <option>Georgia</option>
+        </select>
+
+        <button onClick={() => editor.chain().focus().toggleBold().run()} className="btn">
+          B
+        </button>
+        <button onClick={() => editor.chain().focus().toggleItalic().run()} className="btn">
+          I
+        </button>
+        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className="btn">
+          U
+        </button>
+        <button onClick={addImage} className="btn">
+          🖼 Ảnh
+        </button>
+        <button onClick={addYoutube} className="btn">
+          ▶ Video
+        </button>
+        <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className="btn">
+          H2
+        </button>
+        <button onClick={() => editor.chain().focus().setColor('#e63946').run()} className="btn">
+          🔴
+        </button>
+        <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className="btn">
+          ⬌ Căn giữa
+        </button>
+      </div>
+
+      <EditorContent editor={editor} />
+
+      <div className="border-t mt-4 pt-2">
+        <h3 className="text-sm text-gray-500">🔍 Xem trước:</h3>
+        <div
+          className="prose dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### 🧠 Cách sử dụng
+
+```js
+import { useState } from 'react';
+import NewsEditor from '@/components/editor/NewsEditor';
+
+export default function CreateArticlePage() {
+  const [content, setContent] = useState('');
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">📝 Soạn bài viết mới</h1>
+      <NewsEditor value={content} onChange={setContent} />
+      <pre className="mt-4 bg-gray-50 p-2">{content}</pre>
+    </div>
+  );
+}
+```
+
+---
+
+### 💡 Gợi ý bổ sung:
+
+* Tích hợp upload ảnh tự động: khi chọn ảnh, gọi `/api/media` rồi chèn link kết quả vào `setImage({ src })`.
+* Nếu cần lưu font, màu, căn chỉnh → lưu HTML trực tiếp trong DB.
+* Khi hiển thị bài viết, dùng:
+
+  ```jsx
+  <div dangerouslySetInnerHTML={{ __html: article.content }} />
+  ```
+
+  (có thể thêm sanitize HTML nếu cần an toàn).
+
+---
+
+## ✅ **Tổng kết**
+
+| Yêu cầu                                  | Trạng thái                                 |
+| ---------------------------------------- | ------------------------------------------ |
+| Ảnh upload hiển thị trong bài viết       | ✅ Sửa đường dẫn + cấu hình Image extension |
+| Chọn font, màu, heading, căn chỉnh       | ✅ Có trong NewsEditor                      |
+| Upload ảnh trực tiếp vào bài             | ✅ Dùng `editor.chain().setImage({src})`    |
+| Giao diện thân thiện (toolbar + preview) | ✅ Có sẵn                                   |

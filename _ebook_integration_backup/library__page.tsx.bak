@@ -1,0 +1,115 @@
+import { Metadata } from 'next'
+import fs from 'fs'
+import path from 'path'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Card, CardContent } from '@/components/ui/card'
+import { BookOpen } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: 'Thư viện Ebook | Tạp chí Nghệ thuật Quân sự Việt Nam',
+  description: 'Đọc tạp chí dưới dạng ebook tương tác (EPUB)',
+}
+
+export const dynamic = 'force-dynamic'
+
+interface IssueMeta {
+  slug: string
+  title: string
+  issue: string
+  publisher: string
+  articleCount: number
+  coverUrl: string
+  readerUrl: string
+}
+
+async function listIssues(): Promise<IssueMeta[]> {
+  const issuesRoot = path.join(process.cwd(), 'public', 'data', 'issues')
+  if (!fs.existsSync(issuesRoot)) return []
+
+  const slugs = fs
+    .readdirSync(issuesRoot, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .sort()
+    .reverse()
+
+  const result: IssueMeta[] = []
+  for (const slug of slugs) {
+    const corpusPath = path.join(issuesRoot, slug, 'corpus.json')
+    if (!fs.existsSync(corpusPath)) continue
+    try {
+      const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'))
+      const issueInfo = corpus.issue || {}
+      result.push({
+        slug,
+        title: issueInfo.title || 'Tạp chí',
+        issue: issueInfo.name || slug,
+        publisher: issueInfo.publisher || 'Học viện Quốc phòng',
+        articleCount: (corpus.articles || []).length,
+        coverUrl: `/data/issues/${slug}/cover.jpg`,
+        readerUrl: `/data/issues/${slug}/reader.html`,
+      })
+    } catch {}
+  }
+  return result
+}
+
+export default async function LibraryPage() {
+  const issues = await listIssues()
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold mb-2">Thư viện Ebook</h1>
+        <p className="text-lg text-muted-foreground">
+          Đọc tạp chí ở định dạng tương tác (EPUB) — {issues.length} số
+        </p>
+      </div>
+
+      {issues.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <BookOpen className="h-16 w-16 text-muted-foreground opacity-50 mb-4" />
+            <p className="text-lg font-medium mb-2">Chưa có số nào được số hóa</p>
+            <p className="text-sm text-muted-foreground">
+              Thêm folder vào <code>public/data/issues/&lt;slug&gt;/</code> để hiển thị
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {issues.map((iss) => (
+            <Link
+              key={iss.slug}
+              href={`/library/${iss.slug}`}
+              className="group block"
+            >
+              <Card className="overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+                <div className="relative aspect-[3/4] bg-muted">
+                  <Image
+                    src={iss.coverUrl}
+                    alt={`Bìa ${iss.issue}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                  />
+                </div>
+                <CardContent className="p-4">
+                  <h3 className="font-bold text-sm line-clamp-2 mb-1 group-hover:text-primary">
+                    {iss.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-2">{iss.issue}</p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <BookOpen className="h-3 w-3" />
+                    <span>{iss.articleCount} bài</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

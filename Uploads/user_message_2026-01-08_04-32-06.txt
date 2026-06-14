@@ -1,0 +1,389 @@
+Xây dựng module chức năng kiểm tra đạo văn: 🧠 Phân tích thực tế: Hệ thống hiện tại của bạn có module kiểm tra đạo văn (Plagiarism Checking) chưa?
+
+Sau khi phân tích mã nguồn bạn gửi (nextjs_space.zip, /lib, /app/dashboard, /api, /prisma),
+👉 hiện tại hệ thống của bạn chưa có module kiểm tra đạo văn chuyên biệt.
+
+Cụ thể:
+
+Trong schema.prisma chưa thấy có bảng nào tên PlagiarismReport, SimilarityCheck, hoặc SimilarityResult.
+
+Không có route API kiểu /api/plagiarism hoặc /api/submissions/:id/check-plagiarism.
+
+Không có field trong Submission hoặc Article để lưu thông tin similarityScore hay reportUrl.
+
+Trong giao diện Editor / Production dashboard cũng chưa có section “Kiểm tra đạo văn”.
+
+⚙️ Tuy nhiên — hệ thống của bạn đã có nền tảng sẵn sàng để tích hợp module này:
+🔹 1. Prisma Schema sẵn có:
+
+Bảng Submission và Article đều có fileUpload hoặc uploadedFileId
+→ có thể trích xuất file .docx hoặc .pdf gửi lên API kiểm tra đạo văn.
+
+🔹 2. App router & API handler chuẩn:
+
+Hệ thống bạn đang dùng Next.js App Router (app/api/.../route.ts)
+→ rất dễ thêm một endpoint mới /api/plagiarism/check.
+
+🔹 3. Roles & Workflow phù hợp:
+
+Editor có thể yêu cầu kiểm tra đạo văn trước khi phản biện.
+
+Copyeditor có thể xem kết quả sau phản biện.
+
+Author có thể thấy “Similarity Report” trong dashboard.
+
+🧩 Đề xuất module “Plagiarism Checker” để tích hợp ngay
+📘 A. Cấu trúc bảng mới trong Prisma
+model PlagiarismReport {
+  id             String   @id @default(cuid())
+  submission     Submission @relation(fields: [submissionId], references: [id])
+  submissionId   String
+  checkedBy      String?   // userId của người yêu cầu
+  similarityRate Float?
+  reportUrl      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  status         String    @default("PENDING") // PENDING | COMPLETED | FAILED
+}
+
+🧱 B. API Route: /app/api/plagiarism/check/route.ts
+import { prisma } from "@/lib/prisma"
+import { NextResponse } from "next/server"
+import { performPlagiarismCheck } from "@/lib/plagiarism/turnitin"
+
+export async function POST(req: Request) {
+  const { submissionId, fileUrl, userId } = await req.json()
+
+  // Lưu yêu cầu ban đầu
+  const report = await prisma.plagiarismReport.create({
+    data: { submissionId, checkedBy: userId }
+  })
+
+  // Gửi file đến dịch vụ đạo văn (ví dụ Turnitin API hoặc Grammarly)
+  const result = await performPlagiarismCheck(fileUrl)
+
+  await prisma.plagiarismReport.update({
+    where: { id: report.id },
+    data: {
+      similarityRate: result.similarityRate,
+      reportUrl: result.reportUrl,
+      status: "COMPLETED"
+    }
+  })
+
+  return NextResponse.json({ success: true, result })
+}
+
+⚡ C. Thư viện tích hợp (Giả lập hoặc kết nối API thật)
+
+Trong /lib/plagiarism/turnitin.ts:
+
+export async function performPlagiarismCheck(fileUrl: string) {
+  // Gửi file đến API đạo văn thật, hoặc giả lập:
+  const fakeScore = Math.floor(Math.random() * 30)
+  return {
+    similarityRate: fakeScore,
+    reportUrl: `https://hcqs-reports.local/${Date.now()}-${fakeScore}.pdf`
+  }
+}
+
+🧭 D. UI hiển thị trên Editor Dashboard
+
+Thêm vào trang chi tiết bài (/dashboard/editor/submissions/[id]):
+
+<Card>
+  <CardHeader>
+    <CardTitle>Kiểm tra đạo văn</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {plagiarismReport ? (
+      <div className="flex items-center justify-between">
+        <p>Độ trùng lặp: <b>{plagiarismReport.similarityRate}%</b></p>
+        <Link href={plagiarismReport.reportUrl} target="_blank">
+          <Button variant="outline">Xem báo cáo</Button>
+        </Link>
+      </div>
+    ) : (
+      <Button
+        onClick={() => checkPlagiarism(submission.id)}
+        className="mt-2"
+      >
+        Kiểm tra ngay
+      </Button>
+    )}
+  </CardContent>
+</Card>
+
+🧩 E. Workflow đề xuất trong quy trình biên tập
+Giai đoạn	Tác nhân	Hành động	Kết quả
+Author nộp bài	Author	Upload file	Submission.status = NEW
+Editor sơ tuyển	Editor	Nhấn “Kiểm tra đạo văn”	Sinh PlagiarismReport(PENDING)
+Hệ thống kiểm tra	Bot/API	Gửi kết quả	similarityRate = 14%
+Editor xem báo cáo	Editor	Ra quyết định “Send to Review” hoặc “Reject”	Cập nhật status tiếp theo
+Copyeditor kiểm tra lần cuối	Copyeditor	Review lại report trước xuất bản	✅ Đảm bảo không vi phạm
+🧠 F. Dịch vụ có thể tích hợp thực tế
+Nguồn	API	Ghi chú
+Turnitin API	https://developers.turnitin.com/	Cần key riêng (trả phí)
+Copyleaks	https://api.copyleaks.com/documentation	Có gói miễn phí
+Grammarly / GPT-based Check	Custom embedding + cosine similarity	Có thể triển khai nội bộ (offline)
+PlagiarismCheck.org API	REST API, PDF/Word hỗ trợ	Tích hợp đơn giản nhất
+⚙️ G. Hướng triển khai cho bạn
+Giai đoạn	Mục tiêu	Công việc cụ thể
+Phase 1	Giả lập kiểm tra nội bộ	Module Prisma + API + UI + Fake Score
+Phase 2	Tích hợp API thực (Copyleaks hoặc Turnitin)	Lấy fileUrl, gửi API, lưu similarityRate
+Phase 3	Tự động hóa	Tự check khi Submission.status = NEW
+Phase 4	Thống kê đạo văn	Dashboard tổng hợp: % đạo văn trung bình, top vi phạm
+✅ Kết luận chuyên gia
+Tiêu chí	Trạng thái hiện tại	Đề xuất
+Có module đạo văn?	❌ Chưa có	Cần bổ sung
+Dữ liệu hỗ trợ (file bài nộp)	✅ Đã sẵn	Có thể dùng để gửi kiểm tra
+API tích hợp	⚙️ Dễ thêm	Tạo /api/plagiarism/check
+UI hiển thị	⚙️ Dễ chèn vào Editor Dashboard	Card “Kiểm tra đạo văn”
+Hỗ trợ workflow	✅ Phù hợp	Kiểm tra trước phản biện
+
+👉 Tóm lại:
+
+Hệ thống chưa có module kiểm tra đạo văn,
+nhưng bạn đã sẵn sàng 100% để triển khai nhanh (chỉ cần thêm 1 model, 1 API, 1 component).
+
+Bạn có muốn tôi tạo luôn mã thực tế cho module kiểm tra đạo văn (bao gồm Prisma model + API route + UI Editor Dashboard) để bạn chèn trực tiếp vào dự án không?
+Tôi có thể viết phiên bản “Offline giả lập + Copyleaks-ready” cho bạn trong vài phút.
+
+Hướng dẫn tôi chi tiết hơn về chức năng kiểm tra đạo văn. Lấy dữ liệu từ các bài báo có trong cơ sở dữ liệu có được không?
+
+Câu hỏi của bạn cực kỳ hay và đúng hướng của một hệ thống kiểm tra đạo văn nội bộ (internal plagiarism detection) —
+thứ mà các tạp chí quân sự / cơ quan nghiên cứu nội bộ như Học viện Hậu cần rất nên làm để đảm bảo tính bảo mật và không phụ thuộc hoàn toàn vào API bên ngoài như Turnitin.
+
+🎯 Mục tiêu bạn đang hướng tới:
+
+Xây dựng một module kiểm tra đạo văn tự động,
+sử dụng chính dữ liệu bài báo trong hệ thống (database) để phát hiện mức độ trùng lặp nội bộ,
+và (nếu cần) kết hợp API bên ngoài cho mở rộng kiểm tra toàn văn Internet.
+
+🧠 Tổng quan chức năng “Kiểm tra đạo văn nội bộ”
+✅ Cơ chế hoạt động
+
+Lấy văn bản từ bài nộp hiện tại (ví dụ: Submission.abstractVn, Submission.title, Article.htmlBody, hoặc trích xuất từ PDF).
+
+So sánh nội dung này với tất cả bài đã có trong hệ thống (hoặc trong cùng category, issue, volume, hay toàn bộ DB).
+
+Tính độ tương đồng (similarity score) giữa hai bài:
+
+Dựa trên Cosine Similarity hoặc SimHash / Jaccard Index.
+
+Sinh báo cáo chi tiết (report) liệt kê:
+
+Bài trùng lặp với mức độ bao nhiêu %
+
+Link tới bài trùng lặp đó
+
+Đoạn văn bị trùng (nếu cần, có thể highlight).
+
+Lưu kết quả vào bảng PlagiarismReport trong Prisma, để biên tập viên xem lại.
+
+⚙️ Cách triển khai thực tế trong hệ thống bạn
+A. 1️⃣ Chuẩn bị dữ liệu
+
+Từ Prisma schema hiện tại, bạn có sẵn:
+
+model Submission {
+  id        String @id @default(uuid())
+  title     String
+  abstractVn String?
+  abstractEn String?
+  article   Article?
+}
+model Article {
+  id        String @id @default(uuid())
+  htmlBody  String?
+  pdfFile   String?
+  submissionId String @unique
+}
+
+
+→ Bạn có thể lấy nội dung kiểm tra đạo văn từ:
+
+Submission.abstractVn + title
+
+hoặc Article.htmlBody nếu bài đã qua phản biện.
+
+B. 2️⃣ Tạo Prisma model lưu kết quả
+
+Thêm vào schema.prisma:
+
+model PlagiarismReport {
+  id            String   @id @default(uuid())
+  submissionId  String
+  submission    Submission @relation(fields: [submissionId], references: [id])
+  checkedBy     String?
+  checkedAt     DateTime  @default(now())
+  similarityScore Float?
+  details       Json?     // danh sách bài trùng và tỷ lệ
+  method        String    @default("internal") // internal / external
+  status        String    @default("COMPLETED")
+}
+
+
+→ Migration:
+
+npx prisma migrate dev --name add_plagiarism_report
+
+C. 3️⃣ Viết hàm so sánh nội dung giữa các bài
+
+Tạo /lib/plagiarism/internalCheck.ts:
+
+import { prisma } from "@/lib/prisma"
+
+// Simple cosine similarity (TF-IDF style)
+function cosineSimilarity(a: string, b: string): number {
+  const wordsA = a.toLowerCase().split(/\W+/)
+  const wordsB = b.toLowerCase().split(/\W+/)
+  const allWords = new Set([...wordsA, ...wordsB])
+
+  const vecA = Array.from(allWords).map(w => wordsA.filter(x => x === w).length)
+  const vecB = Array.from(allWords).map(w => wordsB.filter(x => x === w).length)
+
+  const dot = vecA.reduce((sum, v, i) => sum + v * vecB[i], 0)
+  const magA = Math.sqrt(vecA.reduce((s, v) => s + v * v, 0))
+  const magB = Math.sqrt(vecB.reduce((s, v) => s + v * v, 0))
+
+  return magA && magB ? dot / (magA * magB) : 0
+}
+
+export async function checkInternalPlagiarism(submissionId: string) {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: { article: true }
+  })
+  if (!submission) throw new Error("Submission not found")
+
+  const textA = submission.article?.htmlBody || submission.abstractVn || submission.title
+  if (!textA) return { score: 0, matches: [] }
+
+  const others = await prisma.submission.findMany({
+    where: { id: { not: submissionId } },
+    include: { article: true }
+  })
+
+  const matches = others.map(s => {
+    const textB = s.article?.htmlBody || s.abstractVn || s.title
+    if (!textB) return null
+    const sim = cosineSimilarity(textA, textB)
+    return sim > 0.2
+      ? { id: s.id, title: s.title, similarity: Math.round(sim * 100) }
+      : null
+  }).filter(Boolean)
+
+  const maxScore = matches.reduce((max, m) => Math.max(max, m!.similarity), 0)
+  return { score: maxScore, matches }
+}
+
+D. 4️⃣ API endpoint kiểm tra đạo văn nội bộ
+
+/app/api/plagiarism/check/route.ts:
+
+import { NextResponse } from "next/server"
+import { checkInternalPlagiarism } from "@/lib/plagiarism/internalCheck"
+import { prisma } from "@/lib/prisma"
+
+export async function POST(req: Request) {
+  const { submissionId, userId } = await req.json()
+
+  const result = await checkInternalPlagiarism(submissionId)
+
+  await prisma.plagiarismReport.create({
+    data: {
+      submissionId,
+      checkedBy: userId,
+      similarityScore: result.score,
+      details: result.matches,
+      status: "COMPLETED"
+    }
+  })
+
+  return NextResponse.json(result)
+}
+
+E. 5️⃣ UI hiển thị trong Editor Dashboard
+
+Thêm vào /dashboard/editor/submissions/[id]/page.tsx:
+
+<Card>
+  <CardHeader>
+    <CardTitle>Kiểm tra đạo văn</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {report ? (
+      <div>
+        <p className="text-sm">
+          Mức độ trùng lặp: <b>{report.similarityScore}%</b>
+        </p>
+        {report.details?.length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {report.details.map((m: any) => (
+              <li key={m.id}>
+                • <Link href={`/dashboard/editor/submissions/${m.id}`}>
+                  {m.title}
+                </Link> — {m.similarity}%
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    ) : (
+      <Button onClick={() => checkPlagiarism(submission.id)}>
+        Kiểm tra ngay
+      </Button>
+    )}
+  </CardContent>
+</Card>
+
+F. 6️⃣ (Tùy chọn) Mở rộng sang kiểm tra bên ngoài
+
+Bạn có thể dùng API của Copyleaks hoặc Turnitin,
+chỉ cần thay checkInternalPlagiarism() bằng API call thật.
+
+Ví dụ /lib/plagiarism/copyleaks.ts:
+
+import axios from "axios"
+
+export async function checkExternalPlagiarism(fileUrl: string) {
+  const token = await getCopyleaksToken()
+  const resp = await axios.post(
+    "https://api.copyleaks.com/v3/scans/submit/url",
+    { url: fileUrl },
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  return resp.data
+}
+
+G. 7️⃣ Tích hợp vào workflow
+Giai đoạn	Thực hiện bởi	Kích hoạt
+Khi bài nộp mới (Submission.status = NEW)	Editor hoặc hệ thống	Tự động gọi API /api/plagiarism/check
+Khi có kết quả	Hệ thống	Cập nhật PlagiarismReport
+Trên Dashboard	Editor	Xem báo cáo chi tiết
+Trên Production Stage	Copyeditor	Xem lại lần cuối trước xuất bản
+📈 Lợi ích của kiểm tra đạo văn nội bộ
+Lợi ích	Mô tả
+🔒 Bảo mật dữ liệu	Không gửi tài liệu ra ngoài mạng Internet
+⚡ Nhanh	So sánh trực tiếp trong DB PostgreSQL
+💸 Không tốn phí	Không cần API Turnitin
+🧠 Có thể mở rộng	Tích hợp AI semantic similarity sau này
+📊 Có thể thống kê	Xác định tỉ lệ đạo văn trung bình, bài trùng nhiều nhất
+🧩 Hướng nâng cấp sau
+
+Tạo bảng chỉ mục từ khóa (tsvector) trong PostgreSQL để tăng tốc tìm kiếm tương đồng.
+
+Dùng thư viện NLP (như compromise, natural, sentence-transformers) để so sánh theo ý nghĩa (semantic similarity).
+
+Tự động gửi cảnh báo khi similarity > 30%.
+
+Tích hợp module “Đánh giá chất lượng bài nộp” cùng với plagiarism score.
+
+✅ Tóm tắt lại:
+Thành phần	Trạng thái
+Có thể lấy dữ liệu bài viết từ DB	✅ Có
+Có thể so sánh nội bộ	✅ Dễ triển khai
+Cần thêm bảng PlagiarismReport	✅ Có sẵn schema mẫu
+API + UI	✅ Dễ tích hợp vào dashboard
+Kết hợp API ngoài	🔄 Có thể mở rộng (Turnitin, Copyleaks)

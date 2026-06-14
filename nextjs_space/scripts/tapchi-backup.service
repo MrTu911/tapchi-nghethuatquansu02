@@ -1,0 +1,26 @@
+[Unit]
+Description=Tạp chí KHHLQS — Backup Database và Files
+Documentation=file:///opt/tapchi/scripts/backup.sh
+# Chạy sau khi Docker đã sẵn sàng (nếu dùng Docker)
+After=network.target docker.service
+# Không bắt buộc Docker — script tự phát hiện môi trường
+Wants=docker.service
+
+[Service]
+Type=oneshot
+# Script chạy với user root để truy cập Docker và thư mục backup
+User=root
+Group=root
+# Biến env có thể override từ file này (tạo file nếu cần)
+EnvironmentFile=-/etc/tapchi/backup.env
+# Đường dẫn tuyệt đối đến script (điều chỉnh nếu deploy khác /opt/tapchi)
+ExecStart=/opt/tapchi/scripts/backup.sh
+# Ghi log vào journald (xem: journalctl -u tapchi-backup)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tapchi-backup
+# Timeout 30 phút — đủ cho database lớn
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

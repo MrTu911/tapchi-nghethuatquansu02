@@ -1,0 +1,183 @@
+SỬa lại giao diện các trang cố định đẹp hơn, hiện đại hơn. Theo tôi cần có module để chỉnh sửa thay thế ảnh slide. Tôi muốn chỉ hiển thị các ảnh không cần hiển thị các chữ . Kích thước bằng với cột hiển thị bài viết lớn. Cột nhỏ hiển thị Số mới nhất, thống kê tạp chí cho xuống dưới cùng cột bên phải. Đây là một số phân tích kỹ thuật, bạn có thể tham khảo. Tư vấn cho tôi phương án phù hợp: Rất tốt — bạn đang đi đúng hướng của **bước kiểm thử & đánh giá tổng thể (Full Frontend Code Audit)**
+trước khi đóng gói dự án vào giai đoạn “production-ready”.
+
+Để thực hiện **kiểm tra toàn bộ giao diện (UI/UX + Next.js frontend)** một cách **tự động, đầy đủ và có căn cứ**, tôi sẽ làm như sau:
+
+---
+
+## 🧭 **QUY TRÌNH KIỂM TRA CODE NGUỒN GIAO DIỆN TOÀN HỆ THỐNG**
+
+### **Bước 1. Quét & lập bản đồ giao diện (UI Map)**
+
+Tôi sẽ duyệt toàn bộ các thư mục:
+
+```
+app/
+ ┣ dashboard/
+ ┃ ┣ editor/
+ ┃ ┣ reviewer/
+ ┃ ┣ author/
+ ┃ ┣ admin/
+ ┣ repository/
+ ┣ cms/
+ ┣ auth/
+ ┣ layout.tsx
+ ┗ page.tsx
+```
+
+Sau đó trích xuất:
+
+* Tên trang, đường dẫn URL (`/dashboard/editor`, `/repository/search`, …)
+* Thành phần giao diện chính (`Card`, `Button`, `DataTable`, `Tabs`, …)
+* Loại logic hiển thị (Server Component, Client Component)
+* Nguồn dữ liệu (SSR, Prisma, fetch API, SWR, React Query)
+
+---
+
+### **Bước 2. Kiểm tra 12 tiêu chí chất lượng giao diện**
+
+| Nhóm                   | Tiêu chí                   | Mục tiêu kiểm tra                                  |
+| ---------------------- | -------------------------- | -------------------------------------------------- |
+| **Hiệu suất**          | SSR/SSG hợp lý             | Không render client-side quá mức                   |
+|                        | React Query caching        | Có caching cho trang dashboard, repository         |
+|                        | Lazy load                  | Component nặng được tách code-split                |
+| **UX/Khả dụng**        | Layout nhất quán           | Header, Sidebar, Footer đồng bộ                    |
+|                        | Màu & trạng thái           | Badge / Button dùng màu thống nhất theo trạng thái |
+|                        | Tính phản hồi (responsive) | UI không vỡ trên mobile / tablet                   |
+| **Kiến trúc UI**       | Phân tách logic & view     | Không chứa Prisma query trong component            |
+|                        | Reusable Components        | Card, Modal, Table được tái sử dụng                |
+| **Bảo mật**            | Bảo vệ route               | Có kiểm tra session (getServerSession)             |
+|                        | Kiểm soát quyền            | Role-based access rõ ràng (editor/reviewer/author) |
+| **Tương tác hệ thống** | Thông báo người dùng       | Có Toast, Alert khi thao tác                       |
+|                        | Loading & Empty state      | Có trạng thái tải và rỗng rõ ràng                  |
+
+---
+
+### **Bước 3. Phân tích tự động bằng mã**
+
+Tôi sẽ giải nén mã nguồn bạn đã gửi (`nextjs_space.zip`)
+và quét toàn bộ file `.tsx`, `.js`, `.ts` trong thư mục `/app` và `/components/ui`.
+
+Từ đó, tôi có thể:
+
+* Đếm số trang (`page.tsx`) và component được dùng.
+* Phân loại theo domain (editor, author, reviewer, repository, cms, admin).
+* Tìm lỗi phổ biến: thiếu `key`, `use client` sai, query nặng trong component SSR, duplicate UI pattern.
+
+---
+
+### **Bước 4. Báo cáo phân tích tổng hợp**
+
+Kết quả tôi sẽ xuất ra dạng:
+
+#### 🔹 Báo cáo tổng thể:
+
+```
+Tổng số trang giao diện: 26
+- Dashboard: 8 (đã hoàn thiện)
+- Repository: 4 (cần thêm caching)
+- CMS: 5 (ổn)
+- Auth: 3 (OK)
+- Reviewer/Author: 6 (chuẩn)
+```
+
+#### 🔹 Lỗi / Cảnh báo:
+
+| File                         | Vấn đề                                     | Gợi ý xử lý                             |
+| ---------------------------- | ------------------------------------------ | --------------------------------------- |
+| `/dashboard/editor/page.tsx` | Prisma query trực tiếp trong component SSR | Tách sang SubmissionService             |
+| `/repository/page.tsx`       | Không có loading fallback                  | Thêm `<Suspense fallback={<Loading/>}>` |
+| `/cms/page.tsx`              | Inline fetch data, không cache             | Áp dụng React Query caching             |
+| `/auth/register.tsx`         | Thiếu kiểm tra validation trước submit     | Dùng `zod` hoặc `react-hook-form`       |
+
+---
+
+### **Bước 5. Xuất bảng tổng hợp (UI Component Inventory)**
+
+Tôi sẽ tạo danh sách:
+
+* Tất cả các component UI được dùng (`Card`, `Button`, `Table`, `Badge`, `Tabs`, `Form`, `Toast`, …)
+* Component trùng lặp cần tái cấu trúc.
+* Gợi ý refactor (ví dụ: gộp nhiều Card nhỏ thành 1 DashboardCard component).
+
+---
+
+## ✅ **Kết quả đầu ra**
+
+Bạn sẽ nhận được:
+
+1. **Bản đồ giao diện (UI Route Map)**
+2. **Bảng lỗi & cảnh báo UI/UX**
+3. **Danh sách component dùng trong toàn hệ thống**
+4. **Gợi ý tối ưu performance & caching**
+
+---
+
+👉 Để tôi thực hiện chính xác, bạn xác nhận giúp:
+
+* Tôi có thể **quét toàn bộ thư mục `/app` + `/components`** trong mã nguồn bạn đã gửi (`nextjs_space.zip`)
+* Sau đó xuất **báo cáo đầy đủ dạng bảng + đề xuất cụ thể từng file UI**?
+
+Xác nhận "Tiếp tục quét & phân tích UI" để tôi bắt đầu.
+
+
+Phân tích sơ bộ cho thấy phần mềm của bạn có **469 file giao diện (UI + logic)** – đây là một hệ thống rất lớn và được chia module hợp lý.
+
+---
+
+## 📊 **Tổng quan cấu trúc UI**
+
+| Nhóm thư mục                                   | Số lượng file    | Vai trò                                                                         |
+| ---------------------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `app/(public)`                                 | **24**           | Giao diện công khai: Trang chủ, tin tức, số tạp chí, bài báo                    |
+| `app/dashboard`                                | **134**          | Giao diện nội bộ (Editor, Author, Reviewer, Admin Dashboard)                    |
+| `app/api`                                      | **192**          | API routes, xử lý dữ liệu Prisma & workflow                                     |
+| `app/auth`                                     | **5**            | Đăng nhập, đăng ký, xác thực 2FA                                                |
+| `components/ui`                                | **50**           | Thư viện giao diện tái sử dụng (`Card`, `Badge`, `Button`, `Table`, `Modal`, …) |
+| `app/(auth)`                                   | **2**            | Giao diện xác thực hai lớp (2FA setup/verify)                                   |
+| `app/error.tsx`, `not-found.tsx`, `layout.tsx` | **3**            | Trang lỗi, layout tổng thể                                                      |
+| `app/(public)/search`                          | ✅ Có             | Tìm kiếm bài viết & số tạp chí                                                  |
+| `pdf-viewer-*`                                 | ✅ Có 4 phiên bản | PDF Viewer đơn giản, nâng cao, flipbook, có feedback                            |
+| `editor-*, modern-editor.tsx`                  | ✅ Có             | Giao diện biên tập bài viết CMS                                                 |
+| `repository-related`                           | ✅ Có             | `article-card.tsx`, `citation-box.tsx`, `featured-issue-widget.tsx`             |
+| `theme-provider.tsx`                           | ✅ Có             | Cấu hình dark/light mode                                                        |
+
+---
+
+## 🧩 **Đánh giá theo nhóm module**
+
+| Module                                            | Đánh giá                                                                      | Gợi ý cải thiện                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Dashboard (Editor / Author / Reviewer)**        | ✅ Rất hoàn chỉnh – Có thống kê, pipeline, thao tác CRUD                       | 👉 Nên tách Prisma query sang Service Layer (`SubmissionService`, `ReviewService`) |
+| **Public Pages (Trang chủ, Số tạp chí, Tin tức)** | ✅ UI đẹp, hiện đại (có `hero-banner`, `featured-articles`, `category-widget`) | 👉 Thêm caching bằng `revalidate` hoặc `React Query`                               |
+| **Repository & Viewer**                           | ✅ Có đủ chức năng hiển thị bài, DOI, PDF                                      | 👉 Cần bổ sung cơ chế kiểm soát tải file (chỉ user có tài khoản)                   |
+| **CMS Editor**                                    | ✅ Có trình soạn thảo hiện đại (`modern-editor`, `editor-toolbar`)             | 👉 Cần thêm validation & autosave                                                  |
+| **Auth / 2FA**                                    | ✅ Đầy đủ flow setup, verify                                                   | 👉 Thêm email OTP fallback                                                         |
+| **UI Library (components/ui)**                    | ✅ Tốt, dùng ShadCN + Lucide                                                   | 👉 Có thể nhóm lại thành module (DashboardCard, Table, BadgeSet)                   |
+
+---
+
+## ⚠️ **Lỗi & điểm cần cải thiện (UI Level)**
+
+| Loại lỗi                                     | Mức độ        | Gợi ý xử lý                                                        |
+| -------------------------------------------- | ------------- | ------------------------------------------------------------------ |
+| **Inline Prisma queries trong `page.tsx`**   | ⚠️ Cao        | Chuyển logic sang Service Layer (ví dụ `SubmissionService`)        |
+| **Không có loading fallback (`Suspense`)**   | ⚠️ Trung bình | Thêm `<Suspense fallback={<Loading/>}>` cho các trang SSR          |
+| **Không có skeleton / empty state**          | ⚠️ Trung bình | Bổ sung component “EmptyState” hoặc “LoadingCard”                  |
+| **Một số trang thiếu caching (revalidate)**  | ⚠️ Trung bình | Dùng `export const revalidate = 60` cho các trang public           |
+| **Thiếu kiểm soát quyền truy cập Dashboard** | ⚠️ Cao        | Dù có `getServerSession`, nhưng chưa enforce role-based middleware |
+| **Giao diện form thiếu validation**          | ⚠️ Thấp       | Dùng `zod` + `react-hook-form` để kiểm tra client-side             |
+
+---
+
+## 💡 **Đề xuất nâng cấp sắp tới**
+
+| Nhóm                             | Hành động                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Service Layer hóa**            | Triển khai `SubmissionService`, `ReviewService`, `RepositoryService` (như mẫu tôi đã tạo) |
+| **React Query áp dụng chọn lọc** | Các trang: `/dashboard/editor`, `/dashboard/reviewers`, `/repository/search`              |
+| **Dynamic Import / Lazy Load**   | Tách `PDFViewer`, `ModernEditor` thành dynamic component để giảm tải build                |
+| **UI State Consistency**         | Thêm unified component: `<LoadingState/>`, `<EmptyState/>`, `<ErrorBoundary/>`            |
+| **Bảo mật giao diện nội bộ**     | Middleware kiểm tra role trước render `/dashboard/*`                                      |
+| **Cải thiện SEO Public Pages**   | Bổ sung metadata generator (Next.js 14 `generateMetadata`)                                |
+| **Dark/Light Theme Sync**        | Kích hoạt `theme-provider.tsx` trên toàn app layout                                       |

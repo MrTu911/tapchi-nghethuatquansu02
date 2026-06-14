@@ -1,0 +1,71 @@
+import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import fs from 'fs'
+import path from 'path'
+import dynamic from 'next/dynamic'
+
+interface Props {
+  params: { slug: string }
+}
+
+// Dynamic import EpubReader — epub.js cần window object → ssr: false
+const EpubReader = dynamic(() => import('@/components/epub-reader/EpubReader'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 flex flex-col items-center justify-center" style={{ background: '#F4ECD8' }}>
+      <div className="w-9 h-9 rounded-full border-4 animate-spin"
+           style={{ borderColor: 'rgba(122,46,46,.18)', borderTopColor: '#7A2E2E' }} />
+      <p className="mt-4 text-sm" style={{ color: '#7A2E2E' }}>Đang khởi tạo trình đọc...</p>
+    </div>
+  ),
+})
+
+interface IssueMeta {
+  title: string
+  issue: string
+  epubFile: string
+}
+
+function readMeta(slug: string): IssueMeta | null {
+  const folder = path.join(process.cwd(), 'public', 'data', 'issues', slug)
+  if (!fs.existsSync(folder)) return null
+
+  let epubFile = ''
+  const files = fs.readdirSync(folder)
+  for (const f of files) {
+    if (f.endsWith('.epub')) { epubFile = f; break }
+  }
+  if (!epubFile) return null
+
+  const corpusPath = path.join(folder, 'corpus.json')
+  let title = 'Tạp chí'
+  let issue = slug
+  if (fs.existsSync(corpusPath)) {
+    try {
+      const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8'))
+      title = corpus.issue?.title || title
+      issue = corpus.issue?.name || issue
+    } catch {}
+  }
+  return { title, issue, epubFile }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const meta = readMeta(params.slug)
+  if (!meta) return { title: 'Không tìm thấy số tạp chí' }
+  return {
+    title: `${meta.issue} | ${meta.title}`,
+    description: `Đọc ${meta.title} — ${meta.issue}`,
+  }
+}
+
+export const dynamicParams = true
+export const revalidate = 60
+
+export default function LibraryReaderPage({ params }: Props) {
+  const meta = readMeta(params.slug)
+  if (!meta) notFound()
+
+  const epubUrl = `/data/issues/${params.slug}/${meta.epubFile}`
+  return <EpubReader url={epubUrl} title={`${meta.title} — ${meta.issue}`} />
+}

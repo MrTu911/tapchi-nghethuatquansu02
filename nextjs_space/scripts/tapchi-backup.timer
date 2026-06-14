@@ -1,0 +1,16 @@
+[Unit]
+Description=Tạp chí KHHLQS — Daily Backup Timer (02:00 hàng ngày)
+Documentation=file:///opt/tapchi/scripts/backup.sh
+Requires=tapchi-backup.service
+
+[Timer]
+# Chạy lúc 02:00 mỗi ngày (giờ Hà Nội — server phải đặt timezone Asia/Ho_Chi_Minh)
+OnCalendar=*-*-* 02:00:00
+# Persistent=true: nếu server tắt đúng 02:00, timer sẽ chạy ngay khi khởi động lại
+Persistent=true
+# Trì hoãn ngẫu nhiên tối đa 5 phút để tránh peak load đồng loạt nhiều server
+RandomizedDelaySec=300
+Unit=tapchi-backup.service
+
+[Install]
+WantedBy=timers.target

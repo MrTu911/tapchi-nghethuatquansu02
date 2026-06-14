@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tạp chí Nghệ thuật Quân sự Việt Nam — Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+<style>
+:root {
+  --bg: #F4ECD8;
+  --paper: #FBF6E6;
+  --panel: #ECE2C8;
+  --ink: #2B1F14;
+  --ink-soft: #5C4A38;
+  --burgundy: #7A2E2E;
+  --burgundy-light: #A14A4A;
+  --burgundy-bg: rgba(122,46,46,.08);
+  --rule: rgba(122,46,46,.18);
+  --shadow: 0 8px 32px rgba(43,31,20,.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  /* Background warm gradient để liquid glass có content phía sau để blur */
+  background:
+    radial-gradient(circle at 20% 0%, rgba(122,46,46,.10), transparent 50%),
+    radial-gradient(circle at 80% 100%, rgba(180,130,60,.12), transparent 55%),
+    linear-gradient(180deg, #F2E6CC 0%, #ECE2C8 100%);
+  font-family: 'Noto Sans', -apple-system, 'Segoe UI', sans-serif;
+  color: var(--ink);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    "header header"
+    "sidebar main";
+  height: 100vh;
+}
+
+/* HEADER — liquid glass */
+.app-header {
+  grid-area: header;
+  background: rgba(251,246,230,.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 4px 16px rgba(0,0,0,.04);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 14px;
+  z-index: 10;
+}
+.title-block {
+  flex: 1;
+  min-width: 0;
+}
+.title-main {
+  font-family: 'Noto Serif', Georgia, serif;
+  font-size: 15px;
+  color: var(--burgundy);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.title-sub {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.controls { display: flex; gap: 6px; align-items: center; }
+.btn {
+  background: rgba(255,255,255,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.6);
+  box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 1px 2px rgba(0,0,0,.05);
+  border-radius: 10px;
+  padding: 6px 12px;
+  color: var(--burgundy);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s, transform .1s;
+}
+.btn:hover { background: rgba(255,255,255,.85); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn-icon { padding: 6px 10px; min-width: 36px; justify-content: center; font-weight: 700; }
+.font-ctrl {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: rgba(255,255,255,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.6);
+  box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 1px 2px rgba(0,0,0,.05);
+  border-radius: 10px;
+}
+.font-ctrl .btn { border: none; background: transparent; padding: 6px 10px; }
+.font-pct { font-size: 11px; color: var(--ink-soft); min-width: 38px; text-align: center; }
+
+/* SIDEBAR — liquid glass */
+.sidebar {
+  grid-area: sidebar;
+  background: rgba(251,246,230,.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid rgba(0,0,0,.08);
+  box-shadow: 1px 0 0 rgba(255,255,255,.5) inset, 4px 0 16px rgba(0,0,0,.03);
+  overflow-y: auto;
+  padding: 14px;
+}
+.sidebar h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--burgundy);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 10px;
+}
+.toc-list { list-style: none; }
+.toc-item {
+  display: block;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+  text-align: justify;
+  text-align-last: left;
+}
+.toc-item:hover { background: var(--burgundy-bg); }
+.toc-item.active {
+  background: rgba(122,46,46,.12);
+  border-left: 3px solid var(--burgundy);
+  padding-left: 7px;
+}
+.toc-item.active .toc-title-text { color: var(--burgundy); font-weight: 600; }
+.toc-num {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--burgundy);
+  font-weight: 700;
+  margin-bottom: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.toc-title-text {
+  display: block;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+.toc-author {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-style: italic;
+  line-height: 1.3;
+}
+.toc-section {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--burgundy);
+  margin: 18px 0 8px;
+  padding: 0 8px 8px;
+  border-bottom: 1px solid var(--rule);
+  line-height: 1.4;
+}
+
+/* MAIN VIEWER */
+.main {
+  grid-area: main;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.viewer-wrap {
+  flex: 1;
+  position: relative;
+  background: var(--paper);
+  overflow: hidden;
+}
+#viewer {
+  width: calc(100% - 100px);  /* leave 50px on each side for nav buttons */
+  height: 100%;
+  margin: 0 auto;
+}
+.nav-prev, .nav-next {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px;
+  background: rgba(255,255,255,.6);
+  border: 1px solid rgba(255,255,255,.7);
+  color: var(--burgundy);
+  font-size: 22px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  transition: background .2s, opacity .3s, transform .2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+}
+.nav-prev { left: 8px; }
+.nav-next { right: 8px; }
+.nav-prev:hover, .nav-next:hover { background: var(--burgundy); color: white; transform: translateY(-50%) scale(1.1); }
+.nav-prev:disabled, .nav-next:disabled { opacity: 0; pointer-events: none; }
+
+/* Bottom progress bar */
+.progress-bar {
+  height: 4px;
+  background: rgba(122,46,46,.1);
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--burgundy);
+  width: 0%;
+  transition: width .3s;
+}
+
+/* LOADING */
+.loader {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  flex-direction: column; gap: 16px;
+  font-family: 'Noto Serif', Georgia, serif;
+}
+.loader.hidden { display: none; }
+.loader-title { font-size: 18px; color: var(--burgundy); font-weight: 700; }
+.loader-msg { font-size: 13px; color: var(--ink-soft); }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--rule);
+  border-top-color: var(--burgundy);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* DROP ZONE */
+.drop-zone {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 20px;
+  padding: 20px;
+  z-index: 50;
+}
+.drop-zone.hidden { display: none; }
+.drop-zone h1 {
+  font-family: 'Noto Serif', Georgia, serif;
+  color: var(--burgundy);
+  font-size: 24px;
+  text-align: center;
+}
+.drop-zone-inner {
+  border: 3px dashed var(--burgundy);
+  border-radius: 16px;
+  padding: 60px 40px;
+  text-align: center;
+  background: rgba(255,255,255,.3);
+  max-width: 500px;
+  width: 100%;
+}
+.drop-zone p { color: var(--ink-soft); margin: 10px 0; }
+.drop-zone input[type=file] { display: none; }
+.drop-zone label.upload-btn {
+  display: inline-block;
+  background: var(--burgundy);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.drop-zone label.upload-btn:hover { background: var(--burgundy-light); }
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; grid-template-areas: "header" "main"; }
+  .sidebar { display: none; position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 20; }
+  .sidebar.open { display: block; }
+  .btn-menu { display: inline-flex; }
+  .title-main { font-size: 13px; }
+}
+.btn-menu { display: none; }
+@media (max-width: 768px) { .btn-menu { display: inline-flex; } }
+</style>
+</head>
+<body>
+
+<!-- DROP ZONE (initial state — when no .epub loaded yet) -->
+<div class="drop-zone" id="dropZone">
+  <h1>Tạp chí Nghệ thuật Quân sự Việt Nam</h1>
+  <div class="drop-zone-inner">
+    <p style="font-size:14px">📖</p>
+    <p><strong>Mở file EPUB để đọc</strong></p>
+    <p style="font-size:13px">Kéo thả file <code>.epub</code> vào đây<br>hoặc click nút bên dưới</p>
+    <input type="file" id="fileInput" accept=".epub">
+    <label for="fileInput" class="upload-btn">Chọn file EPUB</label>
+    <p style="font-size:11px;margin-top:20px;color:var(--ink-soft)">
+      💡 Mẹo: đặt file <code>tap-chi-ntqs-...epub</code> cùng folder với<br>
+      <code>reader.html</code> rồi reload → tự load
+    </p>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loader hidden" id="loader">
+  <div class="spinner"></div>
+  <div class="loader-title">Đang tải tạp chí...</div>
+  <div class="loader-msg" id="loaderMsg">Vui lòng chờ</div>
+</div>
+
+<!-- READER APP -->
+<div class="app" id="app" style="display:none">
+  <header class="app-header">
+    <button class="btn btn-icon btn-menu" id="btnMenu" title="Mục lục">☰</button>
+    <div class="title-block">
+      <div class="title-main" id="bookTitle">Đang tải...</div>
+      <div class="title-sub" id="chapterTitle"></div>
+    </div>
+    <div class="controls">
+      <div class="font-ctrl">
+        <button class="btn btn-icon" id="btnFontDec" title="Thu nhỏ">A−</button>
+        <span class="font-pct" id="fontPct">100%</span>
+        <button class="btn btn-icon" id="btnFontInc" title="Phóng to">A+</button>
+      </div>
+      <button class="btn" id="btnView" title="Chuyển chế độ 1 trang / 2 trang">📖</button>
+      <button class="btn" id="btnTheme" title="Chế độ tối">🌙</button>
+      <button class="btn" id="btnClose" title="Đóng">✕</button>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <h3>Mục lục</h3>
+    <ul class="toc-list" id="tocList"></ul>
+  </aside>
+
+  <main class="main">
+    <div class="viewer-wrap">
+      <button class="nav-prev" id="navPrev" title="Trang trước (← phím)">◂</button>
+      <div id="viewer"></div>
+      <button class="nav-next" id="navNext" title="Trang sau (→ phím)">▸</button>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+let book = null;
+let rendition = null;
+let currentFontScale = 100;
+let darkMode = false;
+let spreadMode = localStorage.getItem('reader_spread') || 'auto';  // 'auto' = 2 trang khi rộng, 'none' = 1 trang
+
+const dropZone = document.getElementById('dropZone');
+const loader = document.getElementById('loader');
+const loaderMsg = document.getElementById('loaderMsg');
+const app = document.getElementById('app');
+const fileInput = document.getElementById('fileInput');
+
+// Try auto-load from same folder if accessed via http(s)
+window.addEventListener('DOMContentLoaded', async () => {
+  // 1. Check URL param ?epub=xxx.epub (cho phép Next.js iframe pass filename)
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramFile = urlParams.get('epub');
+  if (paramFile) {
+    loadEpubFromUrl(paramFile);
+    return;
+  }
+
+  // 2. Fallback: thử list candidate filenames bằng GET full file
+  // (HEAD không reliable trong dev server, GET an toàn hơn)
+  const candidates = [
+    'tap-chi-ntqs-s-1-241-01-2026.epub',
+    'tap-chi-ntqs.epub',
+    'book.epub',
+  ];
+  for (const fname of candidates) {
+    try {
+      const resp = await fetch(fname);
+      if (resp.ok) {
+        loadEpubFromUrl(fname);
+        return;
+      }
+    } catch (e) {}
+  }
+  // No file found → show drop zone
+});
+
+// File input
+fileInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) loadEpubFromFile(f);
+});
+
+// Drag-drop
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.style.background = 'rgba(122,46,46,0.05)';
+});
+document.addEventListener('dragleave', () => {
+  dropZone.style.background = '';
+});
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.style.background = '';
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.epub')) loadEpubFromFile(f);
+});
+
+function showLoader(msg) {
+  dropZone.classList.add('hidden');
+  loader.classList.remove('hidden');
+  loaderMsg.textContent = msg || 'Vui lòng chờ';
+}
+
+function hideLoader() {
+  loader.classList.add('hidden');
+  app.style.display = 'grid';
+}
+
+async function loadEpubFromFile(file) {
+  showLoader('Đang đọc ' + file.name);
+  const reader = new FileReader();
+  reader.onload = (e) => initBook(e.target.result);
+  reader.readAsArrayBuffer(file);
+}
+
+async function loadEpubFromUrl(url) {
+  showLoader('Đang tải ' + url);
+  try {
+    const resp = await fetch(url);
+    const buf = await resp.arrayBuffer();
+    initBook(buf);
+  } catch (e) {
+    alert('Không tải được: ' + e.message);
+    loader.classList.add('hidden');
+    dropZone.classList.remove('hidden');
+  }
+}
+
+async function initBook(data) {
+  book = ePub(data);
+
+  // Wait metadata
+  const metadata = await book.loaded.metadata;
+  document.getElementById('bookTitle').textContent = metadata.title || 'Tạp chí';
+
+  // QUAN TRỌNG: show app TRƯỚC khi renderTo để container #viewer có dimensions thật,
+  // không thì epub.js render với width=0 → trang trắng cho tới khi navigate qua/lại.
+  hideLoader();
+  // Đợi 2 frame để browser tính xong CSS grid layout
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  // Render — paginated, spread auto (màn rộng = 2 trang, hẹp = 1 trang)
+  // gap=20 → khoảng trống giữa 2 trang nhỏ gọn (default ~40px)
+  rendition = book.renderTo('viewer', {
+    width: '100%',
+    height: '100%',
+    flow: 'paginated',
+    spread: spreadMode,
+    gap: 40,
+    allowScriptedContent: true,
+  });
+  updateViewButton();
+
+  // INJECT Google Fonts vào iframe (vì epub.js render trong iframe,
+  // không inherit fonts của parent page → cần inject riêng)
+  rendition.hooks.content.register((contents) => {
+    const doc = contents.document;
+    const fontLink = doc.createElement('link');
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap';
+    doc.head.appendChild(fontLink);
+    // Smooth page transition
+    const style = doc.createElement('style');
+    style.textContent = `
+      body { transition: opacity 0.2s; }
+      h1, h2, h3 { font-family: 'Noto Serif', Georgia, serif !important; }
+      * { font-family: 'Noto Serif', Georgia, 'Times New Roman', serif !important; }
+    `;
+    doc.head.appendChild(style);
+  });
+
+  // Reader CSS overrides
+  const fontStack = "'Noto Serif', 'Times New Roman', Georgia, serif";
+  rendition.themes.register('light', {
+    'body': {
+      'background': '#FBF6E6 !important',
+      'color': '#2B1F14 !important',
+      'font-family': fontStack + ' !important',
+      'line-height': '1.65 !important',
+      'padding': '1.5em 0.5em !important',
+    },
+    /* Cover: image fit trong column paginated (kích thước column ≈ viewer size) */
+    '.cover-wrap': {
+      'margin': '0 !important',
+      'padding': '0 !important',
+      'text-align': 'center !important',
+    },
+    '.cover-wrap img': {
+      'max-width': '100% !important',
+      'max-height': '92vh !important',
+      'width': 'auto !important',
+      'height': 'auto !important',
+      'display': 'inline-block !important',
+      'margin': '0 auto !important',
+    },
+    'h1, h1.article-title': {
+      'color': '#7A2E2E !important',
+      'font-family': fontStack + ' !important',
+    },
+    'p': {
+      'text-align': 'justify !important',
+      'font-family': fontStack + ' !important',
+    },
+    '*': {
+      'font-family': fontStack + ' !important',
+    },
+  });
+  rendition.themes.register('dark', {
+    'body': {
+      'background': '#1a1611 !important',
+      'color': '#d8c9a8 !important',
+      'font-family': fontStack + ' !important',
+      'line-height': '1.65 !important',
+      'padding': '1.5em 0.5em !important',
+    },
+    'h1, h1.article-title': { 'color': '#d4937e !important', 'font-family': fontStack + ' !important' },
+    'a': { 'color': '#a14a4a !important' },
+    'p': { 'text-align': 'justify !important', 'color': '#d8c9a8 !important', 'font-family': fontStack + ' !important' },
+    '*': { 'font-family': fontStack + ' !important' },
+  });
+
+  rendition.themes.select('light');
+
+  // Load mặc định = spine[0] = cover (user muốn mở ra thấy bìa ngay)
+  await rendition.display();
+  // Force resize sau display để đảm bảo iframe content fit container
+  rendition.resize();
+
+  // Resize on window change để epub.js đo lại width đúng
+  window.addEventListener('resize', () => {
+    if (rendition) rendition.resize();
+  });
+
+  // Build TOC
+  const nav = await book.loaded.navigation;
+  buildTocSidebar(nav.toc);
+
+  // Generate locations for progress
+  book.locations.generate(1024).then(() => {
+    // ready
+  });
+
+  // Update chapter title + progress on relocation
+  rendition.on('relocated', (location) => {
+    const chap = findChapterByHref(nav.toc, location.start.href);
+    if (chap) {
+      // Header: show short title only (strip "N." prefix + author part)
+      let shortTitle = chap.label.trim();
+      const m = shortTitle.match(/^\d+\.\s+(.+)$/);
+      if (m) shortTitle = m[1];
+      const sepIdx = shortTitle.indexOf(' — ');
+      if (sepIdx > 0) shortTitle = shortTitle.substring(0, sepIdx);
+      document.getElementById('chapterTitle').textContent = shortTitle;
+
+      document.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+      const active = document.querySelector(`.toc-item[data-href="${chap.href}"]`);
+      if (active) {
+        active.classList.add('active');
+        active.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+      }
+    }
+    // Progress
+    if (book.locations && book.locations.length()) {
+      const pct = book.locations.percentageFromCfi(location.start.cfi) * 100;
+      document.getElementById('progressFill').style.width = pct + '%';
+    }
+    document.getElementById('navPrev').disabled = location.atStart;
+    document.getElementById('navNext').disabled = location.atEnd;
+  });
+
+  // Smooth fade animation on page change
+  rendition.on('relocate', () => {
+    const iframes = document.querySelectorAll('#viewer iframe');
+    iframes.forEach(iframe => {
+      if (iframe.contentDocument && iframe.contentDocument.body) {
+        const body = iframe.contentDocument.body;
+        body.style.opacity = '0.3';
+        setTimeout(() => { body.style.opacity = '1'; }, 50);
+      }
+    });
+  });
+
+  // hideLoader đã gọi ở đầu rồi, ko gọi lại
+}
+
+function findChapterByHref(toc, href) {
+  for (const item of toc) {
+    if (item.href === href || href.startsWith(item.href)) return item;
+    if (item.subitems) {
+      const sub = findChapterByHref(item.subitems, href);
+      if (sub) return sub;
+    }
+  }
+  return null;
+}
+
+function buildTocSidebar(toc) {
+  const list = document.getElementById('tocList');
+  list.innerHTML = '';
+
+  // Parse label format "N. TITLE — AUTHOR" → 3 parts (num, title, author)
+  function parseLabel(raw) {
+    const lbl = raw.trim();
+    let num = '', title = lbl, author = '';
+    // Extract leading number "N. "
+    const numMatch = lbl.match(/^(\d+)\.\s+(.+)$/);
+    if (numMatch) {
+      num = numMatch[1];
+      title = numMatch[2];
+    }
+    // Split on " — " separator
+    const sepIdx = title.indexOf(' — ');
+    if (sepIdx > 0) {
+      author = title.substring(sepIdx + 3).trim();
+      title = title.substring(0, sepIdx).trim();
+    }
+    return { num, title, author };
+  }
+
+  function render(items, depth = 0) {
+    for (const item of items) {
+      if (item.subitems && item.subitems.length && depth === 0) {
+        // Section header
+        const sh = document.createElement('div');
+        sh.className = 'toc-section';
+        sh.textContent = item.label.trim();
+        list.appendChild(sh);
+        render(item.subitems, depth + 1);
+      } else {
+        const li = document.createElement('li');
+        li.className = 'toc-item';
+        li.dataset.href = item.href;
+
+        const parts = parseLabel(item.label);
+        if (parts.num) {
+          const numEl = document.createElement('span');
+          numEl.className = 'toc-num';
+          numEl.textContent = parts.num;
+          li.appendChild(numEl);
+        }
+        const titleEl = document.createElement('span');
+        titleEl.className = 'toc-title-text';
+        titleEl.textContent = parts.title;
+        li.appendChild(titleEl);
+        if (parts.author) {
+          const authorEl = document.createElement('span');
+          authorEl.className = 'toc-author';
+          authorEl.textContent = parts.author;
+          li.appendChild(authorEl);
+        }
+
+        li.addEventListener('click', () => {
+          rendition.display(item.href);
+          if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('open');
+          }
+        });
+        list.appendChild(li);
+      }
+    }
+  }
+  render(toc);
+}
+
+// Navigation
+document.getElementById('navPrev').addEventListener('click', () => rendition && rendition.prev());
+document.getElementById('navNext').addEventListener('click', () => rendition && rendition.next());
+
+document.addEventListener('keydown', (e) => {
+  if (!rendition) return;
+  if (e.key === 'ArrowLeft') rendition.prev();
+  else if (e.key === 'ArrowRight') rendition.next();
+});
+
+// Font size
+function applyFontScale() {
+  if (!rendition) return;
+  rendition.themes.fontSize(currentFontScale + '%');
+  document.getElementById('fontPct').textContent = currentFontScale + '%';
+}
+document.getElementById('btnFontDec').addEventListener('click', () => {
+  currentFontScale = Math.max(70, currentFontScale - 10);
+  applyFontScale();
+});
+document.getElementById('btnFontInc').addEventListener('click', () => {
+  currentFontScale = Math.min(200, currentFontScale + 10);
+  applyFontScale();
+});
+
+// Theme
+document.getElementById('btnTheme').addEventListener('click', (e) => {
+  darkMode = !darkMode;
+  if (rendition) rendition.themes.select(darkMode ? 'dark' : 'light');
+  e.target.textContent = darkMode ? '☀️' : '🌙';
+});
+
+// View mode toggle (1 trang / 2 trang — như Apple Books)
+function updateViewButton() {
+  const btn = document.getElementById('btnView');
+  if (!btn) return;
+  if (spreadMode === 'none') {
+    btn.textContent = '📄';
+    btn.title = 'Đang xem 1 trang — click để xem 2 trang';
+  } else {
+    btn.textContent = '📖';
+    btn.title = 'Đang xem 2 trang — click để xem 1 trang';
+  }
+}
+document.getElementById('btnView').addEventListener('click', () => {
+  spreadMode = (spreadMode === 'auto') ? 'none' : 'auto';
+  localStorage.setItem('reader_spread', spreadMode);
+  if (rendition) rendition.spread(spreadMode);
+  updateViewButton();
+});
+
+// Close — back to drop zone
+document.getElementById('btnClose').addEventListener('click', () => {
+  if (rendition) rendition.destroy();
+  rendition = null;
+  book = null;
+  app.style.display = 'none';
+  dropZone.classList.remove('hidden');
+  fileInput.value = '';
+});
+
+// Mobile menu
+document.getElementById('btnMenu').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+</script>
+</body>
+</html>

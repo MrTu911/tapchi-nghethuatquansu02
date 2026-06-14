@@ -1,0 +1,359 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 60% 96%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    /* Military theme colors */
+    --military-50: 138 30% 95%;
+    --military-100: 138 25% 85%;
+    --military-200: 138 20% 75%;
+    --military-300: 138 18% 65%;
+    --military-400: 138 16% 50%;
+    --military-500: 138 35% 35%;
+    --military-600: 138 40% 28%;
+    --military-700: 138 45% 22%;
+    --military-800: 138 50% 16%;
+    --military-900: 138 55% 12%;
+    --military-950: 138 60% 8%;
+
+    /* ── NTQS brand tokens ──────────────────────────────────────────────
+       #1E3924 xanh quân sự đậm, #E5C86E vàng đồng, #F9F9F9 trắng nhẹ.
+       Token toàn cục, dùng qua bg-brand / text-gold ở mọi nơi cần. */
+    --brand: 133 31% 17%;
+    --brand-foreground: 0 0% 98%;
+    --gold: 45 70% 66%;
+    --gold-foreground: 133 40% 12%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    /* NTQS brand tokens — dark: nâng sáng xanh để đủ tương phản trên nền tối */
+    --brand: 138 40% 30%;
+    --brand-foreground: 0 0% 98%;
+    --gold: 45 70% 66%;
+    --gold-foreground: 133 40% 12%;
+  }
+
+  /* ── Scope theme thương hiệu cho khu vực TÁC GIẢ ─────────────────────
+     Override primary/accent/ring về palette NTQS chỉ trong subtree
+     .theme-author (app/dashboard/author/layout.tsx). KHÔNG ảnh hưởng
+     editor/admin — họ giữ nguyên token mặc định. */
+  .theme-author {
+    --primary: 133 31% 17%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 70% 66%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 133 31% 25%;
+  }
+
+  .dark .theme-author {
+    --primary: 138 40% 32%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 60% 58%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 45 60% 50%;
+  }
+
+  /* ── Scope theme thương hiệu cho khu vực PHẢN BIỆN VIÊN ──────────────
+     Dùng đúng palette NTQS (xanh quân sự #1E3924 + vàng đồng #E5C86E) như
+     khu vực tác giả để giữ identity nhất quán toàn dashboard. Áp qua
+     app/dashboard/reviewer/layout.tsx, chỉ override token trong subtree. */
+  .theme-reviewer {
+    --primary: 133 31% 17%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 70% 66%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 133 31% 25%;
+  }
+
+  .dark .theme-reviewer {
+    --primary: 138 40% 32%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 60% 58%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 45 60% 50%;
+  }
+
+  /* ── Scope theme thương hiệu cho khu vực BIÊN TẬP VIÊN ───────────────
+     Dùng đúng palette NTQS (xanh quân sự #1E3924 + vàng đồng #E5C86E) như
+     khu vực tác giả/phản biện để giữ identity nhất quán toàn dashboard.
+     Áp qua app/dashboard/editor/layout.tsx, chỉ override token trong subtree. */
+  .theme-editor {
+    --primary: 133 31% 17%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 70% 66%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 133 31% 25%;
+  }
+
+  .dark .theme-editor {
+    --primary: 138 40% 32%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 60% 58%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 45 60% 50%;
+  }
+
+  /* ── Scope theme thương hiệu cho khu vực LÃNH ĐẠO BIÊN TẬP ───────────────
+     Dùng cho Thư ký tòa soạn (/dashboard/managing), Phó Tổng biên tập
+     (/dashboard/deputy) và Tổng biên tập (/dashboard/eic). Cùng palette NTQS
+     (xanh quân sự #1E3924 + vàng đồng #E5C86E) để giữ identity nhất quán toàn
+     dashboard. Áp qua layout của từng khu vực, chỉ override token trong subtree. */
+  .theme-leadership {
+    --primary: 133 31% 17%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 70% 66%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 133 31% 25%;
+  }
+
+  .dark .theme-leadership {
+    --primary: 138 40% 32%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 60% 58%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 45 60% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 
+      -apple-system, 
+      BlinkMacSystemFont, 
+      'Segoe UI', 
+      'Roboto', 
+      'Oxygen',
+      'Ubuntu', 
+      'Cantarell', 
+      'Fira Sans', 
+      'Droid Sans', 
+      'Helvetica Neue',
+      sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+/* Scrollbar styling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-military-700 {
+  scrollbar-color: rgb(44 65 48) transparent;
+}
+
+.scrollbar-track-military-900 {
+  scrollbar-color: inherit rgb(24 35 26);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(44 65 48);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(54 75 58);
+}
+
+/* Hide hydration errors */
+[data-hydration-error] {
+  display: none !important;
+}
+
+/* Homepage animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.8s ease-out;
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Enhanced contrast for light/dark modes */
+@layer components {
+  /* Light mode - High contrast text */
+  .text-content {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  
+  .text-content-secondary {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+  
+  .text-content-muted {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+
+  /* Card backgrounds with proper contrast */
+  .card-bg {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700;
+  }
+
+  /* Section backgrounds */
+  .section-bg-light {
+    @apply bg-gray-50 dark:bg-gray-900;
+  }
+
+  /* Link colors for readability */
+  .link-primary {
+    @apply text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors;
+  }
+
+  /* Headings with proper contrast */
+  .heading-primary {
+    @apply text-gray-900 dark:text-white font-bold;
+  }
+
+  .heading-secondary {
+    @apply text-gray-800 dark:text-gray-100 font-semibold;
+  }
+
+  /* Button text contrast */
+  .btn-contrast {
+    @apply bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500;
+  }
+
+  /* Badge styles */
+  .badge-light {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
+  }
+
+  /* ── Unified Section Header (phong cách hocvienhaucan) ─────────────── */
+  .widget-header {
+    @apply bg-[#295232] text-white px-4 py-2.5 flex items-center gap-2;
+  }
+
+  .widget-header-title {
+    @apply text-sm font-semibold;
+  }
+
+  .section-title-bar {
+    @apply flex items-center justify-between mb-3;
+  }
+
+  .section-title-bar-left {
+    @apply flex items-center gap-2;
+  }
+
+  .section-title-accent {
+    @apply w-1 h-5 rounded bg-[#295232] inline-block flex-shrink-0;
+  }
+
+  .section-title-text {
+    @apply text-base font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide;
+  }
+
+  /* Input fields */
+  .input-contrast {
+    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 placeholder:text-gray-500 dark:placeholder:text-gray-400;
+  }
+}
