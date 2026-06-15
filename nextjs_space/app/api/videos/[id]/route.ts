@@ -3,6 +3,18 @@ import { getServerSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
+import { deleteFile } from '@/lib/local-storage'
+
+/**
+ * Chuyển URL công khai (/uploads/videos/uploads/x.mp4) về đường dẫn tương đối
+ * mà lib/local-storage hiểu (videos/uploads/x.mp4). Trả null nếu không phải file nội bộ.
+ */
+function toStorageRelativePath(url: string | null): string | null {
+  if (!url) return null
+  const prefix = '/uploads/'
+  if (!url.startsWith(prefix)) return null
+  return url.slice(prefix.length)
+}
 
 /**
  * GET /api/videos/[id]
@@ -134,6 +146,19 @@ export async function DELETE(
     }
 
     await prisma.video.delete({ where: { id } })
+
+    // Dọn file vật lý nếu là video upload nội bộ (tránh orphan trên đĩa).
+    // Không chặn response nếu xóa file lỗi — bản ghi DB đã xóa thành công.
+    if (video.videoType === 'upload') {
+      const relativePath = toStorageRelativePath(video.cloudStoragePath || video.videoUrl)
+      if (relativePath) {
+        try {
+          await deleteFile(relativePath)
+        } catch (fileError) {
+          console.error('Video DB deleted but file cleanup failed:', relativePath, fileError)
+        }
+      }
+    }
 
     // Log audit event
     await logAudit({

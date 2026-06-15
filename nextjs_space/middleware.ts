@@ -63,6 +63,8 @@ function addSecurityHeaders(response: NextResponse, pathname?: string): NextResp
     "img-src 'self' data: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net",
+    // media-src: 'self' cho video/audio đã lưu; blob: cho preview cục bộ + chụp thumbnail offscreen khi upload
+    "media-src 'self' blob: data:",
     "worker-src 'self' blob:",
     "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
     "frame-ancestors 'self'",

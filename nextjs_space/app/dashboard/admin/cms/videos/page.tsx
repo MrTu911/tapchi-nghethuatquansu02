@@ -23,9 +23,12 @@ import { toast } from 'sonner'
 import {
   PlusCircle, Edit, Trash2, Eye, Loader2, Youtube, Upload, X,
   Play, FileVideo, LayoutGrid, List, Star, Activity, Maximize2, Camera, Check,
+  Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { useChunkedVideoUpload } from '@/hooks/use-chunked-video-upload'
+import { VideoUploadProgress } from '@/components/dashboard/video-upload-progress'
 
 interface Video {
   id: string
@@ -67,6 +70,52 @@ function extractYouTubeId(url: string): string {
   return match?.[1] || ''
 }
 
+/**
+ * Đọc thời lượng và tự chụp một khung hình đại diện từ file video phía client
+ * (dùng <video> offscreen + canvas) — không cần ffmpeg trên server.
+ * Trả về blob ảnh (có thể null nếu trình duyệt không decode được) và thời lượng (giây).
+ */
+async function captureVideoThumbnail(file: File): Promise<{ blob: Blob | null; durationSec: number }> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.src = url
+    let settled = false
+
+    const finish = (blob: Blob | null, durationSec: number) => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      resolve({ blob, durationSec })
+    }
+
+    video.onloadedmetadata = () => {
+      const durationSec = isFinite(video.duration) ? Math.round(video.duration) : 0
+      const target = Math.min(2, (video.duration || 4) * 0.25)
+      const drawFrame = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth || 1280
+          canvas.height = video.videoHeight || 720
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return finish(null, durationSec)
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => finish(blob, durationSec), 'image/jpeg', 0.85)
+        } catch {
+          finish(null, durationSec)
+        }
+      }
+      video.onseeked = drawFrame
+      try { video.currentTime = target } catch { drawFrame() }
+    }
+    video.onerror = () => finish(null, 0)
+    setTimeout(() => finish(null, 0), 15000) // timeout an toàn
+  })
+}
+
 export default function VideosManagementPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -84,6 +133,18 @@ export default function VideosManagementPage() {
   const [savingThumb, setSavingThumb] = useState(false)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploader = useChunkedVideoUpload()
+
+  // Auto-thumbnail + duration đọc từ file khi chọn
+  const [autoThumbBlob, setAutoThumbBlob] = useState<Blob | null>(null)
+  const [autoDurationSec, setAutoDurationSec] = useState<number | null>(null)
+
+  // Tìm kiếm + lọc + phân trang (client-side trên danh sách đã tải)
+  const [keyword, setKeyword] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'youtube' | 'upload'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [page, setPage] = useState(1)
+  const pageSize = 12
 
   const [formData, setFormData] = useState({
     title: '',
@@ -98,11 +159,13 @@ export default function VideosManagementPage() {
   })
 
   useEffect(() => { fetchVideos() }, [])
+  // Quay về trang 1 khi đổi bộ lọc/từ khóa
+  useEffect(() => { setPage(1) }, [keyword, filterType, filterStatus])
 
   const fetchVideos = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/videos')
+      const res = await fetch('/api/videos?limit=500')
       const data = await res.json()
       if (data.success) {
         setVideos(data.data.videos || [])
@@ -139,71 +202,105 @@ export default function VideosManagementPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!['video/mp4', 'video/webm', 'video/ogg'].includes(file.type)) {
-      toast.error('Chỉ chấp nhận MP4, WebM, OGG')
+    const acceptedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/avi', 'video/x-matroska']
+    // Một số trình duyệt để type rỗng với .mkv/.mov — chấp nhận nếu là file video
+    if (file.type && !acceptedTypes.includes(file.type) && !file.type.startsWith('video/')) {
+      toast.error('Chỉ chấp nhận file video (MP4, WebM, OGG, MOV, AVI, MKV)')
       return
     }
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('File vượt quá 100MB')
-      return
-    }
+    // Không giới hạn dung lượng phía client — file lớn sẽ upload theo từng phần (chunked)
     setSelectedFile(file)
     setVideoPreview(URL.createObjectURL(file))
+    // Tự đọc thời lượng + chụp ảnh đại diện (best-effort, không chặn luồng)
+    setAutoThumbBlob(null)
+    setAutoDurationSec(null)
+    captureVideoThumbnail(file)
+      .then(({ blob, durationSec }) => {
+        setAutoThumbBlob(blob)
+        setAutoDurationSec(durationSec > 0 ? durationSec : null)
+      })
+      .catch(() => { /* ảnh đại diện là phụ */ })
   }
 
   const handleRemoveFile = () => {
     setSelectedFile(null)
     if (videoPreview) URL.revokeObjectURL(videoPreview)
     setVideoPreview(null)
+    setAutoThumbBlob(null)
+    setAutoDurationSec(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  const parseTags = () =>
+    formData.tags ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean) : []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title) { toast.error('Vui lòng nhập tiêu đề'); return }
-    if (uploadMethod === 'file' && !selectedFile && !editingVideo) { toast.error('Vui lòng chọn file video'); return }
     if (uploadMethod === 'youtube' && !formData.videoUrl) { toast.error('Vui lòng nhập URL YouTube'); return }
+    if (uploadMethod === 'file' && !selectedFile && !editingVideo) { toast.error('Vui lòng chọn file video'); return }
 
+    // Upload file mới qua luồng chunked/resumable (không giới hạn dung lượng)
+    if (uploadMethod === 'file' && selectedFile && !editingVideo) {
+      const video = await uploader.start(selectedFile, {
+        title: formData.title,
+        titleEn: formData.titleEn || undefined,
+        description: formData.description || undefined,
+        category: formData.category || undefined,
+        tags: parseTags(),
+        isFeatured: formData.isFeatured,
+        isActive: formData.isActive,
+        displayOrder: formData.displayOrder,
+        duration: autoDurationSec ?? undefined,
+      })
+      if (video) {
+        // Tự đặt ảnh đại diện từ khung hình đã chụp (nếu có) — best-effort
+        if (autoThumbBlob) {
+          try {
+            const fd = new FormData()
+            fd.append('thumbnail', autoThumbBlob, 'thumbnail.jpg')
+            await fetch(`/api/videos/${video.id}/thumbnail`, { method: 'POST', body: fd })
+          } catch { /* ảnh đại diện là phụ */ }
+        }
+        toast.success('Upload video thành công!')
+        setIsDialogOpen(false)
+        handleRemoveFile()
+        uploader.reset()
+        fetchVideos()
+      } else if (uploader.error) {
+        toast.error(uploader.error)
+      }
+      return
+    }
+
+    // Tạo mới YouTube hoặc cập nhật metadata (PUT)
     setIsSubmitting(true)
     try {
-      if (uploadMethod === 'file' && selectedFile) {
-        const fd = new FormData()
-        fd.append('file', selectedFile)
-        fd.append('title', formData.title)
-        if (formData.titleEn) fd.append('titleEn', formData.titleEn)
-        if (formData.description) fd.append('description', formData.description)
-        if (formData.category) fd.append('category', formData.category)
-        if (formData.tags) fd.append('tags', JSON.stringify(formData.tags.split(',').map((t) => t.trim())))
-        fd.append('isFeatured', String(formData.isFeatured))
-        fd.append('isActive', String(formData.isActive))
-        fd.append('displayOrder', String(formData.displayOrder))
-        const res = await fetch('/api/videos', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (data.success) { toast.success('Upload thành công!'); setIsDialogOpen(false); fetchVideos(); handleRemoveFile() }
-        else toast.error(data.error || 'Lỗi upload')
-      } else {
-        const tagsArray = formData.tags ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean) : []
-        const payload = {
-          title: formData.title,
-          titleEn: formData.titleEn || null,
-          description: formData.description || null,
-          videoType: 'youtube',
-          videoUrl: formData.videoUrl,
-          videoId: extractYouTubeId(formData.videoUrl),
-          category: formData.category || null,
-          tags: tagsArray,
-          isFeatured: formData.isFeatured,
-          isActive: formData.isActive,
-          displayOrder: formData.displayOrder,
-          publishedAt: formData.isActive ? new Date().toISOString() : null,
-        }
-        const url = editingVideo ? `/api/videos/${editingVideo.id}` : '/api/videos'
-        const method = editingVideo ? 'PUT' : 'POST'
-        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        const data = await res.json()
-        if (data.success) { toast.success(editingVideo ? 'Cập nhật thành công' : 'Thêm mới thành công'); setIsDialogOpen(false); fetchVideos() }
-        else toast.error(data.error || 'Có lỗi xảy ra')
+      const payload: any = {
+        title: formData.title,
+        titleEn: formData.titleEn || null,
+        description: formData.description || null,
+        category: formData.category || null,
+        tags: parseTags(),
+        isFeatured: formData.isFeatured,
+        isActive: formData.isActive,
+        displayOrder: formData.displayOrder,
+        publishedAt: formData.isActive ? new Date().toISOString() : null,
       }
+
+      // Chỉ gán videoType/URL cho YouTube — giữ nguyên cho video upload khi chỉnh sửa
+      if (!editingVideo || editingVideo.videoType === 'youtube') {
+        payload.videoType = 'youtube'
+        payload.videoUrl = formData.videoUrl
+        payload.videoId = extractYouTubeId(formData.videoUrl)
+      }
+
+      const url = editingVideo ? `/api/videos/${editingVideo.id}` : '/api/videos'
+      const method = editingVideo ? 'PUT' : 'POST'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const data = await res.json()
+      if (data.success) { toast.success(editingVideo ? 'Cập nhật thành công' : 'Thêm mới thành công'); setIsDialogOpen(false); fetchVideos() }
+      else toast.error(data.error || 'Có lỗi xảy ra')
     } catch { toast.error('Không thể thực hiện') }
     finally { setIsSubmitting(false) }
   }
@@ -255,12 +352,46 @@ export default function VideosManagementPage() {
     finally { setSavingThumb(false) }
   }
 
+  // Đổi thứ tự hiển thị bằng cách hoán đổi displayOrder với video liền kề
+  const handleReorder = async (video: Video, direction: 'up' | 'down') => {
+    const idx = pagedVideos.findIndex((v) => v.id === video.id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= pagedVideos.length) return
+    const other = pagedVideos[swapIdx]
+    // Nếu trùng order, gán theo vị trí để hoán đổi có hiệu lực
+    const aOrder = video.displayOrder === other.displayOrder ? idx : other.displayOrder
+    const bOrder = video.displayOrder === other.displayOrder ? swapIdx : video.displayOrder
+    try {
+      await Promise.all([
+        fetch(`/api/videos/${video.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayOrder: aOrder }) }),
+        fetch(`/api/videos/${other.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayOrder: bOrder }) }),
+      ])
+      fetchVideos()
+    } catch { toast.error('Không đổi được thứ tự') }
+  }
+
   const stats = {
     total: totalCount,
     active: videos.filter((v) => v.isActive).length,
     featured: videos.filter((v) => v.isFeatured).length,
     totalViews: videos.reduce((sum, v) => sum + v.views, 0),
   }
+
+  // Lọc theo từ khóa + loại + trạng thái, rồi phân trang
+  const filteredVideos = videos.filter((v) => {
+    const kw = keyword.trim().toLowerCase()
+    const matchKw = !kw ||
+      v.title.toLowerCase().includes(kw) ||
+      (v.titleEn || '').toLowerCase().includes(kw) ||
+      (v.description || '').toLowerCase().includes(kw)
+    const matchType = filterType === 'all' || v.videoType === filterType
+    const matchStatus = filterStatus === 'all' || (filterStatus === 'active' ? v.isActive : !v.isActive)
+    return matchKw && matchType && matchStatus
+  })
+  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pagedVideos = filteredVideos.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const hasActiveFilter = keyword.trim() !== '' || filterType !== 'all' || filterStatus !== 'all'
 
   const getThumbnail = (video: Video) => {
     if (video.videoType === 'youtube') return getYouTubeThumbnail(video.videoUrl, video.videoId)
@@ -304,24 +435,54 @@ export default function VideosManagementPage() {
         ))}
       </div>
 
-      {/* View toggle */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant={viewMode === 'grid' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setViewMode('grid')}
-          className={viewMode === 'grid' ? 'bg-[#295232] hover:bg-[#1E3924]' : ''}
+      {/* Toolbar: tìm kiếm + lọc + đổi chế độ xem */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Tìm tiêu đề, mô tả..."
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as 'all' | 'youtube' | 'upload')}
+          className="h-9 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-sm text-gray-700 dark:text-gray-200"
         >
-          <LayoutGrid className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={viewMode === 'list' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setViewMode('list')}
-          className={viewMode === 'list' ? 'bg-[#295232] hover:bg-[#1E3924]' : ''}
+          <option value="all">Tất cả loại</option>
+          <option value="youtube">YouTube</option>
+          <option value="upload">Upload</option>
+        </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+          className="h-9 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-sm text-gray-700 dark:text-gray-200"
         >
-          <List className="h-4 w-4" />
-        </Button>
+          <option value="all">Mọi trạng thái</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Tạm dừng</option>
+        </select>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <span className="text-xs text-gray-400 mr-1">{filteredVideos.length} kết quả</span>
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className={viewMode === 'grid' ? 'bg-[#295232] hover:bg-[#1E3924]' : ''}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className={viewMode === 'list' ? 'bg-[#295232] hover:bg-[#1E3924]' : ''}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Content */}
@@ -337,10 +498,18 @@ export default function VideosManagementPage() {
             <PlusCircle className="h-4 w-4 mr-1" /> Thêm video đầu tiên
           </Button>
         </div>
+      ) : filteredVideos.length === 0 ? (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center h-48 gap-3">
+          <Search className="h-10 w-10 text-gray-300" />
+          <p className="text-gray-400">Không tìm thấy video phù hợp bộ lọc</p>
+          <Button onClick={() => { setKeyword(''); setFilterType('all'); setFilterStatus('all') }} size="sm" variant="outline">
+            Xóa bộ lọc
+          </Button>
+        </div>
       ) : viewMode === 'grid' ? (
         /* Grid view */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {videos.map((video) => {
+          {pagedVideos.map((video) => {
             const thumb = getThumbnail(video)
             return (
               <div
@@ -474,7 +643,7 @@ export default function VideosManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {videos.map((video) => {
+              {pagedVideos.map((video, rowIdx) => {
                 const thumb = getThumbnail(video)
                 return (
                   <TableRow key={video.id}>
@@ -529,7 +698,27 @@ export default function VideosManagementPage() {
                       }
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end items-center gap-1">
+                        <div className="flex flex-col">
+                          <button
+                            type="button"
+                            className="text-gray-300 hover:text-[#295232] disabled:opacity-30 disabled:hover:text-gray-300"
+                            onClick={() => handleReorder(video, 'up')}
+                            disabled={rowIdx === 0}
+                            title="Lên trên"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="text-gray-300 hover:text-[#295232] disabled:opacity-30 disabled:hover:text-gray-300"
+                            onClick={() => handleReorder(video, 'down')}
+                            disabled={rowIdx === pagedVideos.length - 1}
+                            title="Xuống dưới"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-sky-500 hover:text-sky-600" onClick={() => setPreviewVideo(video)} title="Xem video">
                           <Play className="h-3.5 w-3.5" fill="currentColor" />
                         </Button>
@@ -549,8 +738,35 @@ export default function VideosManagementPage() {
         </Card>
       )}
 
+      {/* Phân trang */}
+      {!loading && filteredVideos.length > pageSize && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={safePage <= 1}
+            className="gap-1"
+          >
+            <ChevronLeft className="h-4 w-4" /> Trước
+          </Button>
+          <span className="text-sm text-gray-500">
+            Trang <span className="font-semibold text-gray-700 dark:text-gray-200">{safePage}</span> / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safePage >= totalPages}
+            className="gap-1"
+          >
+            Sau <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open && uploader.isActive) return; setIsDialogOpen(open) }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingVideo ? 'Chỉnh sửa Video' : 'Thêm Video Mới'}</DialogTitle>
@@ -590,16 +806,40 @@ export default function VideosManagementPage() {
 
                 <TabsContent value="file" className="space-y-3 mt-4">
                   <div>
-                    <Label>Chọn video (MP4, WebM, OGG — tối đa 100MB)</Label>
-                    <Input ref={fileInputRef} type="file" accept="video/mp4,video/webm,video/ogg" onChange={handleFileChange} className="mt-1.5" />
+                    <Label>Chọn video (MP4, WebM, OGG, MOV, AVI, MKV — không giới hạn dung lượng)</Label>
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleFileChange}
+                      className="mt-1.5"
+                      disabled={uploader.isActive}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      File lớn được tải lên theo từng phần, có thể tạm dừng / tiếp tục.
+                    </p>
                   </div>
-                  {videoPreview && (
+                  {videoPreview && !uploader.isActive && uploader.status !== 'error' && (
                     <div className="relative">
                       <video src={videoPreview} controls className="w-full rounded-lg max-h-64" />
                       <Button type="button" variant="destructive" size="sm" onClick={handleRemoveFile} className="absolute top-2 right-2 h-7 w-7 p-0">
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
+                  )}
+                  {(uploader.isActive || uploader.status === 'error') && (
+                    <VideoUploadProgress
+                      status={uploader.status}
+                      progress={uploader.progress}
+                      uploadedBytes={uploader.uploadedBytes}
+                      totalBytes={uploader.totalBytes}
+                      speedBps={uploader.speedBps}
+                      etaSec={uploader.etaSec}
+                      error={uploader.error}
+                      onPause={uploader.pause}
+                      onResume={uploader.resume}
+                      onCancel={uploader.cancel}
+                    />
                   )}
                 </TabsContent>
               </Tabs>
@@ -686,12 +926,12 @@ export default function VideosManagementPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting || uploader.isActive}>
                 Hủy
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-[#295232] hover:bg-[#1E3924] text-white">
-                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingVideo ? 'Cập nhật' : 'Lưu video'}
+              <Button type="submit" disabled={isSubmitting || uploader.isActive} className="bg-[#295232] hover:bg-[#1E3924] text-white">
+                {(isSubmitting || uploader.isActive) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {uploader.isActive ? 'Đang tải lên...' : editingVideo ? 'Cập nhật' : 'Lưu video'}
               </Button>
             </div>
           </form>

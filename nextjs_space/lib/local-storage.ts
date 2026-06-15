@@ -41,11 +41,20 @@ const getUploadRoot = () => {
 const UPLOAD_ROOT = getUploadRoot();
 
 /**
- * Giới hạn dung lượng file (bytes)
+ * Giới hạn dung lượng video (MB) — cấu hình qua env MAX_VIDEO_UPLOAD_MB.
+ * Đặt 0 (hoặc không đặt) = KHÔNG giới hạn dung lượng video.
+ * Lưu ý: đường upload một-POST vẫn bị ràng buộc bởi RAM; file rất lớn nên đi
+ * qua luồng chunked/resumable (xem lib/services/video-upload-service.ts).
+ */
+const VIDEO_MAX_MB = parseInt(process.env.MAX_VIDEO_UPLOAD_MB || '0', 10);
+const VIDEO_SIZE_LIMIT = VIDEO_MAX_MB > 0 ? VIDEO_MAX_MB * 1024 * 1024 : 0; // 0 = unlimited
+
+/**
+ * Giới hạn dung lượng file (bytes). video = 0 nghĩa là không giới hạn.
  */
 const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024,     // 10MB
-  video: 100 * 1024 * 1024,    // 100MB
+  video: VIDEO_SIZE_LIMIT,     // 0 = unlimited (cấu hình qua MAX_VIDEO_UPLOAD_MB)
   document: 50 * 1024 * 1024,  // 50MB
   audio: 200 * 1024 * 1024,    // 200MB
   default: 10 * 1024 * 1024,   // 10MB
@@ -56,7 +65,7 @@ const FILE_SIZE_LIMITS = {
  */
 const ALLOWED_MIME_TYPES = {
   image: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
-  video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+  video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/avi', 'video/x-matroska'],
   document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   audio: ['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/x-m4a'],
 };
@@ -146,9 +155,9 @@ export function validateFile(
     };
   }
   
-  // Kiểm tra kích thước
-  const maxSize = FILE_SIZE_LIMITS[fileType] || FILE_SIZE_LIMITS.default;
-  if (fileSize > maxSize) {
+  // Kiểm tra kích thước (maxSize = 0 nghĩa là không giới hạn — vd video)
+  const maxSize = FILE_SIZE_LIMITS[fileType] ?? FILE_SIZE_LIMITS.default;
+  if (maxSize > 0 && fileSize > maxSize) {
     return {
       isValid: false,
       error: `File quá lớn. Giới hạn: ${Math.round(maxSize / 1024 / 1024)}MB`,

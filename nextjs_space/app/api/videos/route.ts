@@ -3,7 +3,7 @@ import { getServerSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
-import { saveFile, getFileUrl } from '@/lib/s3'
+import { saveFile, getFileUrl } from '@/lib/local-storage'
 
 /**
  * GET /api/videos
@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const isActive = searchParams.get('isActive')
     const isFeatured = searchParams.get('isFeatured')
     const videoType = searchParams.get('videoType')
+    const keyword = searchParams.get('keyword')?.trim()
     const limit = parseInt(searchParams.get('limit') || '20')
     const page = parseInt(searchParams.get('page') || '1')
     const skip = (page - 1) * limit
@@ -23,6 +24,13 @@ export async function GET(request: NextRequest) {
     if (isActive !== null) where.isActive = isActive === 'true'
     if (isFeatured !== null) where.isFeatured = isFeatured === 'true'
     if (videoType) where.videoType = videoType
+    if (keyword) {
+      where.OR = [
+        { title: { contains: keyword, mode: 'insensitive' } },
+        { titleEn: { contains: keyword, mode: 'insensitive' } },
+        { description: { contains: keyword, mode: 'insensitive' } },
+      ]
+    }
 
     const [videos, total] = await Promise.all([
       prisma.video.findMany({
@@ -85,23 +93,19 @@ export async function POST(request: NextRequest) {
         return errorResponse('Missing required fields: file and title', 400)
       }
 
-      // Validate file type (video files)
-      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov']
+      // Validate file type (video files). Dung lượng do lib/local-storage kiểm soát
+      // (MAX_VIDEO_UPLOAD_MB; mặc định không giới hạn). Đường này dành cho file vừa;
+      // file rất lớn nên dùng luồng chunked /api/videos/upload.
+      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/avi', 'video/x-matroska']
       if (!validTypes.includes(file.type)) {
-        return errorResponse('Invalid file type. Accepted: MP4, WebM, OGG, AVI, MOV', 400)
+        return errorResponse('Định dạng không hợp lệ. Chấp nhận: MP4, WebM, OGG, MOV, AVI, MKV', 400)
       }
 
-      // Validate file size (max 100MB)
-      const maxSize = 100 * 1024 * 1024
-      if (file.size > maxSize) {
-        return errorResponse('File size exceeds 100MB limit', 400)
-      }
-
-      // Upload to local storage (public)
-      let cloudPath: string;
+      // Lưu file vào filesystem nội bộ (public) và lấy URL công khai để phát trực tiếp
+      let publicUrl: string;
       try {
         const result = await saveFile(file, 'video', true);
-        cloudPath = result.filePath;
+        publicUrl = getFileUrl(result.filePath, true); // -> /uploads/videos/uploads/<file>
       } catch (error: any) {
         return errorResponse(error.message || 'Lỗi khi tải lên video', 400)
       }
@@ -114,8 +118,8 @@ export async function POST(request: NextRequest) {
           description,
           descriptionEn,
           videoType: 'upload',
-          videoUrl: cloudPath,
-          cloudStoragePath: cloudPath,
+          videoUrl: publicUrl,
+          cloudStoragePath: publicUrl,
           category,
           tags: tags ? JSON.parse(tags) : [],
           isFeatured,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Play, Eye, Calendar, X, Search, Film, ChevronRight } from 'lucide-react'
+import { Play, Eye, Calendar, Search, Film, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -22,15 +22,6 @@ interface Video {
   publishedAt?: string
 }
 
-function getEmbedUrl(video: Video): string {
-  if (video.videoType === 'youtube') {
-    if (video.videoId) return `https://www.youtube.com/embed/${video.videoId}?autoplay=1`
-    const m = video.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-    if (m?.[1]) return `https://www.youtube.com/embed/${m[1]}?autoplay=1`
-  }
-  return video.videoUrl
-}
-
 function getThumbnail(video: Video): string {
   if (video.videoType === 'youtube') {
     const id = video.videoId || video.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1]
@@ -44,12 +35,12 @@ function formatDate(iso?: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
+function VideoCard({ video }: { video: Video }) {
   const thumb = getThumbnail(video)
   return (
-    <button
-      onClick={onClick}
-      className="group bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all text-left w-full"
+    <Link
+      href={`/videos/${video.id}`}
+      className="group block bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all text-left w-full"
     >
       {/* Thumbnail */}
       <div className="relative aspect-video bg-gray-900 overflow-hidden">
@@ -106,70 +97,7 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
           )}
         </div>
       </div>
-    </button>
-  )
-}
-
-function VideoModal({ video, onClose }: { video: Video; onClose: () => void }) {
-  const embedUrl = getEmbedUrl(video)
-  const isUpload = video.videoType === 'upload'
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden w-full max-w-4xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Player */}
-        <div className="aspect-video bg-black">
-          {isUpload ? (
-            <video
-              src={embedUrl}
-              controls
-              autoPlay
-              className="w-full h-full"
-              controlsList="nodownload"
-            />
-          ) : (
-            <iframe
-              src={embedUrl}
-              title={video.title}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          )}
-        </div>
-        {/* Info bar */}
-        <div className="p-4 flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-base text-gray-900 dark:text-gray-100 leading-snug">{video.title}</h2>
-            <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-              <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{video.views.toLocaleString()} lượt xem</span>
-              {video.publishedAt && <span>{formatDate(video.publishedAt)}</span>}
-            </div>
-            {video.description && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-3">{video.description}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-    </div>
+    </Link>
   )
 }
 
@@ -178,7 +106,6 @@ const CATEGORIES = ['Tất cả', 'giới thiệu', 'văn hóa', 'khoa học', '
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
-  const [playing, setPlaying] = useState<Video | null>(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Tất cả')
 
@@ -277,7 +204,7 @@ export default function VideosPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {featured.map((v) => (
-                    <VideoCard key={v.id} video={v} onClick={() => setPlaying(v)} />
+                    <VideoCard key={v.id} video={v} />
                   ))}
                 </div>
               </section>
@@ -294,7 +221,7 @@ export default function VideosPage() {
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {rest.map((v) => (
-                    <VideoCard key={v.id} video={v} onClick={() => setPlaying(v)} />
+                    <VideoCard key={v.id} video={v} />
                   ))}
                 </div>
               </section>
@@ -302,9 +229,6 @@ export default function VideosPage() {
           </div>
         )}
       </div>
-
-      {/* Modal player */}
-      {playing && <VideoModal video={playing} onClose={() => setPlaying(null)} />}
     </div>
   )
 }

@@ -104,6 +104,7 @@ export function addSecurityHeaders(response: NextResponse): NextResponse {
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self'",
+    "media-src 'self' blob: data:",
     "frame-ancestors 'none'",
   ].join('; ');
   
