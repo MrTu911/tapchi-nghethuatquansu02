@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ExternalLink, BookOpen, Users } from 'lucide-react'
+import { ExternalLink, BookOpen, BookOpenText, Users } from 'lucide-react'
 
 export interface TocAuthor {
   id: string
@@ -21,6 +22,7 @@ export interface TocArticle {
   authorsText: string
   pageStart: number
   pageEnd?: number | null
+  articlePdfUrl?: string | null
   authors: TocAuthor[]
 }
 
@@ -119,7 +121,9 @@ export function IssueTocClient({ sections, pdfUrl, totalArticles }: IssueTocClie
 }
 
 function ArticleRow({ article, pdfUrl }: { article: TocArticle; pdfUrl?: string | null }) {
-  const pdfPageUrl = pdfUrl ? `${pdfUrl}#page=${article.pageStart}` : null
+  const articleHref = `/journal-articles/${article.id}`
+  // Ưu tiên PDF bản gốc của từng bài; nếu chưa số hóa thì mở PDF cả số tại đúng trang.
+  const pdfHref = article.articlePdfUrl ?? (pdfUrl ? `${pdfUrl}#page=${article.pageStart}` : null)
 
   return (
     <div className="flex gap-3 py-3 border-b last:border-b-0 group hover:bg-muted/30 px-1 rounded transition-colors">
@@ -130,8 +134,8 @@ function ArticleRow({ article, pdfUrl }: { article: TocArticle; pdfUrl?: string 
         </span>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 space-y-1">
+      {/* Content — bấm tiêu đề để đọc toàn văn bài báo */}
+      <Link href={articleHref} className="flex-1 min-w-0 space-y-1">
         <p className="text-sm font-semibold leading-snug text-foreground line-clamp-3 group-hover:text-primary transition-colors">
           {article.title}
         </p>
@@ -139,24 +143,35 @@ function ArticleRow({ article, pdfUrl }: { article: TocArticle; pdfUrl?: string 
           <Users className="h-3 w-3 mt-0.5 flex-shrink-0" />
           <span className="line-clamp-2">{article.authorsText}</span>
         </div>
-      </div>
+      </Link>
 
       {/* Actions */}
-      {pdfPageUrl && (
-        <div className="flex-shrink-0 flex items-start pt-0.5">
+      <div className="flex-shrink-0 flex items-start gap-1 pt-0.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+          asChild
+        >
+          <Link href={articleHref}>
+            <BookOpenText className="h-3 w-3 mr-1" />
+            Đọc
+          </Link>
+        </Button>
+        {pdfHref && (
           <Button
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
             asChild
           >
-            <a href={pdfPageUrl} target="_blank" rel="noopener noreferrer">
+            <a href={pdfHref} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3 w-3 mr-1" />
-              Mở PDF
+              PDF
             </a>
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

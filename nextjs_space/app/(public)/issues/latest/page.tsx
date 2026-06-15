@@ -1,54 +1,39 @@
-
 import { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { getFileUrl } from '@/lib/local-storage'
 import { LATEST_ISSUE_ORDER } from '@/lib/services/issue-ordering'
-import { Badge } from '@/components/ui/badge'
+import { IssueTocClient } from '@/components/journal-issue/issue-toc-client'
 import { Button } from '@/components/ui/button'
-import { Calendar, FileText, ExternalLink, Download, BookOpen, Award, ChevronRight } from 'lucide-react'
+import { Calendar, FileText, ExternalLink, Download, BookOpen, BookOpenCheck, Award, ChevronRight, Layers } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
 export const metadata: Metadata = {
   title: 'Số Mới Nhất - Tạp chí Nghệ thuật Quân sự Việt Nam',
-  description: 'Số phát hành mới nhất của Tạp chí Nghệ thuật Quân sự Việt Nam'
+  description: 'Số phát hành mới nhất của Tạp chí Nghệ thuật Quân sự Việt Nam',
 }
 
-const CATEGORY_COLOR_MAP: Record<string, string> = {
-  'ky-thuat': 'bg-blue-100 text-blue-800 border border-blue-200',
-  'nghe-thuat-quan-su': 'bg-emerald-100 text-emerald-800 border border-emerald-200',
-  'khoa-hoc': 'bg-amber-100 text-amber-800 border border-amber-200',
-  'quan-su': 'bg-rose-100 text-rose-800 border border-rose-200',
-  'ly-luan': 'bg-purple-100 text-purple-800 border border-purple-200',
-}
-
-function getCategoryColor(slug: string | null | undefined): string {
-  if (!slug) return 'bg-military-100 text-military-800 border border-military-200'
-  return CATEGORY_COLOR_MAP[slug] ?? 'bg-military-100 text-military-800 border border-military-200'
-}
-
+// Số mới nhất nạp THEO dữ liệu số hóa (JournalArticle/IssueSection từ corpus epub),
+// không dùng quan hệ `articles` (peer-review) vốn rỗng với các số nhập từ thư viện.
 async function getLatestIssue() {
   try {
-    const issue = await prisma.issue.findFirst({
+    return await prisma.issue.findFirst({
       where: { status: 'PUBLISHED' },
       orderBy: LATEST_ISSUE_ORDER,
       include: {
         volume: true,
-        articles: {
-          where: { submission: { status: 'PUBLISHED' } },
+        sections: {
+          orderBy: { order: 'asc' },
           include: {
-            submission: {
-              include: {
-                author: { select: { fullName: true, org: true } },
-                category: true
-              }
-            }
+            journalArticles: {
+              orderBy: { pageStart: 'asc' },
+              include: { authors: { orderBy: { order: 'asc' } } },
+            },
           },
-          orderBy: { publishedAt: 'asc' }
-        }
-      }
+        },
+        _count: { select: { journalArticles: true } },
+      },
     })
-    return issue
   } catch (error) {
     console.error('Error fetching latest issue:', error)
     return null
@@ -58,11 +43,13 @@ async function getLatestIssue() {
 export default async function LatestIssuePage() {
   const rawIssue = await getLatestIssue()
 
-  const issue = rawIssue ? {
-    ...rawIssue,
-    coverImage: rawIssue.coverImage ? getFileUrl(rawIssue.coverImage, true) : null,
-    pdfUrl: rawIssue.pdfUrl ? getFileUrl(rawIssue.pdfUrl, true) : null,
-  } : null
+  const issue = rawIssue
+    ? {
+        ...rawIssue,
+        coverImage: rawIssue.coverImage ? getFileUrl(rawIssue.coverImage, true) : null,
+        pdfUrl: rawIssue.pdfUrl ? getFileUrl(rawIssue.pdfUrl, true) : null,
+      }
+    : null
 
   if (!issue) {
     return (
@@ -79,6 +66,7 @@ export default async function LatestIssuePage() {
     )
   }
 
+  const totalArticles = issue._count.journalArticles
   const publishDateLabel = issue.publishDate
     ? new Date(issue.publishDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : `Năm ${issue.year}`
@@ -105,7 +93,7 @@ export default async function LatestIssuePage() {
               <div className="relative aspect-[3/4] lg:aspect-auto lg:h-full min-h-[320px]">
                 <Image
                   src={issue.coverImage}
-                  alt={`Bìa Tập ${issue.volume.volumeNo} Số ${issue.number}`}
+                  alt={`Bìa ${issue.title ?? `Số ${issue.number}/${issue.year}`}`}
                   fill
                   className="object-cover"
                   priority
@@ -128,7 +116,7 @@ export default async function LatestIssuePage() {
                   Số mới nhất
                 </span>
                 <span className="text-white/70 text-sm">
-                  Tập {issue.volume.volumeNo}, Số {issue.number} – Năm {issue.year}
+                  Số {issue.number} – Năm {issue.year}
                 </span>
               </div>
 
@@ -144,7 +132,7 @@ export default async function LatestIssuePage() {
             </div>
 
             {/* Metadata grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="flex items-center gap-2.5 bg-white/10 rounded-xl p-3">
                 <Calendar className="h-4 w-4 text-white/70 shrink-0" />
                 <div>
@@ -156,9 +144,18 @@ export default async function LatestIssuePage() {
                 <FileText className="h-4 w-4 text-white/70 shrink-0" />
                 <div>
                   <p className="text-xs text-white/60 uppercase tracking-wide">Bài viết</p>
-                  <p className="text-sm font-medium text-white">{issue.articles.length} bài</p>
+                  <p className="text-sm font-medium text-white">{totalArticles} bài</p>
                 </div>
               </div>
+              {issue.pageCount && (
+                <div className="flex items-center gap-2.5 bg-white/10 rounded-xl p-3">
+                  <Layers className="h-4 w-4 text-white/70 shrink-0" />
+                  <div>
+                    <p className="text-xs text-white/60 uppercase tracking-wide">Số trang</p>
+                    <p className="text-sm font-medium text-white">{issue.pageCount} trang</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {issue.doi && (
@@ -167,13 +164,22 @@ export default async function LatestIssuePage() {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-3 pt-2">
+              {issue.slug && (
+                <Button className="bg-white text-military-800 hover:bg-white/90 font-semibold shadow-md" asChild>
+                  <Link href={`/library/${issue.slug}`}>
+                    <BookOpenCheck className="mr-2 h-4 w-4" />
+                    Đọc toàn văn
+                  </Link>
+                </Button>
+              )}
               <Button
-                className="bg-white text-military-800 hover:bg-white/90 font-semibold shadow-md"
+                variant="outline"
+                className="border-white/40 text-white hover:bg-white/10 hover:text-white hover:border-white/60"
                 asChild
               >
                 <Link href={`/issues/${issue.id}`}>
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Xem đầy đủ
+                  Xem chi tiết số
                 </Link>
               </Button>
               {issue.pdfUrl && (
@@ -205,138 +211,66 @@ export default async function LatestIssuePage() {
           <div className="flex items-center gap-2 text-military-700">
             <FileText className="h-4 w-4 text-military-500" />
             <span className="font-medium">Số bài:</span>
-            <span>{issue.articles.length} bài viết</span>
+            <span>{totalArticles} bài viết</span>
           </div>
           <div className="hidden sm:block w-px h-4 bg-military-200" />
           <div className="flex items-center gap-2 text-military-700">
-            <BookOpen className="h-4 w-4 text-military-500" />
-            <span className="font-medium">Tập:</span>
-            <span>Tập {issue.volume.volumeNo} – {issue.year}</span>
+            <Layers className="h-4 w-4 text-military-500" />
+            <span className="font-medium">Chuyên mục:</span>
+            <span>{issue.sections.length} chuyên mục</span>
           </div>
-          {issue.doi && (
+          {issue.pageCount && (
             <>
               <div className="hidden sm:block w-px h-4 bg-military-200" />
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-military-100 text-military-700 border border-military-200">
-                  DOI: {issue.doi}
-                </span>
+              <div className="flex items-center gap-2 text-military-700">
+                <BookOpen className="h-4 w-4 text-military-500" />
+                <span className="font-medium">Số trang:</span>
+                <span>{issue.pageCount} trang</span>
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Articles Section */}
+      {/* Mục lục — đúng dữ liệu số hóa từ corpus */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-foreground">Mục lục</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {issue.articles.length} bài viết trong số này
+              {totalArticles} bài viết trong số này
             </p>
           </div>
           <Button variant="ghost" size="sm" asChild className="text-military-600 hover:text-military-700 hover:bg-military-50">
             <Link href={`/issues/${issue.id}`}>
-              Xem tất cả
+              Xem chi tiết số
               <ChevronRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-          {issue.articles.map((article, index) => (
-            <div
-              key={article.id}
-              className="flex gap-5 p-5 hover:bg-military-50 transition-colors duration-150 group"
-            >
-              {/* Number Badge */}
-              <div className="shrink-0 pt-0.5">
-                <div className="w-8 h-8 rounded-full bg-military-600 text-white flex items-center justify-center text-sm font-bold shadow-sm group-hover:bg-military-700 transition-colors">
-                  {index + 1}
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="flex items-start gap-2 flex-wrap">
-                  {article.submission.category && (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${getCategoryColor(article.submission.category.slug)}`}>
-                      {article.submission.category.name}
-                    </span>
-                  )}
-                  {article.pages && (
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded shrink-0">
-                      Tr. {article.pages}
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="text-base font-semibold leading-snug">
-                  <Link
-                    href={`/articles/${article.id}`}
-                    className="text-foreground hover:text-military-700 transition-colors"
-                  >
-                    {article.submission.title}
-                  </Link>
-                </h3>
-
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground/80">{article.submission.author.fullName}</span>
-                  {article.submission.author.org && (
-                    <span className="ml-1 text-muted-foreground">({article.submission.author.org})</span>
-                  )}
-                </p>
-
-                {article.submission.abstractVn && (
-                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                    {article.submission.abstractVn}
-                  </p>
-                )}
-
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 px-3 text-military-600 hover:text-military-700 hover:bg-military-100 text-xs font-medium"
-                    asChild
-                  >
-                    <Link href={`/articles/${article.id}`}>
-                      Xem chi tiết
-                      <ChevronRight className="ml-1 h-3 w-3" />
-                    </Link>
-                  </Button>
-                  {article.pdfFile && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-3 text-xs font-medium border-military-200 text-military-700 hover:bg-military-50"
-                      asChild
-                    >
-                      <a href={article.pdfFile} target="_blank" rel="noopener noreferrer">
-                        <Download className="mr-1.5 h-3 w-3" />
-                        PDF
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <IssueTocClient
+            sections={issue.sections}
+            pdfUrl={issue.pdfUrl}
+            totalArticles={totalArticles}
+          />
         </div>
 
         {/* Footer CTA */}
-        <div className="flex justify-center pt-2">
-          <Button
-            variant="outline"
-            className="border-military-300 text-military-700 hover:bg-military-50 hover:border-military-400"
-            asChild
-          >
-            <Link href={`/issues/${issue.id}`}>
-              <BookOpen className="mr-2 h-4 w-4" />
-              Xem số đầy đủ
-            </Link>
-          </Button>
-        </div>
+        {issue.slug && (
+          <div className="flex justify-center pt-2">
+            <Button
+              className="bg-military-700 text-white hover:bg-military-800"
+              asChild
+            >
+              <Link href={`/library/${issue.slug}`}>
+                <BookOpenCheck className="mr-2 h-4 w-4" />
+                Đọc toàn văn số này
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

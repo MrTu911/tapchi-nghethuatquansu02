@@ -92,7 +92,7 @@ export async function importIssueCorpus(slug: string, corpus: Corpus): Promise<C
   let withoutFullText = 0
 
   for (const corpusArticle of corpus.articles) {
-    const result = await upsertArticle(issue.id, sectionIdByName, corpusArticle, userNameMap)
+    const result = await upsertArticle(slug, issue.id, sectionIdByName, corpusArticle, userNameMap)
     articlesUpserted++
     authorsCreated += result.authorsCreated
     authorsLinkedToUser += result.authorsLinked
@@ -231,6 +231,7 @@ interface ArticleUpsertResult {
 }
 
 async function upsertArticle(
+  issueSlug: string,
   issueId: string,
   sectionIdByName: Map<string, string>,
   corpusArticle: CorpusArticle,
@@ -241,6 +242,7 @@ async function upsertArticle(
   const sectionId = corpusArticle.section ? sectionIdByName.get(corpusArticle.section.trim()) ?? null : null
   const authorsText = corpusArticle.authors.map(buildAuthorDisplay).filter(Boolean).join('; ')
   const contentText = buildContentText(corpusArticle)
+  const articlePdfUrl = buildArticlePdfUrl(issueSlug, corpusArticle)
   const keywords = dedupeKeywords(corpusArticle)
 
   const article = await prisma.journalArticle.upsert({
@@ -258,6 +260,7 @@ async function upsertArticle(
       contentText,
       contentSource: 'corpus-import',
       extractionStatus: contentText ? 'DONE' : 'LOW_QUALITY',
+      articlePdfUrl,
       status: 'PUBLISHED',
     },
     update: {
@@ -271,6 +274,7 @@ async function upsertArticle(
       contentText,
       contentSource: 'corpus-import',
       extractionStatus: contentText ? 'DONE' : 'LOW_QUALITY',
+      articlePdfUrl,
     },
   })
 
@@ -325,6 +329,17 @@ function buildContentText(article: CorpusArticle): string | null {
     : ''
   const text = `${body}${references}`.trim()
   return text.length > 0 ? text : null
+}
+
+/**
+ * Đường dẫn công khai tới PDF bản gốc của từng bài (đã tách sẵn trong thư mục Thư
+ * viện số). File nằm ở `public/data/issues/<slug>/<pdf_path>` → URL `/data/issues/...`.
+ * KHÔNG đi qua getFileUrl (đó là path tương đối trong /uploads, khác bản chất).
+ */
+function buildArticlePdfUrl(issueSlug: string, article: CorpusArticle): string | null {
+  const pdfPath = article.pdf_path?.trim()
+  if (!pdfPath) return null
+  return `/data/issues/${issueSlug}/${pdfPath}`
 }
 
 function dedupeKeywords(article: CorpusArticle): string[] {

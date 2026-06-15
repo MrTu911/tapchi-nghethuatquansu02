@@ -148,7 +148,9 @@ const getRecentIssues = cache(async (take = 5) => {
     const issues = await prisma.issue.findMany({
       where: { status: 'PUBLISHED' },
       include: {
-        _count: { select: { articles: true } },
+        // Đếm cả bài số hóa (journalArticles) lẫn bài biên tập (articles): các số nhập
+        // từ Thư viện số chỉ có journalArticles nên dùng articles sẽ ra "0 bài".
+        _count: { select: { articles: true, journalArticles: true } },
       },
       orderBy: LATEST_ISSUE_ORDER,
       take,
@@ -160,7 +162,7 @@ const getRecentIssues = cache(async (take = 5) => {
       publishDate: i.publishDate?.toISOString(),
       number: i.number,
       year: i.year,
-      articleCount: i._count.articles,
+      articleCount: i._count.journalArticles || i._count.articles,
     })))
   } catch {
     return []
