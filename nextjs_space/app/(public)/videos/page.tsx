@@ -5,6 +5,7 @@ import { Play, Eye, Calendar, Search, Film, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
+import { getYouTubeThumbnail } from '@/lib/youtube'
 
 interface Video {
   id: string
@@ -24,8 +25,7 @@ interface Video {
 
 function getThumbnail(video: Video): string {
   if (video.videoType === 'youtube') {
-    const id = video.videoId || video.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1]
-    if (id) return `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+    return getYouTubeThumbnail(video.videoUrl, video.videoId)
   }
   return video.thumbnailUrl || ''
 }

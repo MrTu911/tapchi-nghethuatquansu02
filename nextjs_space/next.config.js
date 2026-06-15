@@ -13,6 +13,16 @@ const nextConfig = {
       '/api/reports/publications/export': ['./lib/fonts/*.ttf'],
     },
   },
+  // `next start` không serve file thêm vào public/ sau khi khởi động, nên mọi
+  // file upload runtime (video, ảnh, podcast...) phải đi qua route đọc-đĩa.
+  // beforeFiles để chặn trước bước serve static của Next.
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/uploads/:path*', destination: '/api/uploads/:path*' },
+      ],
+    }
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

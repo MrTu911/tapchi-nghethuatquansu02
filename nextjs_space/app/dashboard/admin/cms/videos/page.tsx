@@ -29,6 +29,7 @@ import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useChunkedVideoUpload } from '@/hooks/use-chunked-video-upload'
 import { VideoUploadProgress } from '@/components/dashboard/video-upload-progress'
+import { extractYouTubeId, getYouTubeThumbnail, getYouTubeEmbedUrl } from '@/lib/youtube'
 
 interface Video {
   id: string
@@ -51,23 +52,8 @@ interface Video {
 }
 
 function getEmbedUrl(video: Video): string {
-  if (video.videoType === 'youtube') {
-    const id = video.videoId || video.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1]
-    if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`
-  }
+  if (video.videoType === 'youtube') return getYouTubeEmbedUrl(video.videoUrl, video.videoId, true)
   return video.cloudStoragePath || video.videoUrl
-}
-
-function getYouTubeThumbnail(videoUrl: string, videoId?: string): string {
-  if (videoId) return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-  const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-  if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`
-  return ''
-}
-
-function extractYouTubeId(url: string): string {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-  return match?.[1] || ''
 }
 
 /**

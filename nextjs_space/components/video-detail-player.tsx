@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { getYouTubeEmbedUrl } from '@/lib/youtube'
 
 interface VideoDetailPlayerProps {
   id: string
@@ -9,13 +10,6 @@ interface VideoDetailPlayerProps {
   videoId?: string | null
   thumbnailUrl?: string | null
   title: string
-}
-
-function getYouTubeEmbedUrl(videoUrl: string, videoId?: string | null): string {
-  const id =
-    videoId ||
-    videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/)?.[1]
-  return id ? `https://www.youtube.com/embed/${id}` : videoUrl
 }
 
 /**

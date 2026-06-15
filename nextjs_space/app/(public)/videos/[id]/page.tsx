@@ -6,6 +6,7 @@ import { Eye, Calendar, Clock, Tag, ChevronRight, Play, Film, ArrowLeft } from '
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { VideoDetailPlayer } from '@/components/video-detail-player'
+import { getYouTubeThumbnail } from '@/lib/youtube'
 
 const ShareButton = dynamic(
   () => import('@/components/share-button').then((m) => ({ default: m.ShareButton })),
@@ -27,10 +28,7 @@ function getThumbnail(video: {
   thumbnailUrl: string | null
 }): string {
   if (video.videoType === 'youtube') {
-    const id =
-      video.videoId ||
-      video.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/)?.[1]
-    if (id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+    return getYouTubeThumbnail(video.videoUrl, video.videoId)
   }
   return video.thumbnailUrl || ''
 }

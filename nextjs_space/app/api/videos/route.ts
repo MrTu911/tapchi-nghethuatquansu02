@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
 import { saveFile, getFileUrl } from '@/lib/local-storage'
+import { resolveYouTubeId } from '@/lib/youtube'
 
 /**
  * GET /api/videos
@@ -171,14 +172,10 @@ export async function POST(request: NextRequest) {
       return errorResponse('Invalid videoType. Must be: youtube, vimeo, upload, or embed', 400)
     }
 
-    // Extract video ID from URL for YouTube
+    // Trích + làm sạch video ID cho YouTube (cắt bỏ ?si=... của link youtu.be)
     let extractedVideoId = videoId
-    if (videoType === 'youtube' && !extractedVideoId) {
-      const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/
-      const match = videoUrl.match(youtubeRegex)
-      if (match && match[1]) {
-        extractedVideoId = match[1]
-      }
+    if (videoType === 'youtube') {
+      extractedVideoId = resolveYouTubeId(videoUrl, videoId)
     }
 
     const video = await prisma.video.create({

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Play, Loader2, Eye, Calendar, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { getYouTubeEmbedUrl, getYouTubeThumbnail } from '@/lib/youtube'
 
 interface VideoItem {
   id: string
@@ -19,20 +20,6 @@ interface VideoItem {
 
 interface VideoSectionProps {
   videos?: VideoItem[]
-}
-
-const getYouTubeEmbedUrl = (videoUrl: string, videoId?: string): string => {
-  if (videoId) return `https://www.youtube.com/embed/${videoId}`
-  const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-  if (match?.[1]) return `https://www.youtube.com/embed/${match[1]}`
-  return videoUrl
-}
-
-const getYouTubeThumbnail = (videoUrl: string, videoId?: string): string => {
-  if (videoId) return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-  const match = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)
-  if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`
-  return ''
 }
 
 function formatVideoDate(iso?: string) {

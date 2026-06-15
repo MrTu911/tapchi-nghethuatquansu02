@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
 import { deleteFile } from '@/lib/local-storage'
+import { resolveYouTubeId } from '@/lib/youtube'
 
 /**
  * Chuyển URL công khai (/uploads/videos/uploads/x.mp4) về đường dẫn tương đối
@@ -74,14 +75,10 @@ export async function PUT(
       return errorResponse('Video not found', 404)
     }
 
-    // Extract video ID from URL for YouTube if videoUrl is updated
+    // Trích + làm sạch video ID cho YouTube (cắt bỏ ?si=... của link youtu.be)
     let extractedVideoId = body.videoId
-    if (body.videoType === 'youtube' && body.videoUrl && !extractedVideoId) {
-      const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/
-      const match = body.videoUrl.match(youtubeRegex)
-      if (match && match[1]) {
-        extractedVideoId = match[1]
-      }
+    if (body.videoType === 'youtube' && body.videoUrl) {
+      extractedVideoId = resolveYouTubeId(body.videoUrl, body.videoId)
     }
 
     const updateData: any = {}
