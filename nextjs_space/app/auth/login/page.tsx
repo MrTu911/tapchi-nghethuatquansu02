@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Loader2,
   Eye,
@@ -14,6 +15,8 @@ import {
   Shield,
   BookOpen,
   ChevronRight,
+  ArrowLeft,
+  Home,
   Users,
   Star,
   Zap,
@@ -196,9 +199,74 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-emerald-50/30 dark:from-slate-900 dark:to-slate-950">
+      {/* Banner — đồng bộ với trang chủ, bấm vào để về trang chủ */}
+      <Link
+        href="/"
+        aria-label="Về trang chủ Tạp chí Nghệ thuật Quân sự Việt Nam"
+        className="block w-full bg-white dark:bg-slate-900 shadow-sm"
+      >
+        <div className="relative w-full max-w-[1280px] mx-auto">
+          {/* Mobile */}
+          <div className="relative w-full h-[120px] md:hidden">
+            <Image
+              src="/banner-mobile.png"
+              alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
+              fill
+              className="object-cover object-center"
+              priority
+              sizes="768px"
+            />
+          </div>
+          {/* Tablet */}
+          <div className="relative w-full h-[160px] hidden md:block lg:hidden">
+            <Image
+              src="/banner-tablet.png"
+              alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
+              fill
+              className="object-cover object-center"
+              priority
+              sizes="1024px"
+            />
+          </div>
+          {/* PC */}
+          <div className="relative w-full h-[200px] hidden lg:block">
+            <Image
+              src="/banner-pc.png"
+              alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
+              fill
+              className="object-cover object-center"
+              priority
+              sizes="1280px"
+            />
+          </div>
+        </div>
+      </Link>
+
+      {/* Thanh điều hướng — đồng bộ màu đỏ với trang chủ */}
+      <nav className="w-full">
+        <div className="w-full max-w-[1280px] mx-auto bg-[#8B1A1A]">
+          <div className="flex items-center justify-between h-12 px-4 sm:px-6">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-sm font-semibold text-white hover:bg-white/15 transition-colors px-2.5 py-1.5 rounded"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Về trang chủ
+            </Link>
+            <span className="text-xs sm:text-sm font-medium text-white/90 tracking-wide uppercase">
+              Hệ thống quản lý biên tập
+            </span>
+          </div>
+        </div>
+      </nav>
+
+      {/* Nội dung chính — card đăng nhập căn giữa */}
+      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:py-12">
+        <div className="w-full max-w-5xl grid lg:grid-cols-2 rounded-2xl shadow-xl overflow-hidden bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800">
+
       {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#1a3a2a] via-[#1e4d35] to-[#152e22]">
+      <div className="hidden lg:flex relative overflow-hidden bg-gradient-to-br from-[#1a3a2a] via-[#1e4d35] to-[#152e22]">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <svg width="100%" height="100%">
@@ -216,7 +284,7 @@ export default function LoginPage() {
         <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute top-1/2 -right-16 w-48 h-48 rounded-full bg-emerald-500/10" />
 
-        <div className="relative z-10 flex flex-col justify-between w-full p-12 text-white">
+        <div className="relative z-10 flex flex-col justify-between w-full p-10 text-white">
           {/* Top */}
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -235,7 +303,7 @@ export default function LoginPage() {
           {/* Center content */}
           <div className="space-y-6">
             <div>
-              <h1 className="text-4xl font-bold text-white leading-tight">
+              <h1 className="text-3xl font-bold text-white leading-tight">
                 Tạp chí
                 <br />
                 <span className="text-emerald-300">Nghệ thuật Quân sự Việt Nam</span>
@@ -271,7 +339,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel — login form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <div className="flex items-center justify-center px-6 py-10 sm:px-10">
         <div className="w-full max-w-md space-y-6">
 
           {/* Mobile logo */}
@@ -284,8 +352,8 @@ export default function LoginPage() {
 
           {/* Heading */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Đăng nhập</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Đăng nhập</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Truy cập hệ thống quản lý biên tập
             </p>
           </div>
@@ -413,14 +481,18 @@ export default function LoginPage() {
 
           {/* Footer links */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">
+            <span className="text-gray-500 dark:text-gray-400">
               Chưa có tài khoản?{' '}
               <Link href="/auth/register" className="text-emerald-600 hover:underline font-medium">
                 Đăng ký
               </Link>
             </span>
-            <Link href="/" className="text-gray-400 hover:text-gray-600 text-xs">
-              ← Trang chủ
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-400 font-medium transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              Về trang chủ
             </Link>
           </div>
 
@@ -435,6 +507,9 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+
+        </div>
+      </main>
     </div>
   )
 }
