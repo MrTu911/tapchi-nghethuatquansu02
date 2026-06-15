@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { LATEST_ISSUE_ORDER } from '@/lib/services/issue-ordering'
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,9 +46,7 @@ export async function GET(request: NextRequest) {
           take: 10
         }
       },
-      orderBy: {
-        publishDate: 'desc'
-      }
+      orderBy: LATEST_ISSUE_ORDER
     })
 
     if (!latestIssue) {

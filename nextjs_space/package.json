@@ -15,7 +15,9 @@
     "journal:import-corpus": "tsx --require dotenv/config scripts/journal/import-corpus.ts",
     "journal:create-author-accounts": "tsx --require dotenv/config scripts/journal/create-author-accounts.ts",
     "seed:podcasts": "tsx --require dotenv/config prisma/seed-demo-podcasts.ts",
-    "seed:nda-crawler": "tsx --require dotenv/config prisma/seed-nda-webcrawler.ts"
+    "seed:nda-crawler": "tsx --require dotenv/config prisma/seed-nda-webcrawler.ts",
+    "journal:set-covers": "tsx --require dotenv/config scripts/journal/set-issue-covers.ts",
+    "journal:fix-special-volumes": "tsx --require dotenv/config scripts/journal/separate-special-issue-volumes.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

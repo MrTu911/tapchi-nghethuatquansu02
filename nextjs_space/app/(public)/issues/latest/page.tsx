@@ -2,6 +2,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { getFileUrl } from '@/lib/local-storage'
+import { LATEST_ISSUE_ORDER } from '@/lib/services/issue-ordering'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, FileText, ExternalLink, Download, BookOpen, Award, ChevronRight } from 'lucide-react'
@@ -30,7 +31,7 @@ async function getLatestIssue() {
   try {
     const issue = await prisma.issue.findFirst({
       where: { status: 'PUBLISHED' },
-      orderBy: [{ year: 'desc' }, { number: 'desc' }],
+      orderBy: LATEST_ISSUE_ORDER,
       include: {
         volume: true,
         articles: {

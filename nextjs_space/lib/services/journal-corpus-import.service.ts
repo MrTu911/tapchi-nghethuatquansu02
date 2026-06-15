@@ -25,8 +25,9 @@ import type { Corpus, CorpusArticle, CorpusAuthor } from '@/types/corpus'
 
 const ISSUES_DATA_DIR = path.join(process.cwd(), 'public', 'data', 'issues')
 const JOURNAL_ISSN = '1859-0454'
-/** Offset số thứ tự cho "Số đặc biệt" để không đụng unique [volumeId, number] với số thường (tháng 1–12). */
-const SPECIAL_ISSUE_NUMBER_OFFSET = 90
+/** Số đặc biệt nằm ở Volume RIÊNG (volumeNo = base + năm) → number giữ thứ tự thật (1, 4...)
+ *  mà vẫn không đụng unique [volumeId, number] với số thường. */
+const SPECIAL_VOLUME_BASE = 900000
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ export async function importIssueCorpus(slug: string, corpus: Corpus): Promise<C
   const meta = parseIssueMeta(slug, corpus)
   const userNameMap = await buildUnambiguousUserNameMap()
 
-  const volume = await upsertVolume(meta.year)
+  const volume = await upsertVolume(meta.year, meta.isSpecial)
   const issue = await upsertIssue(volume.id, slug, meta)
 
   // Upsert chuyên mục, ghi nhớ sectionId theo tên để gán cho bài.
@@ -148,8 +149,9 @@ function parseIssueMeta(slug: string, corpus: Corpus): IssueMeta {
   const ordinalMatch = name.match(/Số(?:\s*đặc\s*biệt)?\s*0*(\d+)/i)
   const ordinal = ordinalMatch ? parseInt(ordinalMatch[1], 10) : (month ?? 1)
 
-  // Số thường: number = tháng/ordinal. Số đặc biệt: dịch +90 để tránh đụng unique [volumeId, number].
-  const number = isSpecial ? SPECIAL_ISSUE_NUMBER_OFFSET + ordinal : ordinal
+  // number = thứ tự thật cho cả số thường lẫn đặc biệt. Số đặc biệt ở volume riêng nên
+  // không đụng unique [volumeId, number] với số thường cùng thứ tự.
+  const number = ordinal
 
   const publishDate = month ? new Date(year, month - 1, 1) : undefined
 
@@ -166,17 +168,17 @@ function parseIssueMeta(slug: string, corpus: Corpus): IssueMeta {
 
 // ─── Upsert helpers ──────────────────────────────────────────────────────────
 
-async function upsertVolume(year: number) {
-  // Mỗi năm xuất bản gom vào một Volume (volumeNo = năm) để đơn giản và không đụng dữ liệu cũ.
+async function upsertVolume(year: number, isSpecial: boolean) {
+  // Số thường: 1 Volume/năm (volumeNo = năm). Số đặc biệt: Volume riêng (volumeNo = base + năm)
+  // để number giữ thứ tự thật mà không đụng unique [volumeId, number].
+  const volumeNo = isSpecial ? SPECIAL_VOLUME_BASE + year : year
+  const title = isSpecial
+    ? `Số đặc biệt — Năm ${year}`
+    : `Tạp chí Nghệ thuật Quân sự Việt Nam — Năm ${year}`
   return prisma.volume.upsert({
-    where: { volumeNo: year },
-    create: {
-      volumeNo: year,
-      year,
-      title: `Tạp chí Nghệ thuật Quân sự Việt Nam — Năm ${year}`,
-      issn: JOURNAL_ISSN,
-    },
-    update: { issn: JOURNAL_ISSN },
+    where: { volumeNo },
+    create: { volumeNo, year, title, issn: JOURNAL_ISSN },
+    update: { title, issn: JOURNAL_ISSN },
   })
 }
 

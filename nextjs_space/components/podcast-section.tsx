@@ -104,7 +104,8 @@ function PodcastCard({
 export default function PodcastSection() {
   const [podcasts, setPodcasts] = useState<PodcastItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [playingId, setPlayingId] = useState<string | null>(null)
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -118,26 +119,27 @@ export default function PodcastSection() {
   }, [])
 
   function handlePlay(podcast: PodcastItem) {
-    if (!podcast.audioUrl) return
+    const audio = audioRef.current
+    if (!podcast.audioUrl || !audio) return
 
-    if (playingId === podcast.id) {
-      // Toggle pause/resume
-      if (audioRef.current?.paused) {
-        audioRef.current.play()
-      } else {
-        audioRef.current?.pause()
-        setPlayingId(null)
-      }
+    // Cùng track: chỉ tạm dừng / phát tiếp, KHÔNG nạp lại src để tránh tua về đầu.
+    if (currentId === podcast.id) {
+      if (audio.paused) audio.play().catch(() => {})
+      else audio.pause()
       return
     }
 
-    // Play new track
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = podcast.audioUrl
-      audioRef.current.play().catch(() => {})
-    }
-    setPlayingId(podcast.id)
+    // Track mới: nạp src và phát từ đầu.
+    audio.src = podcast.audioUrl
+    audio.play().catch(() => {})
+    setCurrentId(podcast.id)
+  }
+
+  function toggleCurrent() {
+    const audio = audioRef.current
+    if (!audio || !currentId) return
+    if (audio.paused) audio.play().catch(() => {})
+    else audio.pause()
   }
 
   // Clean up on unmount
@@ -154,7 +156,9 @@ export default function PodcastSection() {
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        onEnded={() => setPlayingId(null)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
         className="hidden"
       />
 
@@ -195,7 +199,7 @@ export default function PodcastSection() {
               <PodcastCard
                 key={podcast.id}
                 podcast={podcast}
-                isPlaying={playingId === podcast.id}
+                isPlaying={currentId === podcast.id && isPlaying}
                 onPlay={handlePlay}
               />
             ))}
@@ -203,19 +207,24 @@ export default function PodcastSection() {
         )}
       </div>
 
-      {/* Inline player bar — hiển thị khi đang phát */}
-      {playingId && (
+      {/* Inline player bar — hiển thị khi đã chọn một tập */}
+      {currentId && (
         <div className="px-4 py-2 bg-purple-600 text-white flex items-center gap-2 text-xs">
-          <Headphones className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-          <span className="truncate flex-1">
-            {podcasts.find(p => p.id === playingId)?.title}
-          </span>
           <button
-            onClick={() => { audioRef.current?.pause(); setPlayingId(null) }}
+            onClick={toggleCurrent}
             className="shrink-0 hover:opacity-80"
+            aria-label={isPlaying ? 'Tạm dừng' : 'Phát tiếp'}
           >
-            <Pause className="h-3.5 w-3.5" fill="white" />
+            {isPlaying ? (
+              <Pause className="h-3.5 w-3.5" fill="white" />
+            ) : (
+              <Play className="h-3.5 w-3.5" fill="white" />
+            )}
           </button>
+          <span className="truncate flex-1">
+            {podcasts.find(p => p.id === currentId)?.title}
+          </span>
+          <Headphones className={`h-3.5 w-3.5 shrink-0 ${isPlaying ? 'animate-pulse' : 'opacity-60'}`} />
         </div>
       )}
     </section>

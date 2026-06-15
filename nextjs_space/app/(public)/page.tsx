@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 import { getSignedImageUrl } from '@/lib/image-utils'
+import { LATEST_ISSUE_ORDER } from '@/lib/services/issue-ordering'
 import {
   BookOpen, Eye, Download, Calendar, ChevronRight,
   TrendingUp,
@@ -147,10 +148,9 @@ const getRecentIssues = cache(async (take = 5) => {
     const issues = await prisma.issue.findMany({
       where: { status: 'PUBLISHED' },
       include: {
-        volume: true,
         _count: { select: { articles: true } },
       },
-      orderBy: [{ year: 'desc' }, { number: 'desc' }],
+      orderBy: LATEST_ISSUE_ORDER,
       take,
     })
     return Promise.all(issues.map(async i => ({
@@ -158,7 +158,6 @@ const getRecentIssues = cache(async (take = 5) => {
       title: i.title ?? undefined,
       coverImage: i.coverImage ? await getSignedImageUrl(i.coverImage, true) : undefined,
       publishDate: i.publishDate?.toISOString(),
-      volume: i.volume,
       number: i.number,
       year: i.year,
       articleCount: i._count.articles,
@@ -565,13 +564,13 @@ export default async function HomePage() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={latestIssue.coverImage ?? '/images/default-cover.jpg'}
-                    alt={`Bìa Tập ${latestIssue.volume?.volumeNo} Số ${latestIssue.number}`}
+                    alt={`Bìa Tập ${latestIssue.year} Số ${latestIssue.number}`}
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
                   />
                   {/* Overlay thông tin dưới ảnh */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent p-3 pt-10">
                     <p className="text-white text-[11px] font-semibold">
-                      Tập {latestIssue.volume?.volumeNo}, Số {latestIssue.number} – {latestIssue.year}
+                      Tập {latestIssue.year}, Số {latestIssue.number} – {latestIssue.year}
                     </p>
                     <p className="text-white/65 text-[10px] mt-0.5">{latestIssue.articleCount} bài báo</p>
                   </div>
@@ -579,7 +578,7 @@ export default async function HomePage() {
                 {/* Tiêu đề và link */}
                 <div className="px-3 py-2.5">
                   <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-[#8B1A1A] text-sm line-clamp-2 transition-colors leading-snug">
-                    {latestIssue.title ?? `Tạp chí Tập ${latestIssue.volume?.volumeNo}, Số ${latestIssue.number}/${latestIssue.year}`}
+                    {latestIssue.title ?? `Tạp chí Tập ${latestIssue.year}, Số ${latestIssue.number}/${latestIssue.year}`}
                   </h3>
                   <span className="inline-flex items-center gap-1 text-xs text-[#8B1A1A] font-medium mt-1.5 group-hover:underline">
                     Xem số này <ChevronRight className="w-3 h-3" />
@@ -632,7 +631,7 @@ export default async function HomePage() {
                         {issue.title ?? `Số ${issue.number}/${issue.year}`}
                       </p>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        Tập {issue.volume?.volumeNo} · {issue.articleCount} bài
+                        Tập {issue.year} · {issue.articleCount} bài
                       </p>
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 group-hover:text-[#8B1A1A] transition-colors" />

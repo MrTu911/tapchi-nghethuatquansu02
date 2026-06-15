@@ -114,7 +114,8 @@ export default async function IssueDetailPage({ params }: Props) {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Badge variant="secondary" className="text-xs">
-                    Tập {issue.volume?.volumeNo ?? issue.year}
+                    {/* Volume số đặc biệt có volumeNo sentinel → hiển thị theo năm cho gọn */}
+                    Tập {issue.year}
                   </Badge>
                   {issue.issueCode && (
                     <Badge variant="outline" className="text-xs font-mono">
@@ -170,8 +171,17 @@ export default async function IssueDetailPage({ params }: Props) {
 
               {/* Actions */}
               <div className="flex flex-col gap-2 pt-1">
-                {issue.pdfUrl && (
+                {/* Đọc toàn văn trong Thư viện số (KindleReader từ corpus) khi số đã được số hóa */}
+                {issue.slug && (
                   <Button asChild className="w-full">
+                    <Link href={`/library/${issue.slug}`}>
+                      <BookOpenCheck className="mr-2 h-4 w-4" />
+                      Đọc toàn văn
+                    </Link>
+                  </Button>
+                )}
+                {issue.pdfUrl && (
+                  <Button variant={issue.slug ? 'outline' : 'default'} asChild className="w-full">
                     <Link href={`/issues/${params.id}/viewer`}>
                       <BookOpenCheck className="mr-2 h-4 w-4" />
                       Đọc toàn văn PDF
@@ -317,7 +327,10 @@ function PublicationInfo({
     ['Đơn vị xuất bản',  'Học viện Quốc phòng - Bộ Quốc phòng'],
     ['ISSN',             issnDisplay],
     ['Năm',              issue.year?.toString()],
-    ['Tập',              issue.volume?.volumeNo?.toString()],
+    // Volume số đặc biệt dùng volumeNo sentinel (>= 900000) → ẩn dòng Tập, tránh lộ số rác
+    ['Tập',              issue.volume && issue.volume.volumeNo < 900000
+                           ? issue.volume.volumeNo.toString()
+                           : null],
     ['Số',               issue.issueCode
                            ? `${issue.number} (${issue.issueCode})`
                            : issue.number?.toString()],
