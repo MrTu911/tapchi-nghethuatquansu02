@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 import { getServerSession } from "@/lib/auth";
+import { can } from "@/lib/rbac";
 import sanitizeHtml from "sanitize-html";
 
 /**
@@ -51,10 +52,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession();
-    
-    if (!session || !['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'].includes(session.role)) {
+
+    if (!session) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!can.admin(session.role as any)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
         { status: 403 }
       );
     }

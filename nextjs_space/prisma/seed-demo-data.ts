@@ -51,7 +51,7 @@ async function main() {
     { term: 'đào tạo sĩ quan', category: 'Giáo dục', usage: 29 },
     { term: 'giáo dục quốc phòng', category: 'Giáo dục', usage: 33 },
     { term: 'phương pháp giảng dạy', category: 'Giáo dục', usage: 21 },
-    { term: 'học viện hậu cần', category: 'Giáo dục', usage: 37 },
+    { term: 'học viện quốc phòng', category: 'Giáo dục', usage: 37 },
     // Nghiên cứu - Khoa học
     { term: 'nghiên cứu khoa học quân sự', category: 'NCKH', usage: 44 },
     { term: 'đề tài cấp bộ', category: 'NCKH', usage: 18 },
@@ -260,7 +260,7 @@ async function main() {
             ? `/uploads/production/${article.id}-layout-final.pdf`
             : `/uploads/production/${article.id}-layout-draft.pdf`,
           doi: isPublished
-            ? `10.15625/hvhc.2024.02.${String(i + 1).padStart(3, '0')}`
+            ? `10.15625/ntqs.2024.02.${String(i + 1).padStart(3, '0')}`
             : null,
           published: isPublished,
           publishedAt: isPublished ? new Date('2024-12-01') : null,

@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
+import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { logAudit, AuditEventType } from '@/lib/audit-logger';
@@ -42,8 +43,11 @@ export async function PATCH(
   try {
     const session = await getServerSession();
 
-    if (!session || !['SYSADMIN', 'EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR'].includes(session.role)) {
-      return errorResponse('Unauthorized', 403);
+    if (!session) {
+      return errorResponse('Unauthorized', 401);
+    }
+    if (!can.admin(session.role as any)) {
+      return errorResponse('Forbidden', 403);
     }
 
     const { key } = await params;
@@ -100,8 +104,11 @@ export async function DELETE(
   try {
     const session = await getServerSession();
 
-    if (!session || !['SYSADMIN'].includes(session.role)) {
-      return errorResponse('Unauthorized - SYSADMIN only', 403);
+    if (!session) {
+      return errorResponse('Unauthorized', 401);
+    }
+    if (session.role !== 'SYSADMIN') {
+      return errorResponse('Forbidden - SYSADMIN only', 403);
     }
 
     const { key } = await params;

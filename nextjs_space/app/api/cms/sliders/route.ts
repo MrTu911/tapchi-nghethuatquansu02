@@ -6,10 +6,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/auth'
+import { can } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { logAudit } from '@/lib/audit-logger'
 
-const ALLOWED_ROLES = ['ADMIN', 'SYSADMIN', 'EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR']
 const SLIDER_TARGET = 'HOME_SLIDER'
 
 export async function GET(req: NextRequest) {
@@ -48,10 +48,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession()
-    if (!session || !ALLOWED_ROLES.includes(session.role)) {
+    if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+    if (!can.admin(session.role as any)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       )
     }
 

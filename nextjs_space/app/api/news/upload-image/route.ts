@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { saveFile } from '@/lib/s3';
+import { validateMediaFile } from '@/lib/file-security';
 
 /**
  * POST /api/news/upload-image - Upload ảnh cho rich text editor lên S3
@@ -26,13 +27,12 @@ export async function POST(req: NextRequest) {
       return errorResponse('Không tìm thấy file ảnh', 400);
     }
 
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      return errorResponse('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)', 400);
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      return errorResponse('Kích thước ảnh không được vượt quá 10MB', 400);
+    // ✅ Bảo mật upload (F2): validate ảnh bằng magic bytes (không tin file.type),
+    // chặn executable/double-extension. Chỉ đọc 16 byte đầu để kiểm chữ ký.
+    const headerBytes = Buffer.from(await file.slice(0, 16).arrayBuffer());
+    const validation = validateMediaFile(file.name, file.size, file.type, headerBytes, { allowVideo: false });
+    if (!validation.valid) {
+      return errorResponse(validation.error || 'Ảnh không hợp lệ', 400);
     }
 
     const result = await saveFile(file, 'news', true);

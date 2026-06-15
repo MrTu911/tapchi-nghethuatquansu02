@@ -1,9 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { getServerSession } from '@/lib/auth';
+import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { saveFile, getFileUrl } from '@/lib/s3';
 import { getSignedImageUrl } from '@/lib/image-utils';
+import { validateMediaFile } from '@/lib/file-security';
 import { z } from 'zod';
 
 // Validation schema
@@ -123,10 +125,16 @@ export async function GET(request: NextRequest) {
 // POST - Create new banner (with image upload)
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireAuth();
-    if (!['SYSADMIN', 'EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR'].includes(session.role)) {
+    const session = await getServerSession();
+    if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    if (!can.admin(session.role as any)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
         { status: 403 }
       );
     }
@@ -160,6 +168,17 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'Image file is required' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Bảo mật upload (F2): validate ảnh banner bằng magic bytes (không tin file.type),
+    // chặn executable/double-extension. Chỉ đọc 16 byte đầu để kiểm chữ ký.
+    const headerBytes = Buffer.from(await file.slice(0, 16).arrayBuffer());
+    const validation = validateMediaFile(file.name, file.size, file.type, headerBytes, { allowVideo: false });
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'Ảnh banner không hợp lệ' },
         { status: 400 }
       );
     }

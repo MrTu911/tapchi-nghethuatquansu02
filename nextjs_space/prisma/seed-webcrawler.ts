@@ -122,7 +122,7 @@ const WEB_SOURCES = [
     description: 'Tin tức chính thức từ Học viện Quốc phòng — hoạt động đào tạo, nghiên cứu khoa học, sự kiện.',
     selectorRules: HVQPh_RULES,
     defaultCategory: 'event',
-    defaultTags: ['hvhc', 'hậu cần', 'đào tạo'],
+    defaultTags: ['hvqp', 'hậu cần', 'đào tạo'],
     frequency: 'EVERY_12_HOURS' as const,
     isActive: true,
     delayBetweenRequests: 2500,

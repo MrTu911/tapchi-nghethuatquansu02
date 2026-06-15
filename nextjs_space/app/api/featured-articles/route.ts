@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/featured-articles - Get all featured articles
@@ -47,9 +48,8 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    const userRole = session.role;
-    if (!["SYSADMIN", "EIC", "DEPUTY_EIC", "MANAGING_EDITOR"].includes(userRole)) {
+
+    if (!can.admin(session.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     

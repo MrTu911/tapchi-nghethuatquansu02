@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { uploadFileToS3 } from '@/lib/s3';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { logAudit, AuditEventType } from '@/lib/audit-logger';
+import { validateMediaFile } from '@/lib/file-security';
 import sharp from 'sharp';
 
 /**
@@ -137,24 +138,16 @@ export async function POST(request: NextRequest) {
     
     console.log('Upload request:', { fileName: file.name, fileType: file.type, fileSize: file.size, category });
 
-    // Validate file type (images and videos)
-    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
-    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-    const allAllowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
-    
-    if (!allAllowedTypes.includes(file.type)) {
-      return errorResponse(
-        `Invalid file type. Allowed images: ${allowedImageTypes.join(', ')}. Allowed videos: ${allowedVideoTypes.join(', ')}`,
-        400
-      );
+    // ✅ Bảo mật upload: validator chính tắc (lib/file-security.ts) — kiểm size,
+    // whitelist MIME, file thực thi, double-extension, và XÁC THỰC MAGIC BYTES
+    // (không tin file.type từ client). Chỉ đọc 16 byte đầu để kiểm chữ ký, tránh
+    // nuốt file lớn vào RAM trước khi xác thực.
+    const headerBytes = Buffer.from(await file.slice(0, 16).arrayBuffer());
+    const validation = validateMediaFile(file.name, file.size, file.type, headerBytes);
+    if (!validation.valid) {
+      return errorResponse(validation.error || 'File không hợp lệ', 400);
     }
-
-    // Validate file size - 10MB for images, 100MB for videos
-    const isVideo = allowedVideoTypes.includes(file.type);
-    const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024; // 100MB for videos, 10MB for images
-    if (file.size > maxSize) {
-      return errorResponse(`File too large. Maximum size for ${isVideo ? 'videos' : 'images'}: ${maxSize / (1024 * 1024)}MB`, 400);
-    }
+    const isVideo = validation.kind === 'video';
 
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());

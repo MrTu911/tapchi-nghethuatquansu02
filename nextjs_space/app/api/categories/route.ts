@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { getServerSession } from '@/lib/auth'
+import { can } from '@/lib/rbac'
 import { getCachedData, invalidateCache } from '@/lib/cache'
 
 const CACHE_KEY = 'categories:all'
@@ -42,9 +43,8 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized', 401)
     }
 
-    // Check permissions
-    const allowedRoles = ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC']
-    if (!allowedRoles.includes(session.role)) {
+    // Quyền quản trị CMS (SSOT: lib/rbac.ts can.admin)
+    if (!can.admin(session.role as any)) {
       return errorResponse('Không có quyền thực hiện thao tác này', 403)
     }
 

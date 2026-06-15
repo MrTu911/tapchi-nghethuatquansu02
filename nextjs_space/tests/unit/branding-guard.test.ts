@@ -91,3 +91,52 @@ describe('Branding guard — không còn identity tapchi-hcqs trong source', () 
     })
   }
 })
+
+// ── Mở rộng (CMS test pass): seed dữ liệu phải sạch identity cũ + đúng NTQS ──
+//
+// Quét các file seed có nguy cơ lẫn branding cũ: seed nhận dạng (site-settings,
+// trang tĩnh, CMS) và seed DEMO đã được làm sạch token cũ ở đợt F3 (news/video,
+// web-crawler, demo-data). Khóa lại để chống tái phát.
+//
+// LƯU Ý: từ "hậu cần" đứng riêng KHÔNG bị cấm (từ vựng quân sự hợp lệ) — chỉ cấm
+// các token nhận dạng gắn chặt brand cũ trong FORBIDDEN_TOKENS.
+const SCANNED_SEED_FILES = [
+  'prisma/seed-site-settings.ts',
+  'prisma/seed-public-pages.ts',
+  'scripts/seed-public-pages.ts',
+  'scripts/seed-cms-data.ts',
+  'prisma/seed-news-videos.ts',
+  'prisma/seed-webcrawler.ts',
+  'prisma/seed-demo-data.ts',
+]
+
+function fileExists(p: string): boolean {
+  try {
+    statSync(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+describe('Branding guard — seed dùng đúng identity NTQS, không còn token cũ', () => {
+  for (const rel of SCANNED_SEED_FILES) {
+    const full = join(ROOT, rel)
+    const runOrSkip = fileExists(full) ? it : it.skip
+
+    for (const token of FORBIDDEN_TOKENS) {
+      runOrSkip(`${rel} không chứa token cũ "${token}"`, () => {
+        const content = readFileSync(full, 'utf8').toLowerCase()
+        expect(content.includes(token.toLowerCase())).toBe(false)
+      })
+    }
+  }
+
+  it('seed-site-settings.ts khai báo đúng nhận dạng NTQS (tên, đơn vị, ISSN, email)', () => {
+    const content = readFileSync(join(ROOT, 'prisma/seed-site-settings.ts'), 'utf8')
+    expect(content).toContain('Tạp chí Nghệ thuật Quân sự Việt Nam')
+    expect(content).toContain('Học viện Quốc phòng')
+    expect(content).toContain('1859-0454') // ISSN đúng của NTQS
+    expect(content).toContain('tapchintqsvn@gmail.com') // email tòa soạn NTQS
+  })
+})
