@@ -30,13 +30,23 @@ export async function GET(
     }
 
     const now = new Date()
-    const isPublished = podcast.isActive && podcast.publishedAt && podcast.publishedAt <= now
-    if (isPublished) {
-      await prisma.podcast.update({
-        where: { id: params.id },
-        data: { plays: { increment: 1 } },
-      })
+    const isPublished = podcast.isActive && podcast.publishedAt !== null && podcast.publishedAt <= now
+
+    // Podcast chưa publish/đã tắt chỉ dành cho người có quyền quản trị xem trước.
+    // Với khách công khai phải trả 404 để tránh rò bản nháp.
+    if (!isPublished) {
+      const session = await getServerSession()
+      if (!session || !ALLOWED_ADMIN_ROLES.includes(session.role)) {
+        return errorResponse('Podcast không tồn tại', 404)
+      }
+      // Không tăng lượt nghe khi quản trị xem trước bản chưa publish.
+      return successResponse({ podcast })
     }
+
+    await prisma.podcast.update({
+      where: { id: params.id },
+      data: { plays: { increment: 1 } },
+    })
 
     return successResponse({ podcast })
   } catch (error) {
@@ -98,6 +108,11 @@ export async function PUT(
     if (displayOrderRaw !== null) updateData.displayOrder = parseInt(displayOrderRaw)
     const publishedAtRaw = formData.get('publishedAt') as string | null
     if (publishedAtRaw !== null) updateData.publishedAt = publishedAtRaw ? new Date(publishedAtRaw) : null
+    const durationRaw = formData.get('duration') as string | null
+    if (durationRaw !== null) {
+      const parsedDuration = durationRaw ? parseInt(durationRaw) : NaN
+      updateData.duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : null
+    }
 
     // Replace audio file if provided
     if (audioFile && audioFile.size > 0) {

@@ -153,7 +153,7 @@ export default function PodcastsPage() {
           <Headphones className="h-7 w-7 text-purple-600 dark:text-purple-300" />
         </div>
         <h1 className="text-3xl font-bold">Podcast</h1>
-        <p className="text-muted-foreground">Lắng nghe các tập podcast về khoa học, công nghệ và giáo dục</p>
+        <p className="text-muted-foreground">Lắng nghe các tập podcast về nghệ thuật quân sự, chiến lược, lịch sử và khoa học quốc phòng</p>
       </div>
 
       {/* Search */}

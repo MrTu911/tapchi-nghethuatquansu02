@@ -26,9 +26,23 @@ import Link from 'next/link'
 interface PlagiarismMatch {
   id: string
   title: string
-  type: 'submission' | 'article'
+  type: 'submission' | 'article' | 'journal'
   similarity: number
+  phraseOverlap?: number // % cụm từ nguyên văn trùng (báo cáo cũ có thể không có)
   matchedPhrases: string[]
+}
+
+// Đường dẫn và nhãn hiển thị theo loại nguồn trùng lặp
+function getMatchHref(type: PlagiarismMatch['type'], id: string): string {
+  if (type === 'submission') return `/dashboard/editor/submissions/${id}`
+  if (type === 'article') return `/articles/${id}`
+  return '/library' // journal: bài trong số đã in — dẫn về Thư viện số
+}
+
+function getMatchLabel(type: PlagiarismMatch['type']): string {
+  if (type === 'submission') return 'Bài nộp'
+  if (type === 'article') return 'Bài xuất bản'
+  return 'Tạp chí (số đã in)'
 }
 
 interface PlagiarismReport {
@@ -247,27 +261,32 @@ export function PlagiarismChecker({ submissionId, submissionCode }: Props) {
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
                                   <Link
-                                    href={match.type === 'submission'
-                                      ? `/dashboard/editor/submissions/${match.id}`
-                                      : `/articles/${match.id}`
-                                    }
+                                    href={getMatchHref(match.type, match.id)}
                                     className="font-medium text-blue-600 hover:underline line-clamp-1"
                                   >
                                     {match.title}
                                   </Link>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <Badge variant="outline" className="text-xs">
-                                      {match.type === 'submission' ? 'Bài nộp' : 'Bài xuất bản'}
+                                      {getMatchLabel(match.type)}
                                     </Badge>
+                                    {typeof match.phraseOverlap === 'number' && match.phraseOverlap > 0 && (
+                                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
+                                        Trùng cụm từ nguyên văn {match.phraseOverlap}%
+                                      </Badge>
+                                    )}
                                     {match.matchedPhrases?.length > 0 && (
                                       <span className="text-xs text-muted-foreground">
-                                        {match.matchedPhrases.length} cụm từ trùng
+                                        vd: “{match.matchedPhrases[0]}”
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                                <div className={`text-lg font-bold ${getScoreColor(match.similarity)}`}>
-                                  {match.similarity}%
+                                <div className="text-right">
+                                  <div className={`text-lg font-bold ${getScoreColor(match.similarity)}`}>
+                                    {match.similarity}%
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground">tương đồng</div>
                                 </div>
                               </div>
                             </div>

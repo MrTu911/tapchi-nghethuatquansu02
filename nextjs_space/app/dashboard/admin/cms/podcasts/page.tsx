@@ -76,7 +76,19 @@ function formatFileSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const CATEGORIES = ['Khoa học', 'Công nghệ', 'Giáo dục', 'Văn hóa', 'Thể thao', 'Sức khỏe', 'Kinh tế', 'Khác']
+// Chuyên mục bám bản sắc Tạp chí Nghệ thuật Quân sự Việt Nam (xem CLAUDE.md §6).
+const CATEGORIES = [
+  'Chiến lược quân sự',
+  'Nghệ thuật tác chiến',
+  'Chiến dịch học',
+  'Chiến thuật học',
+  'Lịch sử quân sự',
+  'Khoa học quân sự',
+  'Giáo dục quân sự',
+  'Hợp tác quốc phòng',
+  'Tin tức Học viện',
+  'Khác',
+]
 
 export default function PodcastManagementPage() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
@@ -106,6 +118,7 @@ export default function PodcastManagementPage() {
   const [formActive, setFormActive] = useState(true)
   const [formPublishedAt, setFormPublishedAt] = useState('')
   const [formDisplayOrder, setFormDisplayOrder] = useState('0')
+  const [formDuration, setFormDuration] = useState<number | null>(null)
 
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
@@ -154,6 +167,7 @@ export default function PodcastManagementPage() {
     setFormActive(true)
     setFormPublishedAt('')
     setFormDisplayOrder('0')
+    setFormDuration(null)
     setAudioFile(null)
     setCoverFile(null)
     setCoverPreviewUrl(null)
@@ -173,9 +187,28 @@ export default function PodcastManagementPage() {
     setFormActive(podcast.isActive)
     setFormPublishedAt(podcast.publishedAt ? podcast.publishedAt.slice(0, 16) : '')
     setFormDisplayOrder(podcast.displayOrder.toString())
+    setFormDuration(podcast.duration)
     setAudioFile(null)
     setCoverFile(null)
     setCoverPreviewUrl(podcast.coverImageUrl)
+  }
+
+  function handleAudioChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    setAudioFile(file)
+    if (!file) return
+    // Đọc thời lượng phía client (server không giải mã audio) để lưu kèm khi upload.
+    const url = URL.createObjectURL(file)
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setFormDuration(Math.round(audio.duration))
+      }
+      URL.revokeObjectURL(url)
+    }
+    audio.onerror = () => URL.revokeObjectURL(url)
+    audio.src = url
   }
 
   function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -210,6 +243,7 @@ export default function PodcastManagementPage() {
     formData.append('isActive', String(formActive))
     if (formPublishedAt) formData.append('publishedAt', new Date(formPublishedAt).toISOString())
     formData.append('displayOrder', formDisplayOrder)
+    if (formDuration != null) formData.append('duration', String(formDuration))
     if (audioFile) formData.append('audioFile', audioFile)
     if (coverFile) formData.append('coverImageFile', coverFile)
 
@@ -440,7 +474,7 @@ export default function PodcastManagementPage() {
                 type="file"
                 accept="audio/*"
                 className="hidden"
-                onChange={e => setAudioFile(e.target.files?.[0] || null)}
+                onChange={handleAudioChange}
               />
             </div>
 
@@ -512,7 +546,7 @@ export default function PodcastManagementPage() {
               </div>
               <div className="space-y-1">
                 <Label>Tags (cách nhau bởi dấu phẩy)</Label>
-                <Input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="khoa học, công nghệ, giáo dục" />
+                <Input value={formTags} onChange={e => setFormTags(e.target.value)} placeholder="nghệ thuật quân sự, chiến lược, quốc phòng" />
               </div>
               <div className="space-y-1">
                 <Label>Thứ tự hiển thị</Label>

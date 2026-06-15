@@ -18,23 +18,36 @@ const IMAGE_MAX_SIZE = 10 * 1024 * 1024   // 10MB
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const isActive = searchParams.get('isActive')
+    const isActiveParam = searchParams.get('isActive')
     const isFeatured = searchParams.get('isFeatured')
     const category = searchParams.get('category')
     const keyword = searchParams.get('keyword')
-    const adminView = searchParams.get('adminView') === 'true'
+    const wantAdminView = searchParams.get('adminView') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1)
     const skip = (page - 1) * limit
 
+    // adminView chỉ hợp lệ khi có phiên đăng nhập với quyền quản trị.
+    // Không tin tham số query để mở khoá bản nháp/đã tắt.
+    let isAdminView = false
+    if (wantAdminView) {
+      const session = await getServerSession()
+      isAdminView = !!session && ALLOWED_ADMIN_ROLES.includes(session.role)
+    }
+
     const where: Record<string, unknown> = {}
-    if (isActive !== null) where.isActive = isActive === 'true'
     if (isFeatured !== null) where.isFeatured = isFeatured === 'true'
     if (category) where.category = category
-    // Public requests chỉ thấy podcast đã published
-    if (!adminView) {
+
+    if (isAdminView) {
+      // Quản trị có thể lọc theo trạng thái nếu cần.
+      if (isActiveParam !== null) where.isActive = isActiveParam === 'true'
+    } else {
+      // Public: bắt buộc chỉ thấy podcast đang bật và đã publish.
+      where.isActive = true
       where.publishedAt = { lte: new Date() }
     }
+
     if (keyword) {
       where.OR = [
         { title: { contains: keyword, mode: 'insensitive' } },
@@ -102,6 +115,7 @@ export async function POST(request: NextRequest) {
     const isActive = formData.get('isActive') !== 'false'
     const displayOrderRaw = formData.get('displayOrder') as string | null
     const publishedAtRaw = formData.get('publishedAt') as string | null
+    const durationRaw = formData.get('duration') as string | null
 
     if (!title) {
       return errorResponse('Tiêu đề là bắt buộc', 400)
@@ -132,7 +146,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Save audio file (private — served via signed URL)
+    // Lưu file âm thanh dạng public: phục vụ tĩnh từ /uploads (hỗ trợ HTTP Range để tua).
     const audioResult = await saveFile(audioFile, 'podcast-audio', true)
 
     // Save cover image (public)
@@ -149,6 +163,9 @@ export async function POST(request: NextRequest) {
     const displayOrder = displayOrderRaw ? parseInt(displayOrderRaw) : 0
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : []
     const publishedAt = publishedAtRaw ? new Date(publishedAtRaw) : null
+    // Thời lượng (giây) đo phía client; bỏ qua nếu không phải số dương hợp lệ.
+    const parsedDuration = durationRaw ? parseInt(durationRaw) : NaN
+    const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : null
 
     const podcast = await prisma.podcast.create({
       data: {
@@ -158,7 +175,7 @@ export async function POST(request: NextRequest) {
         descriptionEn: descriptionEn || null,
         audioPath: audioResult.filePath,
         audioUrl: getFileUrl(audioResult.filePath, true),
-        duration: null,
+        duration,
         fileSize: audioResult.fileSize,
         mimeType: audioResult.mimeType,
         coverImagePath,

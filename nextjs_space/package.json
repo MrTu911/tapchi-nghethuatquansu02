@@ -11,7 +11,9 @@
     "seed:production": "tsx --require dotenv/config scripts/seed-production.ts",
     "journal:split-issue": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts",
     "journal:split-issue:replace": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts --replace",
-    "journal:build-corpus": "tsx --require dotenv/config scripts/journal/build-corpus.ts"
+    "journal:build-corpus": "tsx --require dotenv/config scripts/journal/build-corpus.ts",
+    "journal:import-corpus": "tsx --require dotenv/config scripts/journal/import-corpus.ts",
+    "journal:create-author-accounts": "tsx --require dotenv/config scripts/journal/create-author-accounts.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

@@ -1,7 +1,12 @@
 /**
  * Module kiểm tra đạo văn nội bộ
- * So sánh bài nộp với tất cả bài đã có trong CSDL
- * Hỗ trợ extract text từ file PDF đã upload lên S3
+ * So sánh bài nộp / văn bản với toàn bộ kho bài trong CSDL:
+ *   - Submission (bài đang/đã qua workflow)
+ *   - Article (bài xuất bản qua peer-review)
+ *   - JournalArticle (bài trong các SỐ ĐÃ IN — kho tạp chí cũ, nguồn để chống trùng lặp)
+ *
+ * Tối ưu: tiền xử lý nguồn MỘT lần thành vector tần suất từ (TF map), so khớp tuyến tính
+ * với từng ứng viên — đủ nhanh cho kho ~vài trăm bài toàn văn.
  */
 
 import { prisma } from '@/lib/prisma'
@@ -11,9 +16,10 @@ import { extractPdfText } from '@/lib/pdf-metadata'
 export interface PlagiarismMatch {
   id: string
   title: string
-  type: 'submission' | 'article'
-  similarity: number // 0-100%
-  matchedPhrases: string[] // Các cụm từ trùng lặp
+  type: 'submission' | 'article' | 'journal'
+  similarity: number // Tương đồng tổng thể TF-IDF cosine (0-100%)
+  phraseOverlap: number // % cụm từ NGUYÊN VĂN của bài kiểm tra xuất hiện trong bài này (0-100%) — chỉ báo sao chép
+  matchedPhrases: string[] // Mẫu các cụm từ trùng (tối đa vài cụm để hiển thị)
 }
 
 export interface PlagiarismResult {
@@ -24,106 +30,303 @@ export interface PlagiarismResult {
   method: 'cosine' | 'jaccard'
 }
 
-/**
- * Tiền xử lý văn bản: loại bỏ dấu, chuyển thường, tách từ
- */
+// Ngưỡng đưa vào kết quả. Một bài được liệt kê nếu tương đồng tổng thể HOẶC độ trùng
+// cụm từ nguyên văn vượt ngưỡng — để bắt cả viết lại (cosine cao) lẫn sao chép từng đoạn
+// (phraseOverlap cao dù cosine thấp).
+const SIMILARITY_THRESHOLD = 15
+const PHRASE_OVERLAP_THRESHOLD = 8
+const MAX_MATCHES_RETURNED = 10
+const MAX_PHRASES_PER_MATCH = 5
+const NGRAM_SIZE = 4
+// Giới hạn ký tự mỗi văn bản đem so để chặn chi phí với bài quá dài (đa số ~12k ký tự).
+const MAX_COMPARE_CHARS = 40000
+// Giới hạn số bản ghi lấy từ mỗi nguồn để tránh quá tải.
+const MAX_CANDIDATES_PER_SOURCE = 1000
+
+// ─── Tiền xử lý & độ tương đồng ─────────────────────────────────────────────
+
+/** Tiền xử lý: bỏ HTML, chuyển thường, bỏ dấu tiếng Việt, tách từ, bỏ từ ngắn. */
 function preprocessText(text: string): string[] {
   if (!text) return []
-  
-  // Loại bỏ HTML tags nếu có
-  const cleanText = text.replace(/<[^>]*>/g, ' ')
-  
-  // Chuyển thường và tách từ (hỗ trợ tiếng Việt)
+  const cleanText = text.slice(0, MAX_COMPARE_CHARS).replace(/<[^>]*>/g, ' ')
   return cleanText
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Loại bỏ dấu tiếng Việt
+    .replace(/[̀-ͯ]/g, '')
     .split(/\s+/)
-    .filter(word => word.length > 2) // Bỏ từ ngắn
+    .filter((word) => word.length > 2)
+}
+
+function buildTermFreq(tokens: string[]): Map<string, number> {
+  const tf = new Map<string, number>()
+  for (const token of tokens) tf.set(token, (tf.get(token) ?? 0) + 1)
+  return tf
+}
+
+function magnitude(tf: Map<string, number>): number {
+  let sum = 0
+  for (const count of tf.values()) sum += count * count
+  return Math.sqrt(sum)
+}
+
+// ─── Vector hóa TF-IDF ───────────────────────────────────────────────────────
+//
+// Cosine trên bag-of-words thô bị thổi phồng bởi từ phổ biến theo lĩnh vực
+// (đảng, quân đội, văn hóa...) → các bài cùng chủ đề bị chấm tương tự cao dù không
+// đạo văn. Dùng TF-IDF: từ xuất hiện ở càng nhiều bài trong kho thì trọng số càng
+// thấp, nên điểm cao chỉ đến từ cụm từ ĐẶC TRƯNG trùng nhau — tín hiệu đạo văn thật.
+
+/** IDF mượt: từ phổ biến toàn kho → ~1; từ hiếm → cao hơn. */
+function buildIdf(docTokenSets: Set<string>[], totalDocs: number): Map<string, number> {
+  const df = new Map<string, number>()
+  for (const set of docTokenSets) {
+    for (const term of set) df.set(term, (df.get(term) ?? 0) + 1)
+  }
+  const idf = new Map<string, number>()
+  for (const [term, freq] of df) {
+    idf.set(term, Math.log((totalDocs + 1) / (freq + 1)) + 1)
+  }
+  return idf
+}
+
+interface WeightedVector {
+  vec: Map<string, number>
+  mag: number
+}
+
+function buildWeightedVector(tokens: string[], idf: Map<string, number>): WeightedVector {
+  const tf = buildTermFreq(tokens)
+  const vec = new Map<string, number>()
+  for (const [term, freq] of tf) {
+    const weight = idf.get(term)
+    if (weight) vec.set(term, freq * weight)
+  }
+  return { vec, mag: magnitude(vec) }
+}
+
+function cosineWeighted(a: WeightedVector, b: WeightedVector): number {
+  if (a.mag === 0 || b.mag === 0) return 0
+  const [small, large] = a.vec.size <= b.vec.size ? [a.vec, b.vec] : [b.vec, a.vec]
+  let dot = 0
+  for (const [term, weight] of small) {
+    const other = large.get(term)
+    if (other) dot += weight * other
+  }
+  return dot / (a.mag * b.mag)
+}
+
+/** Jaccard giao/hợp tập từ (phương pháp thay thế khi method = 'jaccard'). */
+function jaccard(aSet: Set<string>, bSet: Set<string>): number {
+  if (aSet.size === 0 || bSet.size === 0) return 0
+  const [small, large] = aSet.size <= bSet.size ? [aSet, bSet] : [bSet, aSet]
+  let intersection = 0
+  for (const word of small) if (large.has(word)) intersection++
+  const union = aSet.size + bSet.size - intersection
+  return union === 0 ? 0 : intersection / union
+}
+
+/** Tập n-gram (cụm NGRAM_SIZE từ liên tiếp) phân biệt của một mảng token. */
+function buildNgramSet(tokens: string[]): Set<string> {
+  const ngrams = new Set<string>()
+  for (let i = 0; i <= tokens.length - NGRAM_SIZE; i++) {
+    ngrams.add(tokens.slice(i, i + NGRAM_SIZE).join(' '))
+  }
+  return ngrams
+}
+
+interface PhraseOverlapResult {
+  /** Tỉ lệ 0..1 cụm n-gram của NGUỒN xuất hiện nguyên văn trong ứng viên (containment). */
+  ratio: number
+  /** Mẫu cụm trùng để hiển thị. */
+  samplePhrases: string[]
 }
 
 /**
- * Tính Cosine Similarity giữa 2 văn bản
- * Trả về giá trị 0-1 (sẽ nhân 100 để ra %)
+ * Containment: bao nhiêu phần văn bản NGUỒN được tìm thấy nguyên văn trong ứng viên.
+ * Đây là chỉ báo sao chép trực tiếp mạnh hơn cosine (vốn dễ bị nhiễu bởi từ phổ biến).
  */
-function cosineSimilarity(textA: string, textB: string): number {
-  const wordsA = preprocessText(textA)
-  const wordsB = preprocessText(textB)
-  
-  if (wordsA.length === 0 || wordsB.length === 0) return 0
-  
-  // Tạo tập hợp tất cả từ
-  const allWords = new Set([...wordsA, ...wordsB])
-  
-  // Tạo vector từ nhị phân (TF simplest)
-  const vecA: number[] = []
-  const vecB: number[] = []
-  
-  allWords.forEach(word => {
-    vecA.push(wordsA.filter(w => w === word).length)
-    vecB.push(wordsB.filter(w => w === word).length)
-  })
-  
-  // Tính dot product và magnitude
-  let dotProduct = 0
-  let magA = 0
-  let magB = 0
-  
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i]
-    magA += vecA[i] * vecA[i]
-    magB += vecB[i] * vecB[i]
+function computePhraseOverlap(sourceNgrams: Set<string>, candidateTokens: string[]): PhraseOverlapResult {
+  if (sourceNgrams.size === 0 || candidateTokens.length < NGRAM_SIZE) {
+    return { ratio: 0, samplePhrases: [] }
   }
-  
-  magA = Math.sqrt(magA)
-  magB = Math.sqrt(magB)
-  
-  if (magA === 0 || magB === 0) return 0
-  
-  return dotProduct / (magA * magB)
+  const candidateNgrams = buildNgramSet(candidateTokens)
+  let hits = 0
+  const samplePhrases: string[] = []
+  for (const ngram of sourceNgrams) {
+    if (!candidateNgrams.has(ngram)) continue
+    hits++
+    if (samplePhrases.length < MAX_PHRASES_PER_MATCH) samplePhrases.push(ngram)
+  }
+  return { ratio: hits / sourceNgrams.size, samplePhrases }
+}
+
+// ─── So khớp với danh sách ứng viên ─────────────────────────────────────────
+
+interface Candidate {
+  id: string
+  title: string
+  type: PlagiarismMatch['type']
+  text: string
+}
+
+interface PreprocessedDoc {
+  candidate: Candidate
+  tokens: string[]
 }
 
 /**
- * Tính Jaccard Similarity (dựa trên tập hợp từ)
+ * So nguồn với toàn bộ ứng viên. cosine dùng TF-IDF (DF tính trên chính kho ứng viên +
+ * nguồn); jaccard dùng giao/hợp tập từ. Trả các bài vượt ngưỡng tương tự.
  */
-function jaccardSimilarity(textA: string, textB: string): number {
-  const setA = new Set(preprocessText(textA))
-  const setB = new Set(preprocessText(textB))
-  
-  if (setA.size === 0 || setB.size === 0) return 0
-  
-  const intersection = new Set([...setA].filter(x => setB.has(x)))
-  const union = new Set([...setA, ...setB])
-  
-  return intersection.size / union.size
+function computeMatches(
+  sourceText: string,
+  candidates: Candidate[],
+  method: 'cosine' | 'jaccard',
+): PlagiarismMatch[] {
+  const sourceTokens = preprocessText(sourceText)
+  if (sourceTokens.length === 0) return []
+  const sourceNgrams = buildNgramSet(sourceTokens)
+
+  const docs: PreprocessedDoc[] = []
+  for (const candidate of candidates) {
+    if (candidate.text.trim().length < 50) continue
+    const tokens = preprocessText(candidate.text)
+    if (tokens.length === 0) continue
+    docs.push({ candidate, tokens })
+  }
+  if (docs.length === 0) return []
+
+  // Hàm tính tương đồng tổng thể theo method đã chọn.
+  let similarityOf: (tokens: string[]) => number
+  if (method === 'jaccard') {
+    const sourceSet = new Set(sourceTokens)
+    similarityOf = (tokens) => jaccard(sourceSet, new Set(tokens))
+  } else {
+    const idf = buildIdf([new Set(sourceTokens), ...docs.map((d) => new Set(d.tokens))], docs.length + 1)
+    const sourceVector = buildWeightedVector(sourceTokens, idf)
+    similarityOf = (tokens) => cosineWeighted(sourceVector, buildWeightedVector(tokens, idf))
+  }
+
+  const matches: PlagiarismMatch[] = []
+  for (const doc of docs) {
+    const similarity = similarityOf(doc.tokens) * 100
+    const overlap = computePhraseOverlap(sourceNgrams, doc.tokens)
+    const phraseOverlap = overlap.ratio * 100
+    // Liệt kê nếu tương đồng tổng thể HOẶC độ trùng cụm từ nguyên văn vượt ngưỡng.
+    if (similarity < SIMILARITY_THRESHOLD && phraseOverlap < PHRASE_OVERLAP_THRESHOLD) continue
+    matches.push({
+      id: doc.candidate.id,
+      title: doc.candidate.title,
+      type: doc.candidate.type,
+      similarity: Math.round(similarity * 10) / 10,
+      phraseOverlap: Math.round(phraseOverlap * 10) / 10,
+      matchedPhrases: overlap.samplePhrases,
+    })
+  }
+  return matches
 }
 
-/**
- * Tìm các cụm từ trùng lặp (n-gram matching)
- */
-function findMatchedPhrases(textA: string, textB: string, ngramSize: number = 4): string[] {
-  const wordsA = preprocessText(textA)
-  const wordsB = preprocessText(textB)
-  
-  if (wordsA.length < ngramSize || wordsB.length < ngramSize) return []
-  
-  // Tạo n-grams từ text B
-  const ngramsB = new Set<string>()
-  for (let i = 0; i <= wordsB.length - ngramSize; i++) {
-    ngramsB.add(wordsB.slice(i, i + ngramSize).join(' '))
-  }
-  
-  // Tìm các n-grams từ A xuất hiện trong B
-  const matched: string[] = []
-  for (let i = 0; i <= wordsA.length - ngramSize; i++) {
-    const ngram = wordsA.slice(i, i + ngramSize).join(' ')
-    if (ngramsB.has(ngram) && !matched.includes(ngram)) {
-      matched.push(ngram)
-    }
-  }
-  
-  return matched.slice(0, 5) // Giới hạn 5 cụm từ
+/** Điểm xếp hạng/đại diện cho một match: lấy chỉ số nghiêm trọng hơn giữa 2 tín hiệu. */
+function matchSeverity(match: PlagiarismMatch): number {
+  return Math.max(match.similarity, match.phraseOverlap)
 }
+
+function finalizeResult(
+  matches: PlagiarismMatch[],
+  totalCompared: number,
+  method: 'cosine' | 'jaccard',
+): PlagiarismResult {
+  // Xếp theo mức nghiêm trọng: bài sao chép nguyên văn nổi lên đầu kể cả khi cosine vừa phải.
+  matches.sort((a, b) => matchSeverity(b) - matchSeverity(a))
+  const score = matches.length > 0 ? matchSeverity(matches[0]) : 0
+  const averageScore = matches.length > 0
+    ? Math.round((matches.reduce((sum, m) => sum + matchSeverity(m), 0) / matches.length) * 10) / 10
+    : 0
+  return { score, averageScore, totalCompared, matches: matches.slice(0, MAX_MATCHES_RETURNED), method }
+}
+
+// ─── Nạp ứng viên từ CSDL ───────────────────────────────────────────────────
+
+/**
+ * Lấy ứng viên so khớp từ 3 nguồn. `excludeSubmissionId` để không so bài với chính nó
+ * (kể cả bài đã được xuất bản thành Article/JournalArticle của cùng submission).
+ */
+async function loadCandidates(excludeSubmissionId?: string): Promise<Candidate[]> {
+  // Loại CHÍNH bài đang kiểm tra. Article.submissionId là bắt buộc → `{ not: x }` an toàn.
+  const excludeArticleSelf = excludeSubmissionId ? { submissionId: { not: excludeSubmissionId } } : {}
+
+  // JournalArticle.submissionId nullable: hầu hết bài tạp chí cũ có submissionId = null.
+  // Prisma `{ not: x }` loại luôn hàng NULL, nên phải OR tường minh với { null } —
+  // nếu không, TOÀN BỘ kho tạp chí cũ bị bỏ khỏi phép so khớp.
+  const excludeJournalSelf = excludeSubmissionId
+    ? { OR: [{ submissionId: null }, { submissionId: { not: excludeSubmissionId } }] }
+    : {}
+
+  const [submissions, articles, journalArticles] = await Promise.all([
+    prisma.submission.findMany({
+      where: {
+        status: { notIn: ['DESK_REJECT', 'REJECTED'] },
+        ...(excludeSubmissionId ? { id: { not: excludeSubmissionId } } : {}),
+      },
+      include: { article: true },
+      take: MAX_CANDIDATES_PER_SOURCE,
+    }),
+    prisma.article.findMany({
+      where: {
+        approvalStatus: 'APPROVED',
+        ...excludeArticleSelf,
+      },
+      include: { submission: true },
+      take: MAX_CANDIDATES_PER_SOURCE,
+    }),
+    prisma.journalArticle.findMany({
+      where: {
+        status: 'PUBLISHED',
+        contentText: { not: null },
+        ...excludeJournalSelf,
+      },
+      select: { id: true, title: true, abstract: true, contentText: true },
+      take: MAX_CANDIDATES_PER_SOURCE,
+    }),
+  ])
+
+  // Dedup: bỏ Article nếu submission của nó đã có trong danh sách submission ứng viên.
+  const submissionIds = new Set(submissions.map((s) => s.id))
+
+  const candidates: Candidate[] = []
+
+  for (const submission of submissions) {
+    candidates.push({
+      id: submission.id,
+      title: submission.title,
+      type: 'submission',
+      text: [submission.title, submission.abstractVn ?? '', submission.abstractEn ?? '', submission.article?.htmlBody ?? ''].join(' '),
+    })
+  }
+
+  for (const article of articles) {
+    if (article.submissionId && submissionIds.has(article.submissionId)) continue
+    candidates.push({
+      id: article.id,
+      title: article.submission?.title ?? `Article ${article.id}`,
+      type: 'article',
+      text: [article.submission?.title ?? '', article.submission?.abstractVn ?? '', article.htmlBody ?? ''].join(' '),
+    })
+  }
+
+  for (const journalArticle of journalArticles) {
+    candidates.push({
+      id: journalArticle.id,
+      title: journalArticle.title,
+      type: 'journal',
+      text: [journalArticle.title, journalArticle.abstract ?? '', journalArticle.contentText ?? ''].join(' '),
+    })
+  }
+
+  return candidates
+}
+
+// ─── PDF text từ submission ─────────────────────────────────────────────────
 
 /**
  * Trích xuất text từ các file PDF đã upload của một submission.
@@ -132,12 +335,9 @@ function findMatchedPhrases(textA: string, textB: string, ngramSize: number = 4)
 async function extractPdfTextFromSubmission(submissionId: string): Promise<string> {
   try {
     const files = await prisma.uploadedFile.findMany({
-      where: {
-        submissionId,
-        mimeType: 'application/pdf',
-      },
+      where: { submissionId, mimeType: 'application/pdf' },
       select: { cloudStoragePath: true },
-      take: 3, // Giới hạn 3 file để tránh quá tải
+      take: 3,
     })
 
     const texts: string[] = []
@@ -154,19 +354,19 @@ async function extractPdfTextFromSubmission(submissionId: string): Promise<strin
   }
 }
 
+// ─── API công khai ──────────────────────────────────────────────────────────
+
 /**
- * Kiểm tra đạo văn cho Submission
- * So sánh với tất cả Submission và Article khác trong DB
- * Ưu tiên: title + abstract > htmlBody > PDF text (nếu không có text cấu trúc)
+ * Kiểm tra đạo văn cho Submission — so với Submission, Article và JournalArticle khác.
+ * Ưu tiên: title + abstract > htmlBody > PDF text (nếu không có text cấu trúc).
  */
 export async function checkSubmissionPlagiarism(
   submissionId: string,
-  method: 'cosine' | 'jaccard' = 'cosine'
+  method: 'cosine' | 'jaccard' = 'cosine',
 ): Promise<PlagiarismResult> {
-  // Lấy nội dung bài cần kiểm tra (bao gồm files)
   const submission = await prisma.submission.findUnique({
     where: { id: submissionId },
-    include: { article: true }
+    include: { article: true },
   })
 
   if (!submission) {
@@ -175,127 +375,45 @@ export async function checkSubmissionPlagiarism(
 
   const structuredText = [
     submission.title,
-    submission.abstractVn || '',
-    submission.abstractEn || '',
-    submission.article?.htmlBody || '',
+    submission.abstractVn ?? '',
+    submission.abstractEn ?? '',
+    submission.article?.htmlBody ?? '',
   ].join(' ').trim()
 
-  // Nếu không đủ text cấu trúc, fallback sang extract từ PDF
+  // Nếu thiếu text cấu trúc, fallback sang trích từ PDF đã upload.
   let pdfText = ''
   if (structuredText.length < 200) {
     pdfText = await extractPdfTextFromSubmission(submissionId)
   }
 
-  // Ghép nội dung: ưu tiên text cấu trúc, bổ sung PDF nếu có
   const sourceText = structuredText.length >= 50
     ? (pdfText ? `${structuredText} ${pdfText}` : structuredText)
     : pdfText
-  
+
   if (sourceText.trim().length < 50) {
-    return {
-      score: 0,
-      averageScore: 0,
-      totalCompared: 0,
-      matches: [],
-      method
-    }
+    return { score: 0, averageScore: 0, totalCompared: 0, matches: [], method }
   }
-  
-  const similarityFn = method === 'cosine' ? cosineSimilarity : jaccardSimilarity
-  const matches: PlagiarismMatch[] = []
-  
-  // Lấy tất cả Submissions khác (loại trừ DESK_REJECT và REJECTED)
-  const otherSubmissions = await prisma.submission.findMany({
-    where: {
-      id: { not: submissionId },
-      status: { notIn: ['DESK_REJECT', 'REJECTED'] }
-    },
-    include: { article: true },
-    take: 500 // Giới hạn để tránh quá tải
-  })
-  
-  // Lấy tất cả Articles đã xuất bản với submission info
-  const publishedArticles = await prisma.article.findMany({
-    where: {
-      approvalStatus: 'APPROVED',
-      submission: {
-        id: { not: submissionId } // Không so sánh với chính nó
-      }
-    },
-    include: {
-      submission: true
-    },
-    take: 500
-  })
-  
-  // So sánh với các Submissions
-  for (const other of otherSubmissions) {
-    const compareText = [
-      other.title,
-      other.abstractVn || '',
-      other.abstractEn || '',
-      other.article?.htmlBody || ''
-    ].join(' ')
-    
-    if (compareText.trim().length < 50) continue
-    
-    const similarity = similarityFn(sourceText, compareText) * 100
-    
-    if (similarity >= 15) { // Ngưỡng 15%
-      const matchedPhrases = findMatchedPhrases(sourceText, compareText)
-      matches.push({
-        id: other.id,
-        title: other.title,
-        type: 'submission',
-        similarity: Math.round(similarity * 10) / 10,
-        matchedPhrases
-      })
-    }
+
+  const candidates = await loadCandidates(submissionId)
+  const matches = computeMatches(sourceText, candidates, method)
+  return finalizeResult(matches, candidates.length, method)
+}
+
+/**
+ * Kiểm tra đạo văn từ raw text (dùng cho upload PDF trực tiếp).
+ * Không cần submission trong DB — chỉ so text với toàn bộ kho.
+ */
+export async function checkTextPlagiarism(
+  sourceText: string,
+  method: 'cosine' | 'jaccard' = 'cosine',
+): Promise<PlagiarismResult> {
+  if (sourceText.trim().length < 50) {
+    return { score: 0, averageScore: 0, totalCompared: 0, matches: [], method }
   }
-  
-  // So sánh với Articles đã xuất bản
-  for (const article of publishedArticles) {
-    // Bỏ qua nếu đã có trong danh sách submissions
-    if (matches.some(m => m.type === 'submission' && m.id === article.submissionId)) continue
-    
-    const compareText = [
-      article.submission?.title || '',
-      article.submission?.abstractVn || '',
-      article.htmlBody || ''
-    ].join(' ')
-    
-    if (compareText.trim().length < 50) continue
-    
-    const similarity = similarityFn(sourceText, compareText) * 100
-    
-    if (similarity >= 15) {
-      const matchedPhrases = findMatchedPhrases(sourceText, compareText)
-      matches.push({
-        id: article.id,
-        title: article.submission?.title || `Article ${article.id}`,
-        type: 'article',
-        similarity: Math.round(similarity * 10) / 10,
-        matchedPhrases
-      })
-    }
-  }
-  
-  // Sắp xếp theo độ tương đồng giảm dần
-  matches.sort((a, b) => b.similarity - a.similarity)
-  
-  const totalCompared = otherSubmissions.length + publishedArticles.length
-  const score = matches.length > 0 ? matches[0].similarity : 0
-  const averageScore = matches.length > 0
-    ? Math.round((matches.reduce((sum, m) => sum + m.similarity, 0) / matches.length) * 10) / 10
-    : 0
-  
-  return {
-    score,
-    averageScore,
-    totalCompared,
-    matches: matches.slice(0, 10), // Top 10 kết quả
-    method
-  }
+
+  const candidates = await loadCandidates()
+  const matches = computeMatches(sourceText, candidates, method)
+  return finalizeResult(matches, candidates.length, method)
 }
 
 /**
@@ -304,7 +422,7 @@ export async function checkSubmissionPlagiarism(
 export async function savePlagiarismReport(
   submissionId: string,
   result: PlagiarismResult,
-  userId?: string
+  userId?: string,
 ) {
   return prisma.plagiarismReport.create({
     data: {
@@ -315,74 +433,12 @@ export async function savePlagiarismReport(
       matches: result.matches as any,
       totalCompared: result.totalCompared,
       checkedBy: userId,
-      notes: `Điểm trung bình: ${result.averageScore}%. Tìm thấy ${result.matches.length} bài tương tự.`
-    }
+      notes:
+        `Mức nghiêm trọng cao nhất ${result.score}% ` +
+        `(tương đồng tổng thể + trùng cụm từ nguyên văn). ` +
+        `Tìm thấy ${result.matches.length} bài tương tự trong ${result.totalCompared} bản ghi.`,
+    },
   })
-}
-
-/**
- * Kiểm tra đạo văn từ raw text (dùng cho upload PDF trực tiếp).
- * Không cần submission trong DB — chỉ so sánh text với toàn bộ CSDL.
- */
-export async function checkTextPlagiarism(
-  sourceText: string,
-  method: 'cosine' | 'jaccard' = 'cosine'
-): Promise<PlagiarismResult> {
-  if (sourceText.trim().length < 50) {
-    return { score: 0, averageScore: 0, totalCompared: 0, matches: [], method }
-  }
-
-  const similarityFn = method === 'cosine' ? cosineSimilarity : jaccardSimilarity
-  const matches: PlagiarismMatch[] = []
-
-  const [otherSubmissions, publishedArticles] = await Promise.all([
-    prisma.submission.findMany({
-      where: { status: { notIn: ['DESK_REJECT', 'REJECTED'] } },
-      include: { article: true },
-      take: 500,
-    }),
-    prisma.article.findMany({
-      where: { approvalStatus: 'APPROVED' },
-      include: { submission: true },
-      take: 500,
-    }),
-  ])
-
-  for (const sub of otherSubmissions) {
-    const compareText = [sub.title, sub.abstractVn || '', sub.abstractEn || '', sub.article?.htmlBody || ''].join(' ')
-    if (compareText.trim().length < 50) continue
-    const similarity = similarityFn(sourceText, compareText) * 100
-    if (similarity >= 15) {
-      matches.push({
-        id: sub.id, title: sub.title, type: 'submission',
-        similarity: Math.round(similarity * 10) / 10,
-        matchedPhrases: findMatchedPhrases(sourceText, compareText),
-      })
-    }
-  }
-
-  for (const article of publishedArticles) {
-    if (matches.some(m => m.type === 'submission' && m.id === article.submissionId)) continue
-    const compareText = [article.submission?.title || '', article.submission?.abstractVn || '', article.htmlBody || ''].join(' ')
-    if (compareText.trim().length < 50) continue
-    const similarity = similarityFn(sourceText, compareText) * 100
-    if (similarity >= 15) {
-      matches.push({
-        id: article.id, title: article.submission?.title || `Article ${article.id}`, type: 'article',
-        similarity: Math.round(similarity * 10) / 10,
-        matchedPhrases: findMatchedPhrases(sourceText, compareText),
-      })
-    }
-  }
-
-  matches.sort((a, b) => b.similarity - a.similarity)
-  const totalCompared = otherSubmissions.length + publishedArticles.length
-  const score = matches.length > 0 ? matches[0].similarity : 0
-  const averageScore = matches.length > 0
-    ? Math.round((matches.reduce((sum, m) => sum + m.similarity, 0) / matches.length) * 10) / 10
-    : 0
-
-  return { score, averageScore, totalCompared, matches: matches.slice(0, 10), method }
 }
 
 /**
@@ -393,9 +449,7 @@ export async function getLatestPlagiarismReport(submissionId: string) {
     where: { submissionId },
     orderBy: { checkedAt: 'desc' },
     include: {
-      checker: {
-        select: { fullName: true, email: true }
-      }
-    }
+      checker: { select: { fullName: true, email: true } },
+    },
   })
 }
