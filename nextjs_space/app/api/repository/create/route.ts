@@ -3,6 +3,7 @@ import { getServerSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
 import { saveFile } from '@/lib/local-storage'
+import { generateSubmissionCode } from '@/lib/submission-code-generator'
 
 /**
  * Create a new article manually (for external/imported articles)
@@ -71,17 +72,8 @@ export async function POST(req: NextRequest) {
       ? keywords.split(',').map(k => k.trim()).filter(Boolean)
       : []
 
-    // Generate submission code
-    const today = new Date()
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-    const count = await prisma.submission.count({
-      where: {
-        createdAt: {
-          gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-        },
-      },
-    })
-    const code = `HCQS-${dateStr}-${String(count + 1).padStart(3, '0')}`
+    // Sinh mã bài báo qua generator chuẩn (NTQS-YYYYMMDD-NNN)
+    const code = await generateSubmissionCode()
 
     // Create submission first
     const submission = await prisma.submission.create({

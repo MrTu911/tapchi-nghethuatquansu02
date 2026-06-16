@@ -809,7 +809,7 @@ export default function ArticleManagementPage() {
               <Input
                 value={formData.doiLocal}
                 onChange={e => setFormData(prev => ({ ...prev, doiLocal: e.target.value }))}
-                placeholder="10.5567/hcqs.2025.xxx"
+                placeholder="10.59386/ntqs.2025.xxx"
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">

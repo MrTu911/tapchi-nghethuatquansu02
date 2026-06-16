@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { BookOpen, Calendar, FileText } from 'lucide-react'
 
 export const metadata = {
-  title: 'Kho Tạp chí | Tạp chí điện tử HCQS',
+  title: 'Kho Tạp chí | Tạp chí điện tử Nghệ thuật Quân sự Việt Nam',
   description: 'Danh sách các số tạp chí và bài viết đã xuất bản'
 }
 

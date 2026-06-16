@@ -1,5 +1,5 @@
 /**
- * seed-webcrawler.ts — Tapchi-HCQS
+ * seed-webcrawler.ts — Tạp chí NTQS
  *
  * Seed dữ liệu mẫu cho module Web Crawler:
  *   - 5 WebSource (nguồn web)
@@ -51,7 +51,7 @@ const QDND_RULES = {
   imageSelector: '.article-img img',
   maxPages: 3,
   delayBetweenRequests: 2000,
-  userAgent: 'Mozilla/5.0 (compatible; HCQSBot/1.0)',
+  userAgent: 'Mozilla/5.0 (compatible; NTQSBot/1.0)',
 }
 
 const HVQPh_RULES = {

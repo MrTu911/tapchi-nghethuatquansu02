@@ -20,8 +20,7 @@ interface Article {
   id: string
   title: string
   abstractVn: string
-  authorName: string
-  authorOrg: string
+  authors: string
   categoryName: string
   keywords: string[]
   publishedAt: string
@@ -181,15 +180,14 @@ export default function RepositorySearch({
                     <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mb-3">
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
-                        {article.authorName}
+                        {article.authors}
                       </span>
-                      {article.authorOrg && (
-                        <span className="text-gray-400">• {article.authorOrg}</span>
+                      {article.publishedAt && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(article.publishedAt).toLocaleDateString('vi-VN')}
+                        </span>
                       )}
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(article.publishedAt).toLocaleDateString('vi-VN')}
-                      </span>
                       <Badge variant="secondary">{article.categoryName}</Badge>
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-3 mb-3">

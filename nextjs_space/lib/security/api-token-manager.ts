@@ -32,7 +32,7 @@ export async function createApiToken(
   expiresInDays?: number
 ): Promise<{ token: string; id: string }> {
   // Tạo token ngẫu nhiên
-  const token = `hcqs_${crypto.randomBytes(32).toString('hex')}`
+  const token = `ntqs_${crypto.randomBytes(32).toString('hex')}`
   
   // Tính expiry date
   let expiresAt: Date | undefined

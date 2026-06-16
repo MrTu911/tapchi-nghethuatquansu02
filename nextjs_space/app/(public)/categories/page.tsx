@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FolderOpen } from 'lucide-react'
 
 export const metadata = {
-  title: 'Chuyên mục | Tạp chí HCQS',
+  title: 'Chuyên mục | Tạp chí Nghệ thuật Quân sự Việt Nam',
   description: 'Danh sách các chuyên mục của Tạp chí Nghệ thuật Quân sự Việt Nam'
 }
 

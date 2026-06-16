@@ -1,5 +1,5 @@
 /**
- * seed-demo-data.ts — Tapchi-HCQS
+ * seed-demo-data.ts — Tạp chí NTQS
  *
  * Tạo dữ liệu mẫu cho các bảng còn thiếu để test đầy đủ quy trình biên tập:
  *  1. Keyword         — từ khóa chuyên ngành
@@ -19,7 +19,7 @@ import 'dotenv/config'
 const db = new PrismaClient()
 
 async function main() {
-  console.log('📰 seed-demo-data.ts — Tapchi-HCQS demo data')
+  console.log('📰 seed-demo-data.ts — Tạp chí NTQS demo data')
 
   // ── 1. Keywords ──────────────────────────────────────────────────────────────
   await db.keyword.deleteMany({})

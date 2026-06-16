@@ -283,7 +283,7 @@ export class WebScraperService {
 
       const response = await fetch(imageUrl, {
         signal: controller.signal,
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HCQSBot/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NTQSBot/1.0)' },
       }).finally(() => clearTimeout(timeout))
 
       if (!response.ok) return null

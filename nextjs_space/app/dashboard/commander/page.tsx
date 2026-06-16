@@ -170,7 +170,7 @@ export default function CommanderDashboardPage() {
                     Trung tâm Chỉ huy
                   </h1>
                   <span className="hidden md:inline text-blue-300/50 text-xl">—</span>
-                  <span className="hidden md:inline text-blue-200 text-base font-normal">Tạp chí HCQS</span>
+                  <span className="hidden md:inline text-blue-200 text-base font-normal">Tạp chí Nghệ thuật Quân sự Việt Nam</span>
                 </div>
                 <p className="text-blue-200/80 text-sm mt-0.5">
                   Xin chào, <span className="font-semibold text-yellow-300">{userName}</span>

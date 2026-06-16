@@ -76,7 +76,7 @@ export async function createPasswordResetToken(email: string): Promise<{ success
  * Gửi email reset password
  */
 async function sendPasswordResetEmail(email: string, userName: string, resetLink: string) {
-  const subject = '🔑 Yêu cầu đặt lại mật khẩu - Tạp chí HCQS'
+  const subject = '🔑 Yêu cầu đặt lại mật khẩu - Tạp chí Nghệ thuật Quân sự Việt Nam'
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #059669;">Đặt lại mật khẩu</h2>

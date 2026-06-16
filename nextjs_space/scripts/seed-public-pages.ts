@@ -77,7 +77,7 @@ const PUBLIC_PAGES = [
         <h3 class="text-2xl font-bold text-gray-900 mt-8 mb-4">Liên hệ</h3>
         <p class="text-gray-700 leading-relaxed">
           Mọi thắc mắc, đóng góp ý kiến hoặc yêu cầu hợp tác, vui lòng liên hệ với Tòa soạn qua email: 
-          <a href="mailto:tapchihcqs@hvc.edu.vn" class="text-emerald-600 hover:text-emerald-700 font-semibold">tapchihcqs@hvc.edu.vn</a>
+          <a href="mailto:tapchintqsvn@gmail.com" class="text-emerald-600 hover:text-emerald-700 font-semibold">tapchintqsvn@gmail.com</a>
         </p>
       </div>
     `,
@@ -132,7 +132,7 @@ const PUBLIC_PAGES = [
                 </svg>
                 <div>
                   <p class="font-semibold">Email:</p>
-                  <a href="mailto:tapchihcqs@hvc.edu.vn" class="text-emerald-600 hover:text-emerald-700">tapchihcqs@hvc.edu.vn</a>
+                  <a href="mailto:tapchintqsvn@gmail.com" class="text-emerald-600 hover:text-emerald-700">tapchintqsvn@gmail.com</a>
                 </div>
               </div>
               
@@ -196,7 +196,7 @@ const PUBLIC_PAGES = [
         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-lg mt-8 border-l-4 border-emerald-600">
           <h3 class="text-xl font-bold text-emerald-800 mb-3">📧 Gửi tin nhắn trực tuyến</h3>
           <p class="text-gray-700 mb-4">Nếu bạn có bất kỳ thắc mắc nào, vui lòng điền form liên hệ hoặc gửi email trực tiếp đến địa chỉ của chúng tôi. Chúng tôi sẽ phản hồi trong vòng 24-48 giờ làm việc.</p>
-          <a href="mailto:tapchihcqs@hvc.edu.vn" class="inline-block bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors font-semibold">
+          <a href="mailto:tapchintqsvn@gmail.com" class="inline-block bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors font-semibold">
             Gửi email ngay
           </a>
         </div>

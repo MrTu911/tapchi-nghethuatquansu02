@@ -68,7 +68,7 @@ async function handleReminders() {
       if (daysLeft === 3 || daysLeft === 1) {
         const sent = await sendEmail({
           to: review.reviewer.email,
-          subject: `[HCQS] Nhắc nhở: Phản biện bài ${review.submission.code} - Còn ${daysLeft} ngày`,
+          subject: `[NTQS] Nhắc nhở: Phản biện bài ${review.submission.code} - Còn ${daysLeft} ngày`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1e40af;">Tạp chí Nghệ thuật Quân sự Việt Nam</h2>
@@ -119,7 +119,7 @@ async function handleReminders() {
       if (daysLeft === 3 || daysLeft === 1) {
         const sent = await sendEmail({
           to: sub.author.email,
-          subject: `[HCQS] Nhắc nhở: Chỉnh sửa bài ${sub.code} - Còn ${daysLeft} ngày`,
+          subject: `[NTQS] Nhắc nhở: Chỉnh sửa bài ${sub.code} - Còn ${daysLeft} ngày`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1e40af;">Tạp chí Nghệ thuật Quân sự Việt Nam</h2>

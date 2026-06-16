@@ -18,7 +18,11 @@
     "seed:plagiarism-demo": "tsx --require dotenv/config prisma/seed-plagiarism-demo.ts",
     "seed:nda-crawler": "tsx --require dotenv/config prisma/seed-nda-webcrawler.ts",
     "journal:set-covers": "tsx --require dotenv/config scripts/journal/set-issue-covers.ts",
-    "journal:fix-special-volumes": "tsx --require dotenv/config scripts/journal/separate-special-issue-volumes.ts"
+    "journal:fix-special-volumes": "tsx --require dotenv/config scripts/journal/separate-special-issue-volumes.ts",
+    "journal:check-pdfs": "tsx --require dotenv/config scripts/diagnostics/check-article-pdfs.ts",
+    "journal:rebuild-pdfs": "tsx --require dotenv/config scripts/journal/rebuild-missing-article-pdfs.ts",
+    "journal:generate-article-pdfs": "tsx --require dotenv/config scripts/journal/generate-demo-article-pdfs.ts",
+    "journal:build-issue-pdfs": "tsx --require dotenv/config scripts/journal/build-issue-pdfs.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

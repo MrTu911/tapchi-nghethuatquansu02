@@ -14,6 +14,12 @@ import { prisma } from '@/lib/prisma'
 /** Mốc phân tách "TÀI LIỆU THAM KHẢO" do bước import nối vào cuối contentText. */
 const REFERENCES_MARKER = 'TÀI LIỆU THAM KHẢO'
 
+/** Tên tạp chí dùng trong trích dẫn công khai (identity NTQS). */
+const JOURNAL_NAME_VI = 'Tạp chí Nghệ thuật Quân sự Việt Nam'
+
+/** Tốc độ đọc trung bình (từ/phút) để ước lượng thời gian đọc tiếng Việt. */
+const WORDS_PER_MINUTE = 200
+
 export interface PublicJournalArticleAuthor {
   name: string
   militaryRank: string | null
@@ -49,7 +55,34 @@ export interface PublicJournalArticle {
   /** Danh mục tài liệu tham khảo (mỗi dòng kèm số thứ tự gốc). */
   references: string[]
   hasFullText: boolean
+  /** Nhãn số báo đã định dạng sẵn, vd "Số 94 (2026)". */
+  issueLabel: string
+  /** Khoảng trang đã định dạng, vd "12–18" hoặc "12". */
+  pageRange: string
+  /** Số từ thân bài (phục vụ ước lượng thời gian đọc). */
+  wordCount: number
+  /** Thời gian đọc ước lượng, tối thiểu 1 phút. */
+  readingMinutes: number
+  /** Chuỗi trích dẫn chuẩn đã dựng sẵn để hiển thị/sao chép. */
+  citation: string
   issue: PublicJournalArticleIssue
+}
+
+/** Mục điều hướng nhẹ tới một bài khác trong cùng số. */
+export interface JournalArticleNavItem {
+  id: string
+  title: string
+  authorsText: string
+  sectionName: string | null
+  pageStart: number
+}
+
+/** Điều hướng đọc trong một số báo: bài trước/sau + các bài còn lại. */
+export interface IssueReadingNavigation {
+  prev: JournalArticleNavItem | null
+  next: JournalArticleNavItem | null
+  /** Các bài khác trong số (đã loại bài đang đọc), theo thứ tự trang. */
+  siblings: JournalArticleNavItem[]
 }
 
 /**
@@ -82,7 +115,17 @@ export async function getPublicJournalArticle(id: string): Promise<PublicJournal
 
   if (!article) return null
 
-  const { paragraphs, references } = splitContent(article.contentText)
+  const { paragraphs, references } = splitJournalContent(article.contentText)
+  const issueLabel = buildIssueLabel(article.issue)
+  const pageRange = formatPageRange(article.pageStart, article.pageEnd)
+  const wordCount = countWords(paragraphs)
+  const readingMinutes = Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE))
+  const citation = buildJournalCitation({
+    authorsText: article.authorsText,
+    title: article.title,
+    issueLabel,
+    pageRange,
+  })
 
   return {
     id: article.id,
@@ -104,6 +147,11 @@ export async function getPublicJournalArticle(id: string): Promise<PublicJournal
     paragraphs,
     references,
     hasFullText: paragraphs.length > 0,
+    issueLabel,
+    pageRange,
+    wordCount,
+    readingMinutes,
+    citation,
     issue: {
       id: article.issue.id,
       slug: article.issue.slug,
@@ -120,8 +168,11 @@ export async function getPublicJournalArticle(id: string): Promise<PublicJournal
  * Tách `contentText` thành thân bài + tài liệu tham khảo.
  * Định dạng nguồn (xem buildContentText khi import): các đoạn nối bằng "\n\n",
  * sau đó "\n\nTÀI LIỆU THAM KHẢO\n" rồi mỗi tài liệu một dòng.
+ *
+ * Export để các service khác (vd repository.service xem nhanh trong dashboard)
+ * dùng chung một cách tách nội dung — tránh nhân đôi logic parse.
  */
-function splitContent(contentText: string | null): { paragraphs: string[]; references: string[] } {
+export function splitJournalContent(contentText: string | null): { paragraphs: string[]; references: string[] } {
   if (!contentText) return { paragraphs: [], references: [] }
 
   const markerIndex = contentText.indexOf(REFERENCES_MARKER)
@@ -139,4 +190,79 @@ function splitContent(contentText: string | null): { paragraphs: string[]; refer
     .filter(Boolean)
 
   return { paragraphs, references }
+}
+
+/** Nhãn số báo: ưu tiên tiêu đề số, fallback "Số <number> (<year>)". */
+function buildIssueLabel(issue: { title: string | null; number: number; year: number }): string {
+  return issue.title ?? `Số ${issue.number} (${issue.year})`
+}
+
+/** Khoảng trang: "start–end" nếu có trang cuối khác trang đầu, ngược lại "start". */
+function formatPageRange(pageStart: number, pageEnd: number | null): string {
+  return pageEnd && pageEnd !== pageStart ? `${pageStart}–${pageEnd}` : `${pageStart}`
+}
+
+/** Đếm số từ thân bài để ước lượng thời gian đọc. */
+function countWords(paragraphs: string[]): number {
+  if (paragraphs.length === 0) return 0
+  return paragraphs.join(' ').split(/\s+/).filter(Boolean).length
+}
+
+/**
+ * Dựng chuỗi trích dẫn chuẩn cho bài báo trong kho số NTQS:
+ *   <Tác giả>. "<Tiêu đề>". Tạp chí Nghệ thuật Quân sự Việt Nam, <Số (năm)>, tr. <trang>.
+ */
+function buildJournalCitation(opts: {
+  authorsText: string
+  title: string
+  issueLabel: string
+  pageRange: string
+}): string {
+  const parts: string[] = []
+  const author = opts.authorsText?.trim()
+  if (author) parts.push(`${author.replace(/\.$/, '')}.`)
+  parts.push(`"${opts.title}".`)
+  parts.push(`${JOURNAL_NAME_VI}, ${opts.issueLabel}, tr. ${opts.pageRange}.`)
+  return parts.join(' ')
+}
+
+/**
+ * Điều hướng đọc trong cùng một số đã xuất bản: trả bài trước/sau theo thứ tự
+ * trang và danh sách các bài còn lại. Chỉ tính bài PUBLISHED của số PUBLISHED để
+ * không rò bài thuộc số nháp. Trả về rỗng nếu bài hiện tại không nằm trong số.
+ */
+export async function getIssueReadingNavigation(
+  issueId: string,
+  currentArticleId: string,
+): Promise<IssueReadingNavigation> {
+  const articles = await prisma.journalArticle.findMany({
+    where: { issueId, status: 'PUBLISHED', issue: { status: 'PUBLISHED' } },
+    orderBy: [{ pageStart: 'asc' }, { title: 'asc' }],
+    select: {
+      id: true,
+      title: true,
+      authorsText: true,
+      pageStart: true,
+      section: { select: { name: true } },
+    },
+  })
+
+  const items: JournalArticleNavItem[] = articles.map((a) => ({
+    id: a.id,
+    title: a.title,
+    authorsText: a.authorsText,
+    sectionName: a.section?.name ?? null,
+    pageStart: a.pageStart,
+  }))
+
+  const currentIndex = items.findIndex((a) => a.id === currentArticleId)
+  if (currentIndex === -1) {
+    return { prev: null, next: null, siblings: items }
+  }
+
+  return {
+    prev: currentIndex > 0 ? items[currentIndex - 1] : null,
+    next: currentIndex < items.length - 1 ? items[currentIndex + 1] : null,
+    siblings: items.filter((_, i) => i !== currentIndex),
+  }
 }

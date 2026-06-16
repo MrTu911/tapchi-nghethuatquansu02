@@ -234,7 +234,7 @@ function escapeXml(unsafe: string): string {
  */
 export function getCrossRefConfig(): CrossRefConfig {
   return {
-    depositorName: process.env.CROSSREF_DEPOSITOR_NAME || 'Tạp chí HCQS',
+    depositorName: process.env.CROSSREF_DEPOSITOR_NAME || 'Tạp chí Nghệ thuật Quân sự Việt Nam',
     depositorEmail: process.env.CROSSREF_DEPOSITOR_EMAIL || 'admin@journal.edu.vn',
     registrantName: process.env.CROSSREF_REGISTRANT_NAME || 'Học viện Quốc phòng',
     loginId: process.env.CROSSREF_LOGIN_ID,

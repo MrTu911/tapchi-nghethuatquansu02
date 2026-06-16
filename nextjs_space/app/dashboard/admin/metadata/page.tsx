@@ -795,7 +795,7 @@ export default function MetadataManagerPage() {
           <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
             <strong>Lưu ý:</strong> Tính năng tạo DOI tự động chỉ khả dụng khi bài viết đã được gán vào số tạp chí.
-            DOI được sinh theo định dạng chuẩn <code className="bg-blue-100 px-1 rounded">10.5567/hcqs.{'{năm}'}.{'{mã}'}</code> và cần được xác nhận trước khi đăng ký với CrossRef.
+            DOI được sinh theo định dạng chuẩn <code className="bg-blue-100 px-1 rounded">10.59386/ntqs.{'{năm}'}.{'{mã}'}</code> và cần được xác nhận trước khi đăng ký với CrossRef.
           </div>
         </div>
       </div>
@@ -875,7 +875,7 @@ export default function MetadataManagerPage() {
                     id="doi"
                     value={formData.doiLocal}
                     onChange={e => setFormData(d => ({ ...d, doiLocal: e.target.value }))}
-                    placeholder="Ví dụ: 10.5567/hcqs.2025.123"
+                    placeholder="Ví dụ: 10.59386/ntqs.2025.123"
                     className="font-mono pr-8"
                   />
                   {formData.doiLocal && (

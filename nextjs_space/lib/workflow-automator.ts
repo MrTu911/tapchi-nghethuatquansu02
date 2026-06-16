@@ -39,91 +39,91 @@ export async function triggerWorkflowEvent(
   
   switch (event) {
     case 'REVIEWER_INVITED':
-      subject = `[Tạp chí HCQS] Mời phản biện bài viết ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Mời phản biện bài viết ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Bạn được mời phản biện cho bài viết:</p>
         <p><strong>${submissionTitle}</strong> (Mã: ${submissionCode})</p>
         <p>Vui lòng đăng nhập vào hệ thống để xem chi tiết và phản hồi lời mời.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Bạn được mời phản biện bài viết ${submissionCode}`;
       break;
       
     case 'REVIEWER_DEADLINE_APPROACHING':
       const daysLeft = additionalData?.daysLeft || 3;
-      subject = `[Tạp chí HCQS] Nhắc nhở: Hạn phản biện bài ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Nhắc nhở: Hạn phản biện bài ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Đây là email nhắc nhở về hạn phản biện đang đến gần.</p>
         <p><strong>Bài viết:</strong> ${submissionTitle} (${submissionCode})</p>
         <p><strong>Thời gian còn lại:</strong> ${daysLeft} ngày</p>
         <p>Vui lòng hoàn thành phản biện trước hạn để đảm bảo tiến độ xuất bản.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Hạn phản biện bài ${submissionCode} còn ${daysLeft} ngày`;
       break;
       
     case 'REVIEW_COMPLETED':
-      subject = `[Tạp chí HCQS] Phản biện hoàn tất cho bài ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Phản biện hoàn tất cho bài ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Một phản biện viên đã hoàn tất phản biện cho bài viết:</p>
         <p><strong>${submissionTitle}</strong> (${submissionCode})</p>
         <p>Vui lòng đăng nhập để xem kết quả phản biện và đưa ra quyết định.</p>
-        <p>Trân trọng,<br/>Hệ thống Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Hệ thống Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Phản biện hoàn tất cho bài ${submissionCode}`;
       break;
       
     case 'DECISION_MADE':
       const decision = additionalData?.decision || 'PENDING';
-      subject = `[Tạp chí HCQS] Quyết định biên tập cho bài ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Quyết định biên tập cho bài ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Ban biên tập đã có quyết định cho bài viết của bạn:</p>
         <p><strong>${submissionTitle}</strong> (${submissionCode})</p>
         <p><strong>Quyết định:</strong> ${decision}</p>
         <p>Vui lòng đăng nhập để xem chi tiết và hướng dẫn tiếp theo.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Quyết định biên tập cho bài ${submissionCode}: ${decision}`;
       break;
       
     case 'REVISION_REQUESTED':
-      subject = `[Tạp chí HCQS] Yêu cầu sửa chữa bài viết ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Yêu cầu sửa chữa bài viết ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Ban biên tập yêu cầu bạn sửa chữa bài viết:</p>
         <p><strong>${submissionTitle}</strong> (${submissionCode})</p>
         <p>Vui lòng đăng nhập để xem ý kiến phản biện và nộp bản sửa chữa.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Yêu cầu sửa chữa bài viết ${submissionCode}`;
       break;
       
     case 'PAPER_PUBLISHED':
-      subject = `[Tạp chí HCQS] Bài viết ${submissionCode} đã được xuất bản`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Bài viết ${submissionCode} đã được xuất bản`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Chúc mừng! Bài viết của bạn đã được xuất bản:</p>
         <p><strong>${submissionTitle}</strong> (${submissionCode})</p>
         <p>Bạn có thể xem bài viết trên trang web của tạp chí.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Bài viết ${submissionCode} đã được xuất bản`;
       break;
       
     case 'AUTHOR_REVISION_APPROACHING':
       const revisionDays = additionalData?.daysLeft || 7;
-      subject = `[Tạp chí HCQS] Nhắc nhở: Hạn nộp bản sửa chữa ${submissionCode}`;
+      subject = `[Tạp chí Nghệ thuật Quân sự Việt Nam] Nhắc nhở: Hạn nộp bản sửa chữa ${submissionCode}`;
       htmlContent = `
         <p>Kính gửi ${recipientName},</p>
         <p>Đây là email nhắc nhở về hạn nộp bản sửa chữa.</p>
         <p><strong>Bài viết:</strong> ${submissionTitle} (${submissionCode})</p>
         <p><strong>Thời gian còn lại:</strong> ${revisionDays} ngày</p>
         <p>Vui lòng nộp bản sửa chữa trước hạn.</p>
-        <p>Trân trọng,<br/>Ban biên tập Tạp chí HCQS</p>
+        <p>Trân trọng,<br/>Ban biên tập Tạp chí Nghệ thuật Quân sự Việt Nam</p>
       `;
       notificationMessage = `Hạn nộp bản sửa chữa ${submissionCode} còn ${revisionDays} ngày`;
       break;

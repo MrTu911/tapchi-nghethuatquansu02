@@ -27,6 +27,7 @@ const FORBIDDEN_TOKENS: string[] = [
   'Học viện Hậu cần',
   'Trường Hậu cần',
   'TCKHHCQS',                // viết tắt tạp chí cũ
+  'HCQS',                    // viết tắt brand cũ (Tạp chí HCQS, prefix mã/DOI/token, [HCQS], HCQSBot...)
   '2734-9888',               // ISSN cũ (đúng phải là 1859-0454)
   'Logistics Academy',       // tên tiếng Anh của Học viện Hậu cần
   'Journal of Military Logistics', // tên tiếng Anh tạp chí cũ

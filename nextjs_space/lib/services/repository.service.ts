@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { splitJournalContent } from '@/lib/services/journal-article-reader.service'
 
 export type RepositoryArticleSource = 'PEER_REVIEW' | 'JOURNAL_IMPORT'
 
@@ -267,11 +268,13 @@ export async function searchRepository(
     return { ...result, limit, offset }
   }
 
-  // Unified: merge both sources, split limit evenly then re-sort by date
-  const half = Math.ceil(limit / 2)
+  // Unified: gộp 2 nguồn rồi sắp lại theo ngày xuất bản. Để phân trang đúng ở mọi
+  // offset, mỗi nguồn phải nạp đủ (offset + limit) bản ghi đầu — nếu chỉ nạp `limit`
+  // thì các trang sau sẽ thiếu bản ghi xếp hạng cao của một nguồn.
+  const perSourceCount = offset + limit
   const [prResult, jiResult] = await Promise.all([
-    searchPeerReviewArticles({ ...filters, limit: limit, offset: 0 }),
-    searchJournalImportArticles({ ...filters, limit: limit, offset: 0 }),
+    searchPeerReviewArticles({ ...filters, limit: perSourceCount, offset: 0 }),
+    searchJournalImportArticles({ ...filters, limit: perSourceCount, offset: 0 }),
   ])
 
   const merged = [...prResult.articles, ...jiResult.articles].sort((a, b) => {
@@ -284,6 +287,169 @@ export async function searchRepository(
   const total = prResult.total + jiResult.total
 
   return { articles: paginated, total, limit, offset }
+}
+
+/**
+ * Chi tiết một bài báo để hiển thị trực tiếp (inline) trong dashboard CSDL —
+ * không cần điều hướng sang trang đọc. Gộp hai nguồn:
+ *  - PEER_REVIEW   → metadata + abstract (toàn văn nằm ở file PDF / trang /articles)
+ *  - JOURNAL_IMPORT → metadata + abstract + toàn văn (paragraphs/references) từ contentText
+ */
+export interface RepositoryArticleDetail {
+  id: string
+  sourceType: RepositoryArticleSource
+  title: string
+  authors: string
+  authorOrg: string | null
+  categoryName: string
+  issueInfo: string
+  pages: string | null
+  publishedAt: string | null
+  views: number
+  downloads: number
+  abstractVn: string
+  abstractEn: string | null
+  keywords: string[]
+  doiLocal: string | null
+  /** Các đoạn thân bài (chỉ JOURNAL_IMPORT có toàn văn số hóa). */
+  paragraphs: string[]
+  references: string[]
+  hasFullText: boolean
+  /** URL tải/đọc PDF gốc: bài kho số phục vụ trực tiếp; bài phản biện qua endpoint download có audit. */
+  pdfUrl: string | null
+  downloadUrl: string | null
+  /** Trang đọc toàn văn công khai tương ứng (mở tab mới khi cần). */
+  fullTextHref: string
+  /** Chỉ bài PEER_REVIEW mới sửa được metadata qua CRUD repository. */
+  editable: boolean
+}
+
+/** Ghép tiền tố học hàm/học vị/quân hàm trước tên tác giả. */
+function buildAuthorDisplay(parts: (string | null | undefined)[]): string {
+  return parts.map((p) => p?.trim()).filter(Boolean).join(', ')
+}
+
+async function getPeerReviewDetail(id: string): Promise<RepositoryArticleDetail | null> {
+  const article = await prisma.article.findFirst({
+    where: { id, approvalStatus: 'APPROVED', publishedAt: { not: null } },
+    include: {
+      submission: {
+        include: {
+          author: {
+            select: { fullName: true, org: true, academicTitle: true, academicDegree: true },
+          },
+          category: { select: { name: true } },
+        },
+      },
+      issue: { include: { volume: true } },
+    },
+  })
+
+  if (!article) return null
+
+  const sub = article.submission
+  const keywords: string[] = Array.isArray(sub.keywords) ? (sub.keywords as string[]) : []
+  const authorName = buildAuthorDisplay([
+    sub.author.academicTitle,
+    sub.author.academicDegree,
+    sub.author.fullName,
+  ])
+
+  return {
+    id: article.id,
+    sourceType: 'PEER_REVIEW',
+    title: sub.title,
+    authors: authorName || sub.author.fullName,
+    authorOrg: sub.author.org ?? null,
+    categoryName: sub.category?.name ?? 'Chung',
+    issueInfo: article.issue
+      ? buildIssueInfo(article.issue.volume?.volumeNo, article.issue.number, article.issue.year)
+      : '',
+    pages: article.pages ?? null,
+    publishedAt: article.publishedAt?.toISOString() ?? null,
+    views: article.views,
+    downloads: article.downloads,
+    abstractVn: sub.abstractVn ?? '',
+    abstractEn: sub.abstractEn ?? null,
+    keywords,
+    doiLocal: article.doiLocal ?? null,
+    paragraphs: [],
+    references: [],
+    hasFullText: false,
+    pdfUrl: null,
+    downloadUrl: article.pdfFile ? `/api/repository/download/${article.id}` : null,
+    fullTextHref: `/articles/${article.id}`,
+    editable: true,
+  }
+}
+
+async function getJournalImportDetail(id: string): Promise<RepositoryArticleDetail | null> {
+  const article = await prisma.journalArticle.findFirst({
+    where: { id, status: 'PUBLISHED' },
+    include: {
+      issue: { include: { volume: true } },
+      section: { select: { name: true } },
+      authors: { orderBy: { order: 'asc' } },
+    },
+  })
+
+  if (!article) return null
+
+  const authorDisplay =
+    article.authors.length > 0
+      ? article.authors
+          .map((au) => buildAuthorDisplay([au.militaryRank, au.degree, au.name]))
+          .filter(Boolean)
+          .join('; ')
+      : article.authorsText
+
+  const authorOrg =
+    article.authors.find((au) => au.organization)?.organization ?? null
+
+  const { paragraphs, references } = splitJournalContent(article.contentText)
+
+  return {
+    id: article.id,
+    sourceType: 'JOURNAL_IMPORT',
+    title: article.title,
+    authors: authorDisplay,
+    authorOrg,
+    categoryName: article.section?.name ?? 'Chung',
+    issueInfo: buildIssueInfo(article.issue.volume?.volumeNo, article.issue.number, article.issue.year),
+    pages:
+      article.pageStart && article.pageEnd
+        ? `${article.pageStart}-${article.pageEnd}`
+        : article.pageStart
+          ? `${article.pageStart}`
+          : null,
+    publishedAt: article.issue.publishDate?.toISOString() ?? null,
+    views: 0,
+    downloads: 0,
+    abstractVn: article.abstract ?? '',
+    abstractEn: null,
+    keywords: article.keywords ?? [],
+    doiLocal: null,
+    paragraphs,
+    references,
+    hasFullText: paragraphs.length > 0,
+    pdfUrl: article.articlePdfUrl ?? null,
+    downloadUrl: null,
+    fullTextHref: `/journal-articles/${article.id}`,
+    editable: false,
+  }
+}
+
+/**
+ * Lấy chi tiết bài báo theo nguồn. `sourceType` đến từ kết quả search nên dùng để
+ * chọn đúng model (id của hai model là không gian riêng). Trả null nếu không tìm thấy.
+ */
+export async function getRepositoryArticleDetail(
+  id: string,
+  sourceType: RepositoryArticleSource,
+): Promise<RepositoryArticleDetail | null> {
+  return sourceType === 'JOURNAL_IMPORT'
+    ? getJournalImportDetail(id)
+    : getPeerReviewDetail(id)
 }
 
 export async function getRepositoryStats(yearFilter?: string): Promise<{

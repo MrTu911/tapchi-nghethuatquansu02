@@ -104,7 +104,7 @@ export async function POST(
   let doi: string
   if (customDoi) {
     if (!validateDOI(customDoi)) {
-      return errorResponse('DOI không đúng định dạng (ví dụ: 10.5567/hcqs.2025.abc123)', 400)
+      return errorResponse('DOI không đúng định dạng (ví dụ: 10.59386/ntqs.2025.abc123)', 400)
     }
     doi = customDoi
   } else if (article.doiLocal) {
