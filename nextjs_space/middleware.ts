@@ -52,27 +52,27 @@ function getDefaultDashboard(role: string): string {
  * ✅ D1: Thêm Security Headers (CSP, XSS Protection)
  */
 function addSecurityHeaders(response: NextResponse, pathname?: string): NextResponse {
-  // SKIP CSP cho /library + /data/issues — EPUB reader cần Google Fonts CDN
-  const isEbookContent = pathname?.startsWith('/data/issues/') || pathname?.startsWith('/library')
-
-  // Content Security Policy (Intranet-optimized) — whitelist Google Fonts + CDN
+  // Content Security Policy cho mạng nội bộ air-gapped (LAN, không internet):
+  // KHÔNG cho phép bất kỳ origin ngoài nào. Font/JS reader đã self-host
+  // (public/fonts, public/vendor) nên không còn cần whitelist Google Fonts/CDN,
+  // cũng không cần ngoại lệ bỏ CSP cho /library hay /data/issues.
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https:",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net",
-    // media-src: 'self' cho video/audio đã lưu; blob: cho preview cục bộ + chụp thumbnail offscreen khi upload
+    // 'unsafe-eval'/'unsafe-inline' cần cho Next.js runtime và epub.js reader (local)
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    // blob: cho ảnh trích từ file EPUB cục bộ; data: cho ảnh inline
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    // media-src: 'self' cho video/audio đã lưu cục bộ; blob: cho preview + thumbnail offscreen khi upload
     "media-src 'self' blob: data:",
     "worker-src 'self' blob:",
-    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    "frame-src 'self'",
     "frame-ancestors 'self'",
   ].join('; ')
 
-  if (!isEbookContent) {
-    response.headers.set('Content-Security-Policy', csp)
-  }
+  response.headers.set('Content-Security-Policy', csp)
   
   // XSS Protection
   response.headers.set('X-Content-Type-Options', 'nosniff')

@@ -327,7 +327,7 @@
     @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
   }
 
-  /* ── Unified Section Header (phong cách hocvienhaucan) ─────────────── */
+  /* ── Unified Section Header ───────────────────────────────────────── */
   .widget-header {
     @apply bg-[#295232] text-white px-4 py-2.5 flex items-center gap-2;
   }

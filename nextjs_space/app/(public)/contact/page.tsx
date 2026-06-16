@@ -37,13 +37,13 @@ export default async function ContactPage() {
   const contactCards = [
     {
       icon: Mail, title: 'Email tòa soạn',
-      value: info.contact_email || 'tapchi@hocvienhaucanhqd.edu.vn',
-      href: `mailto:${info.contact_email || 'tapchi@hocvienhaucanhqd.edu.vn'}`,
+      value: info.contact_email || 'tapchintqsvn@gmail.com',
+      href: `mailto:${info.contact_email || 'tapchintqsvn@gmail.com'}`,
       color: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800', iconColor: 'text-blue-600',
     },
     {
       icon: Mail, title: 'Email biên tập',
-      value: info.contact_email_editorial || info.contact_email || 'tapchi@hocvienhaucanhqd.edu.vn',
+      value: info.contact_email_editorial || info.contact_email || 'tapchintqsvn@gmail.com',
       href: `mailto:${info.contact_email_editorial || info.contact_email || ''}`,
       color: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800', iconColor: 'text-emerald-600',
     },
@@ -161,7 +161,7 @@ export default async function ContactPage() {
               <h2 className="text-base font-bold text-gray-900 dark:text-white">Gửi thư tới Ban biên tập</h2>
             </div>
             <div className="p-6">
-              <ContactForm contactEmail={info.contact_email || 'tapchi@hocvienhaucanhqd.edu.vn'} />
+              <ContactForm contactEmail={info.contact_email || 'tapchintqsvn@gmail.com'} />
             </div>
           </div>
         </div>

@@ -22,6 +22,7 @@ import { join, extname } from 'path'
 //  thuộc guard cơ học này.)
 const FORBIDDEN_TOKENS: string[] = [
   'tapchinckhhcqs',          // domain/email cũ (tapchinckhhcqs.vn / .abacusai.app)
+  'hocvienhaucan',           // domain/email cũ Học viện Hậu cần (hocvienhaucan.edu.vn, ...hqd.edu.vn)
   'HVHC',                    // viết tắt Học viện Hậu cần
   'Học viện Hậu cần',
   'Trường Hậu cần',

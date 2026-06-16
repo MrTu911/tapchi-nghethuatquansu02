@@ -21,7 +21,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 }
 
 const DEFAULT_LINKS: ExternalLink[] = [
-  { title: 'Học viện Quốc phòng', url: 'https://www.hocvienhaucan.edu.vn', icon: 'School', order: 1, isActive: true },
+  { title: 'Học viện Quốc phòng', url: 'https://www.nda.edu.vn', icon: 'School', order: 1, isActive: true },
   { title: 'Bộ Quốc phòng', url: 'https://www.mod.gov.vn', icon: 'Shield', order: 2, isActive: true },
   { title: 'Quân Đội Nhân Dân Việt Nam', url: 'https://www.qdnd.vn', icon: 'Newspaper', order: 3, isActive: true },
   { title: 'Cổng Thông tin Chính phủ', url: 'https://chinhphu.vn', icon: 'Globe', order: 4, isActive: true },

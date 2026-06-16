@@ -276,7 +276,7 @@ export default async function GuidelinesPage() {
             </div>
             <p className="text-emerald-100 text-sm leading-relaxed mb-4">
               Đăng nhập hoặc tạo tài khoản mới để bắt đầu quy trình nộp bài. Mọi thắc mắc liên hệ tòa soạn qua email:{' '}
-              <a href="mailto:tapchi@hocvienhaucanhqd.edu.vn" className="underline">tapchi@hocvienhaucanhqd.edu.vn</a>
+              <a href="mailto:tapchintqsvn@gmail.com" className="underline">tapchintqsvn@gmail.com</a>
             </p>
             <div className="flex gap-3">
               <Link href="/auth/register"

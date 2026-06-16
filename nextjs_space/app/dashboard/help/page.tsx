@@ -6,196 +6,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from '@/components/ui/accordion'
+import { getRoleLabelVi } from '@/lib/role-labels'
+import { getGuideForRole, type RoleGuide } from '@/lib/help/role-guides'
+import {
   BookOpen, Crown, ShieldHalf, ClipboardList, ArrowRight, CheckCircle2,
   PenLine, FileText, Layers, ShieldAlert, Monitor, Settings, UserCheck,
+  Target, ListOrdered, KeyRound, AlertTriangle, ExternalLink, Home,
 } from 'lucide-react'
 
 /**
- * Trung tâm Hướng dẫn sử dụng trong ứng dụng.
+ * Trung tâm Hướng dẫn sử dụng trong dashboard — Tạp chí NTQS.
  *
- * Hub tra cứu nhanh theo vai trò: ảnh màn hình + các bước chính + lối tắt tới
- * trang thao tác thật. Bản đầy đủ để in/phát hành nằm ở file .docx
- * (docs/huong-dan/*.docx) — xem mục "Tài liệu đầy đủ" cuối trang.
+ * Cô lập theo vai trò: chỉ render hướng dẫn của vai trò ĐANG ĐĂNG NHẬP
+ * (getGuideForRole(session.role) ở server) — mỗi tài khoản chỉ thấy guide của
+ * mình, không thấy vai trò khác. Nội dung từng-bước nằm ở lib/help/role-guides.ts.
  */
 
-interface RoleGuide {
-  key: string
-  role: string
-  title: string
-  icon: React.ElementType
-  dashboard: string
-  screenshot?: string
-  summary: string
-  bullets: { label: string; href: string }[]
-  note?: string
+const ICONS: Record<string, React.ElementType> = {
+  Crown, ShieldHalf, ClipboardList, FileText, Layers,
+  ShieldAlert, Monitor, Settings, UserCheck, PenLine,
 }
-
-const GUIDES: RoleGuide[] = [
-  {
-    key: 'eic',
-    role: 'EIC',
-    title: 'Tổng biên tập',
-    icon: Crown,
-    dashboard: '/dashboard/eic',
-    screenshot: '/help/screenshots/eic-dashboard.png',
-    summary:
-      'Quyền cao nhất về nội dung và là người duy nhất KÝ XUẤT BẢN. Giám sát toàn bộ quy trình, duyệt số, quản trị người dùng & phân quyền.',
-    bullets: [
-      { label: 'Bảng điều khiển & hàng chờ', href: '/dashboard/eic' },
-      { label: 'Bài cần xử lý & ra quyết định', href: '/dashboard/editor/submissions' },
-      { label: 'Ký xuất bản (Hàng đợi Sản xuất)', href: '/dashboard/layout/production' },
-      { label: 'Phân tích chi tiết', href: '/dashboard/eic/analytics' },
-      { label: 'Phân quyền RBAC', href: '/dashboard/admin/permissions' },
-    ],
-  },
-  {
-    key: 'deputy',
-    role: 'DEPUTY_EIC',
-    title: 'Phó Tổng biên tập',
-    icon: ShieldHalf,
-    dashboard: '/dashboard/deputy',
-    screenshot: '/help/screenshots/deputy-dashboard.png',
-    summary:
-      'Điều hành thường trực toàn bộ quy trình ngang Tổng biên tập, TRỪ quyền ký xuất bản cuối. Giám sát và trình bài hoàn tất lên Tổng biên tập.',
-    bullets: [
-      { label: 'Bảng điều khiển giám sát', href: '/dashboard/deputy' },
-      { label: 'Bài cần xử lý & ra quyết định', href: '/dashboard/editor/submissions' },
-      { label: 'Phân công biên tập', href: '/dashboard/managing/assignments' },
-      { label: 'Theo dõi dàn trang', href: '/dashboard/layout/production' },
-    ],
-    note: 'Không có nút Xuất bản — bước ký cuối thuộc Tổng biên tập.',
-  },
-  {
-    key: 'managing',
-    role: 'MANAGING_EDITOR',
-    title: 'Thư ký tòa soạn',
-    icon: ClipboardList,
-    dashboard: '/dashboard/managing',
-    screenshot: '/help/screenshots/managing-dashboard.png',
-    summary:
-      'Đầu mối điều phối hằng ngày: phân công bài cho biên tập viên, điều phối phản biện, theo dõi deadline và chuẩn bị số tạp chí.',
-    bullets: [
-      { label: 'Bảng điều khiển & số tạp chí', href: '/dashboard/managing' },
-      { label: 'Phân công biên tập viên', href: '/dashboard/managing/assignments' },
-      { label: 'Gán phản biện', href: '/dashboard/editor/assign-reviewers' },
-      { label: 'Quản lý Số tạp chí', href: '/dashboard/admin/issues' },
-    ],
-  },
-  {
-    key: 'section-editor',
-    role: 'SECTION_EDITOR',
-    title: 'Biên tập viên chuyên mục',
-    icon: FileText,
-    dashboard: '/dashboard/editor',
-    screenshot: '/help/screenshots/section-editor-dashboard.png',
-    summary:
-      'Xử lý các bài ĐƯỢC PHÂN CÔNG: gán phản biện, theo dõi tiến độ, ra quyết định biên tập. Chỉ thấy bài được giao cho mình.',
-    bullets: [
-      { label: 'Bài cần xử lý (được giao)', href: '/dashboard/editor/submissions' },
-      { label: 'Gán phản biện', href: '/dashboard/editor/assign-reviewers' },
-      { label: 'Quy trình & Deadline', href: '/dashboard/editor/workflow' },
-    ],
-    note: 'Không ký xuất bản, không đưa vào sản xuất, không phân công biên tập viên.',
-  },
-  {
-    key: 'layout',
-    role: 'LAYOUT_EDITOR',
-    title: 'Biên tập viên dàn trang',
-    icon: Layers,
-    dashboard: '/dashboard/layout/production',
-    screenshot: '/help/screenshots/layout-production.png',
-    summary:
-      'Phụ trách sản xuất: hiệu đính, dàn trang, hoàn thiện tệp xuất bản và metadata. Trình bài đã dàn trang lên Tổng biên tập ký.',
-    bullets: [
-      { label: 'Hàng đợi Sản xuất', href: '/dashboard/layout/production' },
-      { label: 'Kiểm tra đạo văn', href: '/dashboard/plagiarism' },
-    ],
-    note: 'Không có nút Xuất bản — bước ký cuối thuộc Tổng biên tập.',
-  },
-  {
-    key: 'reviewer',
-    role: 'REVIEWER',
-    title: 'Phản biện viên',
-    icon: UserCheck,
-    dashboard: '/dashboard/reviewer',
-    screenshot: '/help/screenshots/reviewer-dashboard.png',
-    summary:
-      'Đánh giá độc lập chất lượng khoa học của bài nộp theo nguyên tắc phản biện kín. Nhận/từ chối lời mời, nộp và sửa phản biện.',
-    bullets: [
-      { label: 'Bài cần phản biện', href: '/dashboard/reviewer/assignments' },
-      { label: 'Lịch sử phản biện', href: '/dashboard/reviewer/history' },
-    ],
-    note: 'Không liên hệ trực tiếp tác giả (blind review).',
-  },
-  {
-    key: 'author',
-    role: 'AUTHOR',
-    title: 'Tác giả',
-    icon: PenLine,
-    dashboard: '/dashboard/author',
-    screenshot: '/help/screenshots/author-dashboard.png',
-    summary:
-      'Gửi bài nghiên cứu, theo dõi quá trình phản biện, phản hồi yêu cầu chỉnh sửa và xem quyết định biên tập.',
-    bullets: [
-      { label: 'Nộp bài mới', href: '/dashboard/author/submit' },
-      { label: 'Bài đã nộp của tôi', href: '/dashboard/author/submissions' },
-      { label: 'Báo cáo công bố của tôi', href: '/dashboard/reports/publications?mode=author' },
-    ],
-  },
-  {
-    key: 'security',
-    role: 'SECURITY_AUDITOR',
-    title: 'Kiểm định bảo mật',
-    icon: ShieldAlert,
-    dashboard: '/dashboard/security',
-    screenshot: '/help/screenshots/security-dashboard.png',
-    summary:
-      'Giám sát an toàn hệ thống (cảnh báo, phiên đăng nhập, nhật ký kiểm toán) và ĐỒNG KÝ bài mật cùng Tổng biên tập (quy tắc hai người).',
-    bullets: [
-      { label: 'Bảng kiểm soát bảo mật', href: '/dashboard/security' },
-    ],
-    note: 'Đồng ký bài SECRET/TOP_SECRET — cần đủ chữ ký Tổng biên tập + Kiểm định bảo mật.',
-  },
-  {
-    key: 'commander',
-    role: 'COMMANDER',
-    title: 'Chỉ huy Học viện',
-    icon: Monitor,
-    dashboard: '/dashboard/commander',
-    screenshot: '/help/screenshots/commander-dashboard.png',
-    summary:
-      'Xem báo cáo tổng hợp, giám sát toàn cảnh hoạt động Tạp chí. Vai trò chỉ đọc, không can thiệp nghiệp vụ biên tập.',
-    bullets: [
-      { label: 'Trung tâm Chỉ huy', href: '/dashboard/commander' },
-      { label: 'Báo cáo Điều hành', href: '/dashboard/commander/report' },
-      { label: 'Báo cáo công bố (tổng hợp)', href: '/dashboard/reports/publications' },
-    ],
-  },
-  {
-    key: 'sysadmin',
-    role: 'SYSADMIN',
-    title: 'Quản trị hệ thống',
-    icon: Settings,
-    dashboard: '/dashboard/admin',
-    screenshot: '/help/screenshots/admin-dashboard.png',
-    summary:
-      'Toàn quyền kỹ thuật & vận hành: người dùng, phân quyền RBAC, tích hợp, cấu hình, bảo mật. Vai trò duy nhất gán được vai trò cấp cao.',
-    bullets: [
-      { label: 'Tất cả Người dùng', href: '/dashboard/admin/users' },
-      { label: 'Phân quyền RBAC', href: '/dashboard/admin/permissions' },
-      { label: 'Cài đặt Website', href: '/dashboard/admin/cms/settings' },
-      { label: 'Tích hợp & hệ thống', href: '/dashboard/admin/integrations' },
-    ],
-  },
-]
 
 export default async function HelpCenterPage() {
   const session = await getServerSession()
   if (!session) redirect('/auth/login')
 
-  const myRole = session.role
-  const featured = GUIDES.find(g => g.role === myRole)
-  const others = GUIDES.filter(g => g.role !== myRole)
+  const guide = getGuideForRole(session.role)
+  const roleLabel = getRoleLabelVi(session.role)
 
   return (
     <div className="space-y-6">
@@ -206,100 +45,222 @@ export default async function HelpCenterPage() {
           Trung tâm Hướng dẫn
         </h1>
         <p className="text-muted-foreground mt-1">
-          Hướng dẫn sử dụng hệ thống tạp chí điện tử theo từng vai trò. Xin chào, {session.fullName}.
+          Hướng dẫn sử dụng hệ thống theo vai trò của bạn. Xin chào, {session.fullName} ({roleLabel}).
         </p>
       </div>
 
-      {/* Featured: guide cho vai trò hiện tại */}
-      {featured && (
-        <Card className="border-emerald-200 dark:border-emerald-800 overflow-hidden">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <featured.icon className="h-5 w-5 text-emerald-700" />
-              <CardTitle>Hướng dẫn cho bạn — {featured.title}</CardTitle>
-              <Badge className="bg-emerald-700">Vai trò hiện tại</Badge>
+      {guide ? <RoleGuideView guide={guide} /> : <NoGuideFallback roleLabel={roleLabel} />}
+    </div>
+  )
+}
+
+function RoleGuideView({ guide }: { guide: RoleGuide }) {
+  const Icon = ICONS[guide.iconKey] ?? BookOpen
+  const title = getRoleLabelVi(guide.role)
+  const defaultOpen = guide.sections.map(s => s.id)
+
+  return (
+    <>
+      {/* Giới thiệu vai trò: ảnh + trách nhiệm + mục lục */}
+      <Card className="border-emerald-200 dark:border-emerald-800 overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Icon className="h-5 w-5 text-emerald-700" />
+            <CardTitle>Hướng dẫn cho bạn — {title}</CardTitle>
+            <Badge className="bg-emerald-700">Vai trò của bạn</Badge>
+          </div>
+          <CardDescription className="mt-1">{guide.summary}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 lg:grid-cols-2">
+          {guide.screenshot ? (
+            <div className="rounded-lg border overflow-hidden self-start">
+              <Image
+                src={guide.screenshot}
+                alt={`Bảng điều khiển ${title}`}
+                width={1440}
+                height={900}
+                className="w-full h-auto"
+              />
             </div>
-            <CardDescription className="mt-1">{featured.summary}</CardDescription>
+          ) : (
+            <div className="rounded-lg border bg-muted/40 flex items-center justify-center p-8 text-center self-start">
+              <p className="text-sm text-muted-foreground">
+                Mở bảng điều khiển để xem giao diện trực tiếp.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <Target className="h-4 w-4 text-emerald-600" /> Trách nhiệm chính
+              </p>
+              <ul className="space-y-1.5">
+                {guide.responsibilities.map((r, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Nội dung hướng dẫn:</p>
+              <div className="flex flex-wrap gap-2">
+                {guide.sections.map(s => (
+                  <Button key={s.id} asChild variant="secondary" size="sm">
+                    <Link href={`#${s.id}`}>{s.title}</Link>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <Button asChild className="bg-emerald-700 hover:bg-emerald-800">
+              <Link href={guide.dashboard}>
+                Mở bảng điều khiển của tôi <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Giới hạn quyền hạn */}
+      {guide.notes && guide.notes.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-5 w-5" /> Giới hạn quyền hạn cần lưu ý
+            </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-5 lg:grid-cols-2">
-            {featured.screenshot ? (
-              <div className="rounded-lg border overflow-hidden">
-                <Image
-                  src={featured.screenshot}
-                  alt={`Bảng điều khiển ${featured.title}`}
-                  width={1440}
-                  height={900}
-                  className="w-full h-auto"
-                />
-              </div>
-            ) : (
-              <div className="rounded-lg border bg-muted/40 flex items-center justify-center p-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Mở bảng điều khiển để xem giao diện trực tiếp.
-                </p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Truy cập nhanh các chức năng chính:</p>
-              {featured.bullets.map(b => (
-                <Button key={b.href} asChild variant="outline" className="w-full justify-between">
-                  <Link href={b.href}>
-                    <span className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      {b.label}
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
+          <CardContent>
+            <ul className="space-y-1.5">
+              {guide.notes.map((n, i) => (
+                <li key={i} className="text-sm text-amber-800 dark:text-amber-300">• {n}</li>
               ))}
-              {featured.note && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">⚠️ {featured.note}</p>
-              )}
-            </div>
+            </ul>
           </CardContent>
         </Card>
       )}
 
-      {/* Các vai trò lãnh đạo khác */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">
-          {featured ? 'Các vai trò lãnh đạo khác' : 'Hướng dẫn theo vai trò lãnh đạo'}
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {others.map(g => (
-            <Card key={g.key} className="flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <g.icon className="h-5 w-5 text-emerald-700" />
-                  {g.title}
-                </CardTitle>
-                <CardDescription>{g.summary}</CardDescription>
-              </CardHeader>
-              <CardContent className="mt-auto">
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={g.dashboard}>
-                    Mở bảng điều khiển <ArrowRight className="h-4 w-4 ml-1" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Chi tiết từng nhóm chức năng */}
+      <div className="space-y-4">
+        {guide.sections.map(section => (
+          <Card key={section.id} id={section.id} className="scroll-mt-20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">{section.title}</CardTitle>
+              {section.description && <CardDescription>{section.description}</CardDescription>}
+            </CardHeader>
+            <CardContent>
+              <Accordion type="multiple" defaultValue={defaultOpen} className="w-full">
+                <AccordionItem value={section.id} className="border-none">
+                  <AccordionTrigger className="py-2 text-sm text-muted-foreground">
+                    {section.functions.length} chức năng
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      {section.functions.map((fn, i) => (
+                        <div key={i} className="rounded-lg border p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="font-semibold text-emerald-900 dark:text-emerald-200">
+                              {fn.title}
+                            </h3>
+                            {fn.href && (
+                              <Button asChild variant="outline" size="sm">
+                                <Link href={fn.href}>
+                                  Mở chức năng <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+
+                          <p className="text-sm text-muted-foreground mt-1 flex items-start gap-2">
+                            <Target className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                            <span>{fn.purpose}</span>
+                          </p>
+
+                          <div className="mt-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1">
+                              <ListOrdered className="h-3.5 w-3.5" /> Các bước thực hiện
+                            </p>
+                            <ol className="list-decimal pl-5 space-y-1 text-sm marker:text-emerald-600">
+                              {fn.steps.map((step, si) => (
+                                <li key={si}>{step}</li>
+                              ))}
+                            </ol>
+                          </div>
+
+                          {fn.permission && (
+                            <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-1.5">
+                              <KeyRound className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>{fn.permission}</span>
+                            </p>
+                          )}
+                          {fn.limit && (
+                            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>{fn.limit}</span>
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Tài liệu đầy đủ */}
+      {/* Tài liệu đầy đủ (.docx) — giữ tham chiếu */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Tài liệu đầy đủ (để in / phát hành)</CardTitle>
           <CardDescription>
-            Bản chi tiết từng bước (kèm ảnh minh họa) được phát hành dạng Word (.docx) trong thư mục
-            <code className="mx-1 px-1 rounded bg-muted">docs/huong-dan/</code>:
-            <code className="mx-1">tong-bien-tap.docx</code>,
-            <code className="mx-1">pho-tong-bien-tap.docx</code>,
-            <code className="mx-1">thu-ky-toa-soan.docx</code>.
+            {guide.docx ? (
+              <>
+                Bản chi tiết từng bước (kèm ảnh minh họa) của vai trò {title} được phát hành dạng
+                Word (.docx) tại
+                <code className="mx-1 px-1 rounded bg-muted">docs/huong-dan/{guide.docx}</code>.
+              </>
+            ) : (
+              <>
+                Các bản tài liệu đầy đủ dạng Word (.docx) cho từng vai trò được phát hành trong thư mục
+                <code className="mx-1 px-1 rounded bg-muted">docs/huong-dan/</code> (vd:
+                <code className="mx-1">tong-bien-tap.docx</code>,
+                <code className="mx-1">pho-tong-bien-tap.docx</code>,
+                <code className="mx-1">thu-ky-toa-soan.docx</code>).
+              </>
+            )}
           </CardDescription>
         </CardHeader>
       </Card>
-    </div>
+    </>
+  )
+}
+
+function NoGuideFallback({ roleLabel }: { roleLabel: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-emerald-700" />
+          Chưa có hướng dẫn riêng cho vai trò {roleLabel}
+        </CardTitle>
+        <CardDescription>
+          Vai trò hiện tại của bạn chưa có bộ hướng dẫn dashboard riêng. Bạn có thể về trang chính hoặc
+          xem website công khai của Tạp chí.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <Link href="/dashboard"><Home className="h-4 w-4 mr-1" /> Về Bảng điều khiển</Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/"><ExternalLink className="h-4 w-4 mr-1" /> Mở trang công khai</Link>
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
