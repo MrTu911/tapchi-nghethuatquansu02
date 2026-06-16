@@ -80,7 +80,8 @@ export default function EpubReader({ url, title = 'Tạp chí' }: Props) {
           const doc = contents.document
           const fontLink = doc.createElement('link')
           fontLink.rel = 'stylesheet'
-          fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap'
+          // Font self-host cho LAN air-gapped (xem public/fonts/fonts.css) — không gọi Google Fonts.
+          fontLink.href = '/fonts/fonts.css'
           doc.head.appendChild(fontLink)
           const s = doc.createElement('style')
           s.textContent = `

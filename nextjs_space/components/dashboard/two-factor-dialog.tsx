@@ -2,7 +2,10 @@
 
 /**
  * ✅ Bảo mật 2 lớp — Dialog thiết lập / quản lý 2FA từ trang cài đặt.
- * Hỗ trợ 2 phương thức: Email OTP và Ứng dụng xác thực (TOTP / Google Authenticator).
+ * Phương thức cho môi trường mạng nội bộ (air-gapped): Ứng dụng xác thực TOTP
+ * (FreeOTP / Aegis / ứng dụng nội bộ) — hoạt động hoàn toàn offline.
+ * Email OTP bị ẩn vì hệ thống vận hành trên LAN không có SMTP gửi email được.
+ * Backend vẫn giữ nhánh EMAIL_OTP để tương thích các bản ghi cũ.
  */
 
 import { useState, useEffect } from 'react'
@@ -35,7 +38,8 @@ export function TwoFactorDialog({ open, onOpenChange, onSuccess }: TwoFactorDial
   const [enabled, setEnabled] = useState(false)
   const [enabledMethod, setEnabledMethod] = useState<string | null>(null)
   const [step, setStep] = useState<Step>('status')
-  const [selectedMethod, setSelectedMethod] = useState<Method>('EMAIL_OTP')
+  // Mặc định TOTP — phương thức 2FA duy nhất khả dụng trên LAN air-gapped
+  const [selectedMethod, setSelectedMethod] = useState<Method>('TOTP')
   const [code, setCode] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [totpSecret, setTotpSecret] = useState('')
@@ -199,7 +203,7 @@ export function TwoFactorDialog({ open, onOpenChange, onSuccess }: TwoFactorDial
 
   const handleClose = () => {
     setStep('status')
-    setSelectedMethod('EMAIL_OTP')
+    setSelectedMethod('TOTP')
     setCode('')
     setQrDataUrl('')
     setTotpSecret('')
@@ -258,18 +262,14 @@ export function TwoFactorDialog({ open, onOpenChange, onSuccess }: TwoFactorDial
 
             {!enabled && (
               <div className="space-y-2">
-                <Label>Chọn phương thức xác thực</Label>
-                <MethodCard
-                  value="EMAIL_OTP"
-                  icon={<Mail className="h-5 w-5" />}
-                  title="Email OTP"
-                  desc="Nhận mã 6 số qua email mỗi khi đăng nhập."
-                />
+                <Label>Phương thức xác thực</Label>
+                {/* Email OTP bị ẩn: hệ thống chạy trên LAN nội bộ, không có SMTP gửi email.
+                    Chỉ cung cấp TOTP — sinh mã offline ngay trên ứng dụng xác thực. */}
                 <MethodCard
                   value="TOTP"
                   icon={<Smartphone className="h-5 w-5" />}
-                  title="Ứng dụng xác thực"
-                  desc="Dùng Google Authenticator / Authy. Bảo mật cao hơn, không phụ thuộc email."
+                  title="Ứng dụng xác thực (TOTP)"
+                  desc="Dùng ứng dụng xác thực mã nguồn mở/nội bộ (FreeOTP, Aegis...). Sinh mã 6 số ngay trên điện thoại, hoạt động hoàn toàn offline, không phụ thuộc internet hay email."
                 />
               </div>
             )}

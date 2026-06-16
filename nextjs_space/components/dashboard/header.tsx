@@ -66,7 +66,7 @@ export default function DashboardHeader({ session, isMobileMenuOpen = false, onM
   const getRoleLabel = (role: string) => getRoleLabelVi(role)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-military-700/50 bg-gradient-to-r from-military-900 via-military-800 to-military-900 backdrop-blur-md shadow-2xl">
+    <header className="sticky top-0 z-50 w-full border-b border-military-700/50 bg-gradient-to-r from-military-900 via-military-800 to-military-900 backdrop-blur-md shadow-lg">
       <div className="max-w-full mx-auto flex h-16 items-center justify-between px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <Button
@@ -80,7 +80,11 @@ export default function DashboardHeader({ session, isMobileMenuOpen = false, onM
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            aria-label="Về trang chủ dashboard"
+            className="flex items-center gap-3 rounded-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+          >
             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
               <span className="text-military-900 font-bold text-sm">NTQS</span>
             </div>
@@ -104,7 +108,7 @@ export default function DashboardHeader({ session, isMobileMenuOpen = false, onM
                 aria-label="Tìm kiếm bài báo, người dùng"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 h-9 pl-10 pr-4 bg-military-800/50 border-military-700 text-white placeholder:text-military-300 focus:border-amber-500 focus:ring-amber-500/20 transition-colors"
+                className="w-48 lg:w-64 h-9 pl-10 pr-4 bg-military-800/50 border-military-700 text-white placeholder:text-military-300 focus:border-amber-500 focus:ring-amber-500/20 transition-colors"
               />
             </div>
           </form>

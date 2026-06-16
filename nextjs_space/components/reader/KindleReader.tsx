@@ -35,7 +35,8 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
     if (document.getElementById(id)) return
     const link = document.createElement('link')
     link.id = id; link.rel = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&subset=vietnamese&display=swap'
+    // Font self-host cho LAN air-gapped (xem public/fonts/fonts.css) — không gọi Google Fonts.
+    link.href = '/fonts/fonts.css'
     document.head.appendChild(link)
   }, [])
 

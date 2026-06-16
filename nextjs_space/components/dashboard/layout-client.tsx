@@ -44,7 +44,7 @@ export default function DashboardLayoutClient({ session, children }: DashboardLa
         onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
       <div className="flex flex-1">
-        <DashboardSidebar 
+        <DashboardSidebar
           role={session.role}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}

@@ -1,7 +1,8 @@
 
 /**
  * ✅ Phase 2: Two-Factor Authentication Service
- * Hỗ trợ Email OTP và TOTP (Google Authenticator)
+ * Hỗ trợ Email OTP (legacy) và TOTP (ứng dụng xác thực mã nguồn mở/nội bộ:
+ * FreeOTP, Aegis... — chuẩn RFC 6238, sinh mã offline, không phụ thuộc internet).
  */
 
 import { prisma } from './prisma'
@@ -19,7 +20,7 @@ export enum TwoFactorMethod {
 // Cho phép sai lệch ±1 bước thời gian (±30s) để chịu được lệch đồng hồ giữa server và app
 authenticator.options = { window: 1 }
 
-// Tên issuer hiển thị trong app Authenticator (Google Authenticator/Authy...)
+// Tên issuer hiển thị trong ứng dụng xác thực TOTP (FreeOTP/Aegis/nội bộ...)
 const TOTP_ISSUER = 'Tạp chí Nghệ thuật Quân sự Việt Nam'
 
 /** Kết quả xác thực 2FA ở bước đăng nhập */
@@ -210,7 +211,7 @@ export async function get2FAConfig(userId: string) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// TOTP (Authenticator app: Google Authenticator, Authy...)
+// TOTP (ứng dụng xác thực mã nguồn mở/nội bộ: FreeOTP, Aegis... — RFC 6238)
 // ──────────────────────────────────────────────────────────────────────────
 
 /**

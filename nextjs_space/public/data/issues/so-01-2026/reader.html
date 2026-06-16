@@ -4,11 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tạp chí Nghệ thuật Quân sự Việt Nam — Reader</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+<!-- Font & thư viện self-host cho LAN air-gapped — không gọi Google Fonts / jsdelivr -->
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/vendor/jszip-3.10.1.min.js"></script>
+<script src="/vendor/epubjs-0.3.93.min.js"></script>
 <style>
 :root {
   --bg: #F4ECD8;
@@ -495,7 +494,7 @@ async function initBook(data) {
     const doc = contents.document;
     const fontLink = doc.createElement('link');
     fontLink.rel = 'stylesheet';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap';
+    fontLink.href = '/fonts/fonts.css';
     doc.head.appendChild(fontLink);
     // Smooth page transition
     const style = doc.createElement('style');
