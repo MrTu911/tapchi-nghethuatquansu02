@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Database, Search, Plus, Edit, Eye, Download, FileText, Loader2, Filter, RefreshCw, Archive, GitMerge, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { TableScrollWrapper } from '@/components/dashboard/table-scroll-wrapper'
+import { getRepositoryArticleHref, type RepositoryArticleSource } from '@/lib/repository-link'
 
 interface Article {
   id: string
@@ -25,6 +26,7 @@ interface Article {
   issueInfo: string
   isPublic: boolean
   isDownloadable: boolean
+  sourceType: RepositoryArticleSource
 }
 
 export default function RepositoryDashboardPage() {
@@ -176,7 +178,7 @@ export default function RepositoryDashboardPage() {
                   articles.map((article) => (
                     <TableRow key={article.id}>
                       <TableCell>
-                        <Link href={`/repository/${article.id}`} className="font-medium text-gray-900 dark:text-white hover:text-sky-600 line-clamp-2">
+                        <Link href={getRepositoryArticleHref(article)} className="font-medium text-gray-900 dark:text-white hover:text-sky-600 line-clamp-2">
                           {article.title}
                         </Link>
                       </TableCell>
@@ -190,11 +192,11 @@ export default function RepositoryDashboardPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/repository/${article.id}`}>
+                            <Link href={getRepositoryArticleHref(article)}>
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
-                          {canManage && (
+                          {canManage && article.sourceType === 'PEER_REVIEW' && (
                             <Button variant="ghost" size="sm" asChild>
                               <Link href={`/dashboard/repository/${article.id}/edit`}>
                                 <Edit className="h-4 w-4" />

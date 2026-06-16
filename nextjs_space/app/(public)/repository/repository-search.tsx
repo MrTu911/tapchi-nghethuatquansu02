@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Search, Filter, FileText, User, Calendar, Tag, Download, Eye, X, Loader2 } from 'lucide-react'
+import { getRepositoryArticleHref, type RepositoryArticleSource } from '@/lib/repository-link'
 
 interface Category {
   id: string
@@ -27,6 +28,7 @@ interface Article {
   views: number
   downloads: number
   issueInfo: string
+  sourceType: RepositoryArticleSource
 }
 
 export default function RepositorySearch({ 
@@ -171,7 +173,7 @@ export default function RepositorySearch({
               {results.map((article) => (
                 <Card key={article.id} className="bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow">
                   <CardContent className="p-5">
-                    <Link href={`/repository/${article.id}`} className="block group">
+                    <Link href={getRepositoryArticleHref(article)} className="block group">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-sky-600 mb-2 line-clamp-2">
                         {article.title}
                       </h3>

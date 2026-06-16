@@ -12,11 +12,10 @@
  * Logic thuần (map/đếm/trình bày) nằm ở ./publication-report.types để test được.
  */
 
-import path from 'path'
-import fs from 'fs'
 import { Prisma, JournalArticleStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { JOURNAL_IDENTITY, REPORT_DEFAULTS } from '@/lib/constants/journal-identity'
+import { PDF_FONT_NAME, loadPdfFonts } from '@/lib/pdf/noto-fonts'
 import {
   ROLE_NONE,
   MAX_ROWS,
@@ -593,50 +592,7 @@ export async function buildPublicationReportXlsx(
 }
 
 // ── PDF builder ──────────────────────────────────────────────────────────────
-
-const PDF_FONT_NAME = 'NotoSerif'
-const FONT_REGULAR = 'NotoSerif-Regular.ttf'
-const FONT_BOLD = 'NotoSerif-Bold.ttf'
-let cachedFonts: { regular: string; bold: string } | null = null
-
-/**
- * Tìm thư mục chứa font, thử nhiều vị trí để bền vững với mọi kiểu deploy
- * (next start, standalone, cwd khác nhau). Không phụ thuộc một đường dẫn cứng.
- */
-function resolveFontDir(): string {
-  const candidates: string[] = [
-    path.join(process.cwd(), 'lib', 'fonts'),
-    path.join(process.cwd(), 'nextjs_space', 'lib', 'fonts'),
-  ]
-  if (typeof __dirname !== 'undefined') {
-    candidates.push(
-      path.join(__dirname, 'fonts'),
-      path.join(__dirname, '..', 'fonts'),
-      path.join(__dirname, '..', '..', 'lib', 'fonts'),
-      path.join(__dirname, '..', '..', '..', 'lib', 'fonts'),
-    )
-  }
-  for (const dir of candidates) {
-    try {
-      if (fs.existsSync(path.join(dir, FONT_REGULAR))) return dir
-    } catch {
-      // bỏ qua, thử ứng viên tiếp theo
-    }
-  }
-  throw new Error(
-    `Không tìm thấy font tiếng Việt cho PDF (${FONT_REGULAR}). Đã thử: ${candidates.join(' | ')}`
-  )
-}
-
-function loadPdfFonts(): { regular: string; bold: string } {
-  if (cachedFonts) return cachedFonts
-  const dir = resolveFontDir()
-  cachedFonts = {
-    regular: fs.readFileSync(path.join(dir, FONT_REGULAR)).toString('base64'),
-    bold: fs.readFileSync(path.join(dir, FONT_BOLD)).toString('base64'),
-  }
-  return cachedFonts
-}
+// Font loader (NotoSerif) dùng chung tại @/lib/pdf/noto-fonts.
 
 export async function buildPublicationReportPdf(
   report: PublicationReportPayload

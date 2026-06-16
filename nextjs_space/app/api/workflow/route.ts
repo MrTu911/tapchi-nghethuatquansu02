@@ -206,6 +206,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Fire-and-forget: kiểm tra đạo văn lại trên nội dung mới nhất khi bài vào phản biện.
+    // Dynamic import: chỉ nạp engine (kèm phụ thuộc nặng) khi thực sự cần, không ở module-load.
+    if (action === 'send_to_review') {
+      void import('@/lib/plagiarism')
+        .then((m) => m.runAutoPlagiarismCheck(submissionId, 'ON_REVIEW'))
+        .catch((err) => console.error('[workflow] auto plagiarism check failed:', err))
+    }
+
     return successResponse({
       message: 'Đã thực hiện chuyển giai đoạn',
       status: stage.target,

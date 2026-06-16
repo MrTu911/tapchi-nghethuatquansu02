@@ -207,6 +207,51 @@ async function searchJournalImportArticles(
   return { articles, total }
 }
 
+export interface PublicRepositoryHeroStats {
+  /** Tổng bài báo công khai = bài qua phản biện (Article APPROVED) + bài kho số (JournalArticle PUBLISHED). */
+  totalArticles: number
+  totalAuthors: number
+  totalCategories: number
+  /** Bài có ngày xuất bản trong 30 ngày gần nhất, gộp cả hai nguồn. */
+  recentArticles: number
+}
+
+/**
+ * Số liệu cho thẻ thống kê trang công khai /repository.
+ * Gộp cả hai nguồn để khớp với danh sách (searchRepository cũng gộp 2 nguồn),
+ * tránh tình trạng thẻ "Bài báo" hiện 0 trong khi danh sách có hàng trăm bài.
+ */
+export async function getPublicRepositoryHeroStats(): Promise<PublicRepositoryHeroStats> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+  const [
+    peerReview,
+    journalImport,
+    totalAuthors,
+    totalCategories,
+    recentPeerReview,
+    recentJournalImport,
+  ] = await Promise.all([
+    prisma.article.count({ where: { approvalStatus: 'APPROVED', publishedAt: { not: null } } }),
+    prisma.journalArticle.count({ where: { status: 'PUBLISHED' } }),
+    prisma.user.count({ where: { role: 'AUTHOR', isActive: true } }),
+    prisma.category.count(),
+    prisma.article.count({
+      where: { approvalStatus: 'APPROVED', publishedAt: { gte: thirtyDaysAgo } },
+    }),
+    prisma.journalArticle.count({
+      where: { status: 'PUBLISHED', issue: { publishDate: { gte: thirtyDaysAgo } } },
+    }),
+  ])
+
+  return {
+    totalArticles: peerReview + journalImport,
+    totalAuthors,
+    totalCategories,
+    recentArticles: recentPeerReview + recentJournalImport,
+  }
+}
+
 export async function searchRepository(
   filters: RepositorySearchFilters,
 ): Promise<RepositorySearchResult> {

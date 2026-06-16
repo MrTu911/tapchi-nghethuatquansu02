@@ -249,6 +249,12 @@ export async function POST(request: NextRequest) {
       }
     })();
 
+    // Fire-and-forget: tự động kiểm tra đạo văn khi nộp bài (tự nuốt lỗi, không chặn response).
+    // Dynamic import: chỉ nạp engine (kèm phụ thuộc nặng) khi cần, không ở module-load.
+    void import('@/lib/plagiarism')
+      .then((m) => m.runAutoPlagiarismCheck(submission.id, 'ON_SUBMIT'))
+      .catch((err) => logger.error({ context: 'SUBMISSION_AUTO_PLAGIARISM_ERROR', error: String(err) }));
+
     return NextResponse.json({
       success: true,
       data: submission,

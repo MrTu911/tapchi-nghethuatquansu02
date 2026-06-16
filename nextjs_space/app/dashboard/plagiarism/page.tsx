@@ -22,19 +22,24 @@ import { toast } from 'sonner';
 import {
   ShieldAlert, AlertTriangle, CheckCircle2, AlertCircle, Loader2,
   Eye, RefreshCw, FileSearch2, FileText, Search, ChevronRight,
-  Sparkles, ScanSearch, Upload, X, FileUp, Database,
+  Sparkles, ScanSearch, Upload, X, FileUp, Database, Download, UserCheck,
 } from 'lucide-react';
 import { TableScrollWrapper } from '@/components/dashboard/table-scroll-wrapper';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { sourceTypeLabel } from '@/lib/plagiarism/labels';
 
 /* ─────────── Types ─────────── */
+type PlagiarismSourceType = 'submission' | 'article' | 'journal' | 'news' | 'web';
+
 interface PlagiarismMatch {
   id: string; title: string;
-  type?: 'submission' | 'article';
+  type?: PlagiarismSourceType;
   similarity: number;
+  phraseOverlap?: number;
   matchedPhrases?: string[];
+  sameAuthor?: boolean;
 }
 
 interface PlagiarismReport {
@@ -154,6 +159,10 @@ function KpiCard({ count, label, gradient, textCls }: { count: number; label: st
 }
 
 /* ─────────── Matches List (shared) ─────────── */
+function matchSeverity(m: PlagiarismMatch): number {
+  return Math.max(m.similarity ?? 0, m.phraseOverlap ?? 0);
+}
+
 function MatchList({ matches }: { matches: PlagiarismMatch[] }) {
   if (matches.length === 0) return (
     <div className="text-center py-6 text-slate-400 text-sm">Không tìm thấy tài liệu tương tự</div>
@@ -161,24 +170,39 @@ function MatchList({ matches }: { matches: PlagiarismMatch[] }) {
   return (
     <div className="space-y-2">
       {matches.map((m, idx) => {
-        const mc = getScoreCfg(m.similarity);
+        const mc = getScoreCfg(matchSeverity(m));
         return (
           <div key={m.id || idx} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200 transition-colors">
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-slate-700 line-clamp-1">{m.title || `Tài liệu ${idx + 1}`}</p>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 {m.type && (
                   <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-500 font-medium">
-                    {m.type === 'submission' ? 'Bài nộp' : 'Bài xuất bản'}
+                    {sourceTypeLabel(m.type)}
                   </span>
                 )}
-                {m.matchedPhrases && m.matchedPhrases.length > 0 && (
-                  <span className="text-[11px] text-slate-400">{m.matchedPhrases.length} cụm từ trùng</span>
+                {typeof m.phraseOverlap === 'number' && m.phraseOverlap > 0 && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-600 font-medium">
+                    Trùng cụm {m.phraseOverlap.toFixed(1)}%
+                  </span>
+                )}
+                {m.sameAuthor && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 font-semibold">
+                    <UserCheck className="h-3 w-3" /> Tự đạo văn?
+                  </span>
                 )}
               </div>
+              {m.matchedPhrases && m.matchedPhrases.length > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 italic">
+                  Cụm trùng: {m.matchedPhrases.slice(0, 3).map(p => `“${p}”`).join(' · ')}
+                </p>
+              )}
             </div>
-            <div className={cn('text-sm font-bold shrink-0 tabular-nums', mc.textCls)}>
-              {m.similarity.toFixed(1)}%
+            <div className="text-right shrink-0">
+              <div className={cn('text-sm font-bold tabular-nums', mc.textCls)}>
+                {(m.similarity ?? 0).toFixed(1)}%
+              </div>
+              <div className="text-[10px] text-slate-400">tương đồng</div>
             </div>
           </div>
         );
@@ -194,16 +218,36 @@ function DetailDialog({
   report: PlagiarismReport | PdfCheckResult | null;
   onClose: () => void;
 }) {
+  const [sourceFilter, setSourceFilter] = useState<'all' | PlagiarismSourceType>('all');
+  const reportKey = report ? ('id' in report ? report.id : (report as PdfCheckResult).fileName) : null;
+  useEffect(() => { setSourceFilter('all'); }, [reportKey]);
+
   if (!report) return null;
 
   const isPdf = 'fileName' in report;
   const score = report.score;
+  const originality = Math.max(0, Math.round((100 - score) * 10) / 10);
   const cfg = getScoreCfg(score);
   const Icon = cfg.icon;
   const matchList = Array.isArray(report.matches) ? report.matches : [];
+  const reportId = !isPdf ? (report as PlagiarismReport).id : null;
   const title = isPdf ? report.fileName : getTitle(report as PlagiarismReport);
   const notes = isPdf ? null : (report as PlagiarismReport).notes;
   const checker = isPdf ? null : (report as PlagiarismReport).checker;
+
+  // Phân tích theo nguồn (suy từ chính danh sách match — không cần lưu cột riêng).
+  const breakdownMap = new Map<PlagiarismSourceType, { count: number; max: number }>();
+  for (const m of matchList) {
+    const t = (m.type ?? 'submission') as PlagiarismSourceType;
+    const cur = breakdownMap.get(t) ?? { count: 0, max: 0 };
+    cur.count += 1;
+    cur.max = Math.max(cur.max, matchSeverity(m));
+    breakdownMap.set(t, cur);
+  }
+  const breakdown = [...breakdownMap.entries()].map(([type, v]) => ({ type, count: v.count, max: Math.round(v.max * 10) / 10 }));
+  const visibleMatches = sourceFilter === 'all'
+    ? matchList
+    : matchList.filter(m => (m.type ?? 'submission') === sourceFilter);
 
   return (
     <Dialog open={!!report} onOpenChange={open => { if (!open) onClose(); }}>
@@ -226,7 +270,7 @@ function DetailDialog({
             <div className="flex-1 grid grid-cols-2 gap-3">
               {[
                 { label: 'Mức độ', value: cfg.label },
-                { label: 'Phương pháp', value: report.method },
+                { label: 'Độ độc đáo', value: `${originality}%` },
                 { label: 'Tài liệu so sánh', value: `${report.totalCompared} bài` },
                 { label: 'Trùng tìm thấy', value: `${matchList.length} bài` },
               ].map(item => (
@@ -246,6 +290,37 @@ function DetailDialog({
 
         {/* Body */}
         <div className="p-6 space-y-5">
+          {/* Export báo cáo (chỉ với báo cáo đã lưu trong CSDL) */}
+          {reportId && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 mr-1">Xuất báo cáo:</span>
+              <Button variant="outline" size="sm" className="rounded-xl gap-1.5"
+                onClick={() => window.open(`/api/plagiarism/reports/${reportId}/export?format=pdf`, '_blank')}>
+                <Download className="h-3.5 w-3.5" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-xl gap-1.5"
+                onClick={() => window.open(`/api/plagiarism/reports/${reportId}/export?format=docx`, '_blank')}>
+                <Download className="h-3.5 w-3.5" /> DOCX
+              </Button>
+            </div>
+          )}
+
+          {/* Phân tích theo nguồn */}
+          {breakdown.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Phân tích theo nguồn</p>
+              <div className="flex flex-wrap gap-2">
+                {breakdown.map(b => (
+                  <div key={b.type} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs">
+                    <span className="font-semibold text-slate-600">{sourceTypeLabel(b.type)}</span>
+                    <span className="text-slate-400">{b.count} nguồn</span>
+                    <span className={cn('font-bold', getScoreCfg(b.max).textCls)}>{b.max.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Recommendation */}
           <div className={cn('rounded-xl border p-4', cfg.bgCard)}>
             <div className="flex items-center gap-2 mb-2">
@@ -277,9 +352,25 @@ function DetailDialog({
           <div>
             <p className="flex items-center gap-2 font-semibold text-sm text-slate-700 mb-3">
               <FileText className="h-4 w-4 text-slate-400" />
-              Tài liệu tương tự ({matchList.length})
+              Tài liệu tương tự ({visibleMatches.length}{sourceFilter !== 'all' ? `/${matchList.length}` : ''})
             </p>
-            <MatchList matches={matchList} />
+            {breakdown.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button onClick={() => setSourceFilter('all')}
+                  className={cn('px-2.5 py-1 rounded-full border text-xs font-medium transition-all',
+                    sourceFilter === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
+                  Tất cả ({matchList.length})
+                </button>
+                {breakdown.map(b => (
+                  <button key={b.type} onClick={() => setSourceFilter(b.type)}
+                    className={cn('px-2.5 py-1 rounded-full border text-xs font-medium transition-all',
+                      sourceFilter === b.type ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
+                    {sourceTypeLabel(b.type)} ({b.count})
+                  </button>
+                ))}
+              </div>
+            )}
+            <MatchList matches={visibleMatches} />
           </div>
 
           {notes && (

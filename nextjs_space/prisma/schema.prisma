@@ -645,6 +645,7 @@ enum NotificationType {
   ARTICLE_PUBLISHED
   DEADLINE_APPROACHING
   DEADLINE_OVERDUE
+  PLAGIARISM_ALERT
 }
 
 model Notification {

@@ -5,27 +5,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Search, FileText, Users, Calendar, Tag, Database, BookOpen } from 'lucide-react'
 import RepositorySearch from './repository-search'
+import { getPublicRepositoryHeroStats } from '@/lib/services/repository.service'
 
 export const revalidate = 300
 
 export const metadata = {
-  title: 'Cơ sở dữ liệu bài báo | Tạp chí KHQS',
+  title: 'Cơ sở dữ liệu bài báo | Tạp chí Nghệ thuật Quân sự Việt Nam',
   description: 'Tra cứu cơ sở dữ liệu bài báo khoa học',
-}
-
-async function getStats() {
-  const [totalArticles, totalAuthors, totalCategories, recentArticles] = await Promise.all([
-    prisma.article.count({ where: { approvalStatus: 'APPROVED' } }),
-    prisma.user.count({ where: { role: 'AUTHOR', isActive: true } }),
-    prisma.category.count(),
-    prisma.article.count({
-      where: {
-        approvalStatus: 'APPROVED',
-        publishedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
-      }
-    })
-  ])
-  return { totalArticles, totalAuthors, totalCategories, recentArticles }
 }
 
 async function getCategories() {
@@ -43,7 +29,7 @@ async function getYears() {
 
 export default async function RepositoryPage() {
   const [stats, categories, years] = await Promise.all([
-    getStats(),
+    getPublicRepositoryHeroStats(),
     getCategories(),
     getYears()
   ])
@@ -58,7 +44,7 @@ export default async function RepositoryPage() {
             <h1 className="text-3xl font-bold">Cơ sở dữ liệu Bài báo Khoa học</h1>
           </div>
           <p className="text-sky-100 text-lg max-w-3xl">
-            Tra cứu, tìm kiếm và truy cập toàn bộ các bài báo đã xuất bản trong hệ thống Tạp chí Khoa học Quân sự.
+            Tra cứu, tìm kiếm và truy cập toàn bộ các bài báo đã xuất bản trong hệ thống Tạp chí Nghệ thuật Quân sự Việt Nam.
           </p>
         </div>
       </div>

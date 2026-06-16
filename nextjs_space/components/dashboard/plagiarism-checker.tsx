@@ -17,32 +17,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { 
-  Search, Loader2, AlertTriangle, CheckCircle, FileText, 
-  Clock, RefreshCw, ExternalLink, Shield, Info
+import {
+  Search, Loader2, AlertTriangle, CheckCircle, FileText,
+  Clock, RefreshCw, ExternalLink, Shield, Info, UserCheck
 } from 'lucide-react'
 import Link from 'next/link'
+import { sourceTypeLabel } from '@/lib/plagiarism/labels'
+
+type PlagiarismSourceType = 'submission' | 'article' | 'journal' | 'news' | 'web'
 
 interface PlagiarismMatch {
   id: string
   title: string
-  type: 'submission' | 'article' | 'journal'
+  type: PlagiarismSourceType
   similarity: number
   phraseOverlap?: number // % cụm từ nguyên văn trùng (báo cáo cũ có thể không có)
   matchedPhrases: string[]
+  sameAuthor?: boolean
 }
 
-// Đường dẫn và nhãn hiển thị theo loại nguồn trùng lặp
-function getMatchHref(type: PlagiarismMatch['type'], id: string): string {
+// Đường dẫn nội bộ theo loại nguồn trùng lặp (null = không có trang phù hợp theo id).
+function getMatchHref(type: PlagiarismSourceType, id: string): string | null {
   if (type === 'submission') return `/dashboard/editor/submissions/${id}`
   if (type === 'article') return `/articles/${id}`
-  return '/library' // journal: bài trong số đã in — dẫn về Thư viện số
-}
-
-function getMatchLabel(type: PlagiarismMatch['type']): string {
-  if (type === 'submission') return 'Bài nộp'
-  if (type === 'article') return 'Bài xuất bản'
-  return 'Tạp chí (số đã in)'
+  if (type === 'journal') return '/library' // bài trong số đã in — dẫn về Thư viện số
+  return null // news / web: không có trang nội bộ phù hợp theo id
 }
 
 interface PlagiarismReport {
@@ -203,6 +202,9 @@ export function PlagiarismChecker({ submissionId, submissionCode }: Props) {
                     <p className={`text-4xl font-bold ${getScoreColor(report.score)}`}>
                       {report.score}%
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Độ độc đáo: <span className="font-semibold text-emerald-600">{Math.max(0, Math.round((100 - report.score) * 10) / 10)}%</span>
+                    </p>
                   </div>
                   <div className="text-right">
                     <Badge className={getScoreBg(report.score)}>
@@ -260,19 +262,28 @@ export function PlagiarismChecker({ submissionId, submissionCode }: Props) {
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <Link
-                                    href={getMatchHref(match.type, match.id)}
-                                    className="font-medium text-blue-600 hover:underline line-clamp-1"
-                                  >
-                                    {match.title}
-                                  </Link>
+                                  {getMatchHref(match.type, match.id) ? (
+                                    <Link
+                                      href={getMatchHref(match.type, match.id) as string}
+                                      className="font-medium text-blue-600 hover:underline line-clamp-1"
+                                    >
+                                      {match.title}
+                                    </Link>
+                                  ) : (
+                                    <p className="font-medium text-gray-700 line-clamp-1">{match.title}</p>
+                                  )}
                                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <Badge variant="outline" className="text-xs">
-                                      {getMatchLabel(match.type)}
+                                      {sourceTypeLabel(match.type)}
                                     </Badge>
                                     {typeof match.phraseOverlap === 'number' && match.phraseOverlap > 0 && (
                                       <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
                                         Trùng cụm từ nguyên văn {match.phraseOverlap}%
+                                      </Badge>
+                                    )}
+                                    {match.sameAuthor && (
+                                      <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 gap-0.5">
+                                        <UserCheck className="h-3 w-3" /> Tự đạo văn?
                                       </Badge>
                                     )}
                                     {match.matchedPhrases?.length > 0 && (
