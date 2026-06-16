@@ -1,14 +1,33 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getServerSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { logAudit } from '@/lib/audit-logger';
 import { getSignedImageUrl } from '@/lib/image-utils';
+import { generateUniqueNewsSlug } from '@/lib/news-slug';
+
+/** Map tham số sort của client sang orderBy của Prisma. */
+function buildNewsOrderBy(sort: string | null): Prisma.NewsOrderByWithRelationInput[] {
+  switch (sort) {
+    case 'oldest':
+      return [{ createdAt: 'asc' }];
+    case 'most_viewed':
+      return [{ views: 'desc' }, { createdAt: 'desc' }];
+    case 'title':
+      return [{ title: 'asc' }];
+    case 'newest':
+      return [{ createdAt: 'desc' }];
+    default:
+      // Mặc định: ưu tiên tin nổi bật, rồi ngày xuất bản (giữ tương thích public site)
+      return [{ isFeatured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }];
+  }
+}
 
 /**
  * GET /api/news - Lấy danh sách tin tức
- * Query params: category, isFeatured, isPublished, page, limit
+ * Query params: category, categories, isFeatured, isPublished, keyword, sort, page, limit
  */
 export async function GET(req: NextRequest) {
   try {
@@ -17,11 +36,13 @@ export async function GET(req: NextRequest) {
     const categories = searchParams.get('categories'); // comma-separated, e.g. "announcement,event"
     const isFeatured = searchParams.get('isFeatured');
     const isPublished = searchParams.get('isPublished');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const keyword = searchParams.get('keyword')?.trim();
+    const sort = searchParams.get('sort');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.NewsWhereInput = {};
 
     if (categories) {
       where.category = { in: categories.split(',').map(s => s.trim()).filter(Boolean) };
@@ -31,14 +52,19 @@ export async function GET(req: NextRequest) {
     if (isFeatured !== null) where.isFeatured = isFeatured === 'true';
     if (isPublished !== null) where.isPublished = isPublished === 'true';
 
+    // Tìm kiếm theo tiêu đề (VI/EN) và tóm tắt — chạy ở DB, không lọc phía client
+    if (keyword) {
+      where.OR = [
+        { title: { contains: keyword, mode: 'insensitive' } },
+        { titleEn: { contains: keyword, mode: 'insensitive' } },
+        { summary: { contains: keyword, mode: 'insensitive' } },
+      ];
+    }
+
     const [news, total] = await Promise.all([
       prisma.news.findMany({
         where,
-        orderBy: [
-          { isFeatured: 'desc' },
-          { publishedAt: 'desc' },
-          { createdAt: 'desc' }
-        ],
+        orderBy: buildNewsOrderBy(sort),
         take: limit,
         skip,
         include: {
@@ -106,6 +132,7 @@ export async function POST(req: NextRequest) {
       coverImage,
       category,
       tags,
+      slug: slugInput,
       isPublished,
       isFeatured,
       publishedAt
@@ -116,24 +143,10 @@ export async function POST(req: NextRequest) {
       return errorResponse('Thiếu tiêu đề hoặc nội dung', 400);
     }
 
-    // Tạo slug từ title
-    const slug = title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // remove accents
-      .replace(/[đĐ]/g, 'd')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .substring(0, 100);
-
-    // Kiểm tra slug trùng
-    let finalSlug = slug;
-    let counter = 1;
-    while (await prisma.news.findUnique({ where: { slug: finalSlug } })) {
-      finalSlug = `${slug}-${counter}`;
-      counter++;
-    }
+    // Slug: ưu tiên slug người dùng nhập, nếu trống thì sinh từ tiêu đề (dedupe)
+    const finalSlug = await generateUniqueNewsSlug(
+      slugInput && String(slugInput).trim() ? String(slugInput) : title,
+    );
 
     const news = await prisma.news.create({
       data: {
