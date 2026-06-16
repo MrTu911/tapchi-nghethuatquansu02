@@ -115,6 +115,17 @@ Claude phải ưu tiên:
 
 Không ưu tiên "code nhanh" hơn "code đúng".
 
+## 2.1. Nguyên tắc HOÀN CHỈNH — KHÔNG GIẢ ĐỊNH
+
+Mọi giải pháp code phải **làm thật, hoàn chỉnh và tối ưu**:
+
+- **Làm hoàn chỉnh**: triển khai đầy đủ end-to-end (route → service → repository → UI nếu cần). Không để lại stub, `TODO`, hàm rỗng, hay nhánh xử lý còn dang dở rồi báo "đã xong".
+- **Không giả định**: không đoán tên field/model/API/biến môi trường. Phải đọc schema, đọc code thật, kiểm chứng (grep/đọc file/chạy thử) trước khi dùng. Nếu một giả định là bắt buộc, phải nói rõ và xác minh được.
+- **Không mock giả vờ chạy**: không trả về dữ liệu giả, placeholder, hay logic "tạm cho qua" rồi coi như tính năng hoạt động. Trừ khi user yêu cầu rõ là prototype/mock.
+- **Làm thật**: code phải chạy được, tích hợp đúng vào hệ thống hiện có, xử lý đủ edge case và error path quan trọng — không chỉ happy path.
+- **Tối ưu**: chọn cấu trúc dữ liệu, truy vấn DB (index, tránh N+1), và thuật toán hợp lý cho quy mô dữ liệu thật; không tối ưu hóa thái quá làm rối code.
+- **Trung thực kết quả**: nếu còn thiếu phần nào, test fail, hoặc một bước bị bỏ qua — phải nói rõ, không che giấu.
+
 ---
 
 # 3. CẤU TRÚC REPO

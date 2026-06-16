@@ -14,6 +14,15 @@ Giữ code nhất quán, dễ đọc, dễ review, dễ mở rộng, giảm lỗ
 - Ưu tiên early return để giảm nesting sâu.
 - Không dùng magic number hoặc magic string nếu giá trị đó có ý nghĩa nghiệp vụ.
 
+## Hoàn chỉnh — không giả định (làm thật, tối ưu)
+
+- Giải pháp phải hoàn chỉnh end-to-end, không để lại stub/`TODO`/hàm rỗng rồi báo "đã xong".
+- Không giả định tên field/model/API/env — phải đọc code và kiểm chứng trước khi dùng.
+- Không mock dữ liệu hay logic "tạm cho qua" rồi coi như tính năng đã chạy (trừ khi user yêu cầu rõ là prototype).
+- Code phải chạy thật, tích hợp đúng vào hệ thống, xử lý đủ edge case và error path quan trọng — không chỉ happy path.
+- Tối ưu hợp lý cho quy mô dữ liệu thật (index, tránh N+1, chọn thuật toán phù hợp) nhưng không tối ưu thái quá làm rối code.
+- Nếu còn thiếu/chưa làm được phần nào, phải nói rõ thay vì che giấu.
+
 ---
 
 ## Quy tắc đặt tên
