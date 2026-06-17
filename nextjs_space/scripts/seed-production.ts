@@ -1,95 +1,174 @@
-import { PrismaClient } from '@prisma/client'
+/**
+ * Seed dữ liệu DÀN TRANG & XUẤT BẢN — Tạp chí Nghệ thuật Quân sự Việt Nam.
+ *
+ * Tạo dữ liệu kiểm thử end-to-end cho:
+ *   - Hàng đợi sản xuất / dàn trang  → /dashboard/layout/production
+ *   - Quản lý & xuất bản số tạp chí   → /dashboard/managing/issues
+ *
+ * Nguyên tắc:
+ *   - Tái sử dụng biên tập viên NTQS đã có (tongbientap@, bientapchinh@,
+ *     dangtrang@tapchintqsvn.edu.vn). Chỉ tạo mới nếu thiếu (đúng branding NTQS).
+ *   - Tái sử dụng 9 chuyên mục NTQS đã seed (CLQS, NTTC, CDH, CTH, LSQS, HTQP,
+ *     GDQS...). Không tạo danh mục trùng.
+ *   - Idempotent: chạy lại không nhân đôi dữ liệu.
+ *   - Toàn bộ định danh, nội dung đúng thương hiệu NTQS — Học viện Quốc phòng.
+ *
+ * Chạy: npm run seed:production
+ */
+import { PrismaClient, type SubmissionStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const PLACEHOLDER_LAYOUT_URL = 'https://storage.example.com/placeholder-layout.pdf'
+// File layout/PDF chỉ là placeholder cho dữ liệu demo (chưa có file thật).
+const PLACEHOLDER_LAYOUT_URL = '/uploads/demo/ntqs-layout-placeholder.pdf'
+const AUTHOR_PASSWORD = 'Tacgia@2026'
 
-const articleTitles = [
-  'Nghiên cứu ứng dụng công nghệ thông tin trong quản lý hậu cần quân sự',
-  'Phương pháp tối ưu hóa chuỗi cung ứng trong môi trường quân sự',
-  'Đánh giá hiệu quả hệ thống quản lý kho vũ khí trang bị hiện đại',
-  'Mô hình dự báo nhu cầu vật tư hậu cần trong tình huống khẩn cấp',
-  'Ứng dụng trí tuệ nhân tạo trong phân tích dữ liệu hậu cần chiến lược',
+// ── Biên tập viên NTQS (theo seed lãnh đạo đã có) ─────────────────────────────
+const EIC_EMAIL = 'tongbientap@tapchintqsvn.edu.vn'
+const MANAGING_EMAIL = 'bientapchinh@tapchintqsvn.edu.vn'
+
+// ── Tác giả demo (định danh quân sự NTQS) ─────────────────────────────────────
+const authorSeeds = [
+  { fullName: 'Đại tá, TS Nguyễn Mạnh Hùng', email: 'demo-author-1@tacgia.ntqs.local', org: 'Học viện Quốc phòng', rank: 'Đại tá', academicDegree: 'Tiến sĩ' },
+  { fullName: 'Thượng tá, TS Trần Quang Vinh', email: 'demo-author-2@tacgia.ntqs.local', org: 'Viện Chiến lược Quốc phòng', rank: 'Thượng tá', academicDegree: 'Tiến sĩ' },
+  { fullName: 'Trung tá, ThS Lê Đức Anh', email: 'demo-author-3@tacgia.ntqs.local', org: 'Học viện Lục quân', rank: 'Trung tá', academicDegree: 'Thạc sĩ' },
+  { fullName: 'Đại tá, PGS.TS Phạm Văn Thành', email: 'demo-author-4@tacgia.ntqs.local', org: 'Bộ Tổng Tham mưu', rank: 'Đại tá', academicDegree: 'Tiến sĩ' },
+  { fullName: 'Thiếu tá, ThS Hoàng Minh Tuấn', email: 'demo-author-5@tacgia.ntqs.local', org: 'Học viện Quốc phòng', rank: 'Thiếu tá', academicDegree: 'Thạc sĩ' },
 ]
 
-const articleAbstracts = [
-  'Bài báo nghiên cứu việc ứng dụng các hệ thống thông tin hiện đại nhằm nâng cao hiệu quả quản lý hậu cần trong Quân đội nhân dân Việt Nam. Kết quả cho thấy việc số hóa quy trình quản lý giúp giảm thiểu sai sót và tăng năng suất công tác.',
-  'Nghiên cứu đề xuất mô hình tối ưu hóa chuỗi cung ứng phù hợp với đặc thù hoạt động quân sự, đảm bảo tính kịp thời và hiệu quả trong việc đáp ứng nhu cầu tác chiến.',
-  'Phân tích và đánh giá toàn diện hệ thống quản lý kho vũ khí trang bị hiện đại, đề xuất các giải pháp cải tiến nhằm nâng cao độ chính xác và an toàn trong quản lý trang bị kỹ thuật.',
-  'Xây dựng mô hình dự báo khoa học cho nhu cầu vật tư hậu cần trong các tình huống khẩn cấp, góp phần đảm bảo sẵn sàng chiến đấu cao của đơn vị.',
-  'Ứng dụng các thuật toán học máy và trí tuệ nhân tạo vào phân tích dữ liệu lớn trong lĩnh vực hậu cần chiến lược, mở ra hướng nghiên cứu mới cho quản lý hậu cần quân đội.',
+// ── Chuyên mục NTQS dùng cho bài demo (fallback nếu chưa có trong DB) ──────────
+const categoryFallback: Record<string, { name: string; slug: string }> = {
+  NTTC: { name: 'Nghệ thuật tác chiến', slug: 'nghe-thuat-tac-chien' },
+  CDH: { name: 'Chiến dịch học', slug: 'chien-dich-hoc' },
+  CLQS: { name: 'Chiến lược quân sự', slug: 'chien-luoc-quan-su' },
+  CTH: { name: 'Chiến thuật học', slug: 'chien-thuat-hoc' },
+  LSQS: { name: 'Lịch sử quân sự', slug: 'lich-su-quan-su' },
+  HTQP: { name: 'Hợp tác quốc phòng', slug: 'hop-tac-quoc-phong' },
+  GDQS: { name: 'Giáo dục quân sự', slug: 'giao-duc-quan-su' },
+}
+
+// ── Bài viết demo (nội dung nghệ thuật quân sự) ───────────────────────────────
+interface ArticleSeed {
+  title: string
+  abstract: string
+  categoryCode: string
+  keywords: string[]
+}
+
+const inProductionArticles: Array<ArticleSeed & { authorIdx: number; assignToDraft: boolean; pages: string | null; withCopyedit: boolean; daysAgo: number }> = [
+  {
+    title: 'Nghệ thuật tạo và nắm thời cơ trong chiến dịch tiến công của Quân đội nhân dân Việt Nam',
+    abstract: 'Bài viết phân tích nghệ thuật tạo lập, phát hiện và chớp thời cơ trong các chiến dịch tiến công, từ thực tiễn lịch sử đến yêu cầu tác chiến hiện đại, đề xuất giải pháp vận dụng vào huấn luyện và sẵn sàng chiến đấu.',
+    categoryCode: 'NTTC',
+    keywords: ['nghệ thuật quân sự', 'chiến dịch tiến công', 'thời cơ'],
+    authorIdx: 0, assignToDraft: true, pages: '5-18', withCopyedit: true, daysAgo: 12,
+  },
+  {
+    title: 'Phát triển lý luận nghệ thuật chiến dịch trong điều kiện chiến tranh sử dụng vũ khí công nghệ cao',
+    abstract: 'Nghiên cứu làm rõ những phát triển mới của lý luận nghệ thuật chiến dịch khi đối phương sử dụng vũ khí công nghệ cao, nhấn mạnh yêu cầu về tổ chức thế trận, hiệp đồng quân binh chủng và bảo đảm tác chiến.',
+    categoryCode: 'CDH',
+    keywords: ['nghệ thuật chiến dịch', 'vũ khí công nghệ cao', 'hiệp đồng'],
+    authorIdx: 1, assignToDraft: true, pages: '19-32', withCopyedit: false, daysAgo: 22,
+  },
+  {
+    title: 'Vận dụng tư tưởng quân sự Hồ Chí Minh trong xây dựng thế trận quốc phòng toàn dân thời kỳ mới',
+    abstract: 'Bài viết hệ thống hóa giá trị cốt lõi trong tư tưởng quân sự Hồ Chí Minh và đề xuất hướng vận dụng vào xây dựng thế trận quốc phòng toàn dân gắn với thế trận an ninh nhân dân trong tình hình mới.',
+    categoryCode: 'CLQS',
+    keywords: ['tư tưởng quân sự Hồ Chí Minh', 'quốc phòng toàn dân', 'thế trận'],
+    authorIdx: 3, assignToDraft: false, pages: null, withCopyedit: false, daysAgo: 35,
+  },
+  {
+    title: 'Nghệ thuật nghi binh, lừa địch trong chiến thuật tiến công của phân đội bộ binh',
+    abstract: 'Nghiên cứu các hình thức nghi binh, lừa địch ở cấp phân đội bộ binh trong chiến thuật tiến công; rút ra bài học và đề xuất nội dung huấn luyện phù hợp với trang bị, địa hình tác chiến hiện nay.',
+    categoryCode: 'CTH',
+    keywords: ['nghi binh', 'chiến thuật tiến công', 'phân đội bộ binh'],
+    authorIdx: 2, assignToDraft: false, pages: null, withCopyedit: false, daysAgo: 6,
+  },
 ]
 
-const authorNames = [
-  { fullName: 'Đại tá Nguyễn Văn Minh', email: 'author-prod-1@hcqs.edu.vn', org: 'Học viện Quốc phòng', rank: 'Đại tá', academicDegree: 'Tiến sĩ' },
-  { fullName: 'Thượng tá Trần Thị Hương', email: 'author-prod-2@hcqs.edu.vn', org: 'Bộ Tham mưu - Tổng cục Hậu cần', rank: 'Thượng tá', academicDegree: 'Thạc sĩ' },
-  { fullName: 'Trung tá Lê Quang Dũng', email: 'author-prod-3@hcqs.edu.vn', org: 'Cục Quân nhu', rank: 'Trung tá', academicDegree: 'Tiến sĩ' },
-  { fullName: 'Thiếu tá Phạm Hữu Long', email: 'author-prod-4@hcqs.edu.vn', org: 'Cục Vận tải', rank: 'Thiếu tá', academicDegree: 'Thạc sĩ' },
-  { fullName: 'Đại úy Hoàng Thanh Lan', email: 'author-prod-5@hcqs.edu.vn', org: 'Học viện Quốc phòng', rank: 'Đại úy', academicDegree: 'Thạc sĩ' },
+const publishedArticles: Array<ArticleSeed & { authorIdx: number; pages: string; doi: string }> = [
+  {
+    title: 'Bài học về tổ chức và sử dụng lực lượng trong Chiến dịch Hồ Chí Minh năm 1975',
+    abstract: 'Bài viết khái quát nghệ thuật tổ chức, sử dụng lực lượng trong Chiến dịch Hồ Chí Minh, làm rõ bài học về tập trung binh lực, chia cắt chiến lược và phát triển tiến công, có ý nghĩa vận dụng đến hôm nay.',
+    categoryCode: 'LSQS',
+    keywords: ['Chiến dịch Hồ Chí Minh', 'sử dụng lực lượng', 'lịch sử quân sự'],
+    authorIdx: 0, pages: '33-46', doi: 'NTQS.2026.04.001',
+  },
+  {
+    title: 'Tăng cường hợp tác quốc phòng song phương góp phần bảo vệ chủ quyền biển, đảo',
+    abstract: 'Nghiên cứu vai trò của hợp tác quốc phòng song phương trong bảo vệ chủ quyền biển, đảo; đề xuất giải pháp nâng cao hiệu quả đối ngoại quốc phòng phù hợp đường lối độc lập, tự chủ.',
+    categoryCode: 'HTQP',
+    keywords: ['hợp tác quốc phòng', 'chủ quyền biển đảo', 'đối ngoại quốc phòng'],
+    authorIdx: 4, pages: '47-58', doi: 'NTQS.2026.04.002',
+  },
+  {
+    title: 'Đổi mới phương pháp huấn luyện chiến thuật tại các học viện, nhà trường quân đội',
+    abstract: 'Bài viết đánh giá thực trạng và đề xuất đổi mới phương pháp huấn luyện chiến thuật tại các học viện, nhà trường quân đội theo hướng sát thực tế chiến đấu, ứng dụng mô phỏng và công nghệ mô hình hóa.',
+    categoryCode: 'GDQS',
+    keywords: ['huấn luyện chiến thuật', 'nhà trường quân đội', 'đổi mới giáo dục'],
+    authorIdx: 1, pages: '59-70', doi: 'NTQS.2026.04.003',
+  },
 ]
 
-const categories = ['HUONG_DAN_CHI_DAO', 'NCTD', 'LICH_SU', 'KY_NIEM']
+const DAY_MS = 24 * 60 * 60 * 1000
+
+async function findOrCreateEditor(email: string, role: 'EIC' | 'MANAGING_EDITOR', fullName: string, passwordHash: string) {
+  const existing = await prisma.user.findFirst({ where: { email } })
+  if (existing) return existing
+  console.warn(`  ⚠️  Không thấy ${role} (${email}) — tạo tạm theo branding NTQS.`)
+  return prisma.user.create({
+    data: {
+      fullName,
+      email,
+      passwordHash,
+      role,
+      org: 'Học viện Quốc phòng',
+      isActive: true,
+      emailVerified: true,
+      status: 'APPROVED',
+    },
+  })
+}
+
+async function ensureCategory(code: string) {
+  const existing = await prisma.category.findUnique({ where: { code } })
+  if (existing) return existing
+  const fb = categoryFallback[code]
+  if (!fb) throw new Error(`Thiếu cấu hình fallback cho chuyên mục ${code}`)
+  console.warn(`  ⚠️  Tạo chuyên mục NTQS thiếu: ${code} — ${fb.name}`)
+  return prisma.category.create({ data: { code, name: fb.name, slug: fb.slug } })
+}
+
+async function recordStatusHistory(articleId: string, status: SubmissionStatus, changedBy: string, notes: string) {
+  const existing = await prisma.articleStatusHistory.findFirst({ where: { articleId, status } })
+  if (existing) return
+  await prisma.articleStatusHistory.create({ data: { articleId, status, changedBy, notes } })
+}
 
 async function main() {
-  console.log('🌱 Seeding production pipeline data...\n')
+  console.log('🌱 Seeding dữ liệu Dàn trang & Xuất bản — Tạp chí Nghệ thuật Quân sự Việt Nam\n')
 
-  const hashedPassword = await bcrypt.hash('Author@123', 10)
+  const passwordHash = await bcrypt.hash(AUTHOR_PASSWORD, 10)
 
-  // ── 1. Tìm editors đã có trong DB (từ seed-phase-5) ──────────────────────
-  console.log('📋 Finding existing editor users...')
-  const eicUser = await prisma.user.findFirst({ where: { email: 'eic@hcqs.edu.vn' } })
-  const managingUser = await prisma.user.findFirst({ where: { email: 'managing@hcqs.edu.vn' } })
+  // ── 1. Biên tập viên ───────────────────────────────────────────────────────
+  console.log('📋 Tìm biên tập viên NTQS...')
+  const eic = await findOrCreateEditor(EIC_EMAIL, 'EIC', 'Tổng Biên Tập', passwordHash)
+  const managing = await findOrCreateEditor(MANAGING_EMAIL, 'MANAGING_EDITOR', 'Biên Tập Chính', passwordHash)
+  console.log(`  ✓ EIC: ${eic.email}`)
+  console.log(`  ✓ Thư ký tòa soạn: ${managing.email}`)
 
-  if (!eicUser || !managingUser) {
-    console.warn('⚠️  Editor users not found. Run seed-phase-5.ts first.')
-    console.log('Tạo EIC và Managing Editor tạm...')
-  }
-
-  const eic = eicUser ?? await prisma.user.upsert({
-    where: { email: 'eic-prod@hcqs.edu.vn' },
-    update: {},
-    create: {
-      fullName: 'Tổng Biên tập (Production)',
-      email: 'eic-prod@hcqs.edu.vn',
-      passwordHash: hashedPassword,
-      role: 'EIC',
-      org: 'Học viện Quốc phòng',
-      isActive: true,
-      emailVerified: true,
-      status: 'APPROVED',
-    },
-  })
-
-  const managing = managingUser ?? await prisma.user.upsert({
-    where: { email: 'managing-prod@hcqs.edu.vn' },
-    update: {},
-    create: {
-      fullName: 'Biên tập điều hành (Production)',
-      email: 'managing-prod@hcqs.edu.vn',
-      passwordHash: hashedPassword,
-      role: 'MANAGING_EDITOR',
-      org: 'Học viện Quốc phòng',
-      isActive: true,
-      emailVerified: true,
-      status: 'APPROVED',
-    },
-  })
-
-  console.log(`✓ EIC: ${eic.email}`)
-  console.log(`✓ Managing Editor: ${managing.email}`)
-
-  // ── 2. Tạo author users ───────────────────────────────────────────────────
-  console.log('\n📝 Creating/updating author users...')
-  const authors: any[] = []
-  for (const a of authorNames) {
+  // ── 2. Tác giả demo ────────────────────────────────────────────────────────
+  console.log('\n📝 Tạo/cập nhật tác giả demo (định danh quân sự NTQS)...')
+  const authors = []
+  for (const a of authorSeeds) {
     const user = await prisma.user.upsert({
       where: { email: a.email },
       update: {},
       create: {
         fullName: a.fullName,
         email: a.email,
-        passwordHash: hashedPassword,
+        passwordHash,
         role: 'AUTHOR',
         org: a.org,
         rank: a.rank,
@@ -100,24 +179,32 @@ async function main() {
       },
     })
     authors.push(user)
-    console.log(`  ✓ ${user.fullName} (${user.email})`)
+    console.log(`  ✓ ${user.fullName}`)
   }
 
-  // ── 3. Volume + Issues ────────────────────────────────────────────────────
-  console.log('\n📚 Creating volume and issues...')
+  // ── 3. Volume + Issues ───────────────────────────────────────────────────────
+  console.log('\n📚 Tạo tập (volume) và các số...')
   const volume = await prisma.volume.upsert({
-    where: { volumeNo: 15 },
-    update: {},
-    create: { volumeNo: 15, year: 2025, title: 'Tập 15 - Năm 2025', description: 'Kỷ niệm 15 năm xuất bản tạp chí' },
-  })
-  console.log(`  ✓ Volume ${volume.volumeNo} (${volume.year})`)
-
-  const issueDraft = await prisma.issue.upsert({
-    where: { volumeId_number: { volumeId: volume.id, number: 3 } },
+    where: { volumeNo: 39 },
     update: {},
     create: {
-      volumeId: volume.id, number: 3, year: 2025,
-      title: 'Số 3/2025', description: 'Chuyên đề hậu cần hiện đại',
+      volumeNo: 39,
+      year: 2026,
+      title: 'Tập 39 (Năm thứ 39) — 2026',
+      description: 'Tạp chí Nghệ thuật Quân sự Việt Nam — Học viện Quốc phòng',
+      issn: '1859-0454',
+      publicationPeriod: 'Một kỳ/tháng',
+    },
+  })
+  console.log(`  ✓ Tập ${volume.volumeNo} (${volume.year})`)
+
+  const issueDraft = await prisma.issue.upsert({
+    where: { volumeId_number: { volumeId: volume.id, number: 5 } },
+    update: {},
+    create: {
+      volumeId: volume.id, number: 5, year: 2026,
+      title: 'Số 5/2026 — Chuyên đề Nghệ thuật chiến dịch',
+      description: 'Số chuyên đề về nghệ thuật chiến dịch và tác chiến hiệp đồng quân binh chủng.',
       status: 'DRAFT',
     },
   })
@@ -126,62 +213,48 @@ async function main() {
     where: { volumeId_number: { volumeId: volume.id, number: 4 } },
     update: {},
     create: {
-      volumeId: volume.id, number: 4, year: 2025,
-      title: 'Số 4/2025', description: 'Chuyên đề nghiên cứu ứng dụng',
+      volumeId: volume.id, number: 4, year: 2026,
+      title: 'Số 4/2026 — Nghệ thuật tác chiến hiện đại',
+      description: 'Số tạp chí đã xuất bản, tập hợp các nghiên cứu về nghệ thuật tác chiến hiện đại.',
       status: 'PUBLISHED',
-      publishDate: new Date('2025-04-01'),
+      publishDate: new Date('2026-04-15'),
     },
   })
-  console.log(`  ✓ Issue DRAFT: Số ${issueDraft.number}/${issueDraft.year}`)
-  console.log(`  ✓ Issue PUBLISHED: Số ${issuePublished.number}/${issuePublished.year}`)
+  console.log(`  ✓ Số DRAFT: Số ${issueDraft.number}/${issueDraft.year} (mục tiêu dàn trang & xuất bản thử)`)
+  console.log(`  ✓ Số PUBLISHED: Số ${issuePublished.number}/${issuePublished.year}`)
 
-  // ── 4. Tìm/tạo Category ───────────────────────────────────────────────────
-  const catNCTD = await prisma.category.upsert({
-    where: { code: 'NCTD' },
-    update: {},
-    create: { code: 'NCTD', name: 'Nghiên cứu trao đổi', slug: 'nghien-cuu-trao-doi' },
-  })
-
-  // ── 5. Tạo 3 bài IN_PRODUCTION ────────────────────────────────────────────
-  console.log('\n🏭 Creating IN_PRODUCTION articles...')
-
-  const inProductionData = [
-    { titleIdx: 0, authorIdx: 0, withIssue: true, withCopyedit: true, pages: '1-12' },
-    { titleIdx: 1, authorIdx: 1, withIssue: false, withCopyedit: false, pages: null },
-    { titleIdx: 2, authorIdx: 2, withIssue: false, withCopyedit: false, pages: null },
-  ]
-
-  for (let i = 0; i < inProductionData.length; i++) {
-    const d = inProductionData[i]
+  // ── 4. Bài IN_PRODUCTION ──────────────────────────────────────────────────────
+  console.log('\n🏭 Tạo bài đang sản xuất (IN_PRODUCTION)...')
+  for (let i = 0; i < inProductionArticles.length; i++) {
+    const d = inProductionArticles[i]
     const author = authors[d.authorIdx]
-    const subCode = `SUB-PROD-${String(i + 1).padStart(3, '0')}`
+    const category = await ensureCategory(d.categoryCode)
+    const subCode = `NTQS-PROD-${String(i + 1).padStart(3, '0')}`
 
-    // Upsert submission by code (via title uniqueness approximation — check existing)
     let submission = await prisma.submission.findFirst({ where: { code: subCode } })
     if (!submission) {
       submission = await prisma.submission.create({
         data: {
           code: subCode,
-          title: articleTitles[d.titleIdx],
-          abstractVn: articleAbstracts[d.titleIdx],
-          keywords: ['hậu cần', 'quân sự', 'nghiên cứu'],
+          title: d.title,
+          abstractVn: d.abstract,
+          keywords: d.keywords,
           status: 'IN_PRODUCTION',
           securityLevel: 'PUBLIC',
-          categoryId: catNCTD.id,
+          categoryId: category.id,
           createdBy: author.id,
-          lastStatusChangeAt: new Date(Date.now() - (10 + i * 5) * 24 * 60 * 60 * 1000), // 10-20 ngày trước
+          assignedEditorId: managing.id,
+          lastStatusChangeAt: new Date(Date.now() - d.daysAgo * DAY_MS),
         },
       })
     }
-    console.log(`  ✓ Submission ${submission.code}: ${submission.title.slice(0, 50)}...`)
 
-    // Upsert Article
     let article = await prisma.article.findUnique({ where: { submissionId: submission.id } })
     if (!article) {
       article = await prisma.article.create({
         data: {
           submissionId: submission.id,
-          issueId: d.withIssue ? issueDraft.id : null,
+          issueId: d.assignToDraft ? issueDraft.id : null,
           pages: d.pages,
           approvalStatus: 'APPROVED',
           approvedBy: managing.id,
@@ -190,27 +263,24 @@ async function main() {
       })
     }
 
-    // Upsert Production record
-    let production = await prisma.production.findUnique({ where: { articleId: article.id } })
-    if (!production) {
-      production = await prisma.production.create({
+    const existingProduction = await prisma.production.findUnique({ where: { articleId: article.id } })
+    if (!existingProduction) {
+      await prisma.production.create({
         data: {
           articleId: article.id,
-          issueId: d.withIssue ? issueDraft.id : null,
+          issueId: d.assignToDraft ? issueDraft.id : null,
           layoutUrl: PLACEHOLDER_LAYOUT_URL,
           published: false,
-          notes: d.withIssue ? 'Bài đã được gán vào Số 3/2025' : 'Đang chờ gán số tạp chí',
+          notes: d.assignToDraft ? `Đã gán vào Số ${issueDraft.number}/${issueDraft.year}` : 'Đang chờ gán số tạp chí',
         },
       })
     }
-    console.log(`    ✓ Production record: ${d.withIssue ? 'có số TJ' : 'chưa gán số'}`)
 
-    // UploadedFile MANUSCRIPT
     const existingFile = await prisma.uploadedFile.findFirst({ where: { submissionId: submission.id } })
     if (!existingFile) {
       await prisma.uploadedFile.create({
         data: {
-          originalName: `${subCode}-manuscript.pdf`,
+          originalName: `${subCode}-ban-thao.pdf`,
           cloudStoragePath: `production/${subCode}/manuscript.pdf`,
           fileType: 'MANUSCRIPT',
           mimeType: 'application/pdf',
@@ -222,7 +292,6 @@ async function main() {
       })
     }
 
-    // Copyedit record cho bài đầu
     if (d.withCopyedit) {
       const existingCopyedit = await prisma.copyedit.findFirst({ where: { articleId: article.id } })
       if (!existingCopyedit) {
@@ -232,60 +301,44 @@ async function main() {
             editorId: managing.id,
             version: 1,
             status: 'editing',
-            notes: 'Đang biên tập lần 1',
-            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            notes: 'Đang biên tập, chuẩn hóa thuật ngữ quân sự và tài liệu tham khảo.',
+            tags: ['sửa chính tả', 'chuẩn hóa thuật ngữ'],
+            deadline: new Date(Date.now() + 7 * DAY_MS),
           },
         })
-        console.log(`    ✓ Copyedit record (đang biên tập)`)
       }
     }
 
-    // ArticleStatusHistory
-    await prisma.articleStatusHistory.upsert({
-      where: { id: `hist-prod-${submission.id}` as any },
-      update: {},
-      create: {
-        id: `hist-prod-${submission.id}`,
-        articleId: article.id,
-        status: 'IN_PRODUCTION',
-        changedBy: managing.id,
-        notes: 'Bài viết chuyển sang giai đoạn sản xuất',
-      },
-    }).catch(() => {
-      // id không phải uuid, dùng create thay thế
-    })
+    await recordStatusHistory(article.id, 'IN_PRODUCTION', managing.id, 'Bài chuyển sang giai đoạn sản xuất/dàn trang')
+    console.log(`  ✓ ${subCode} — ${d.assignToDraft ? 'đã gán số' : 'chưa gán số'}${d.withCopyedit ? ', có biên tập' : ''} (${d.daysAgo} ngày)`)
   }
 
-  // ── 6. Tạo 2 bài PUBLISHED ────────────────────────────────────────────────
-  console.log('\n✅ Creating PUBLISHED articles...')
-
-  const publishedData = [
-    { titleIdx: 3, authorIdx: 3, doi: '10.5567/hcqs.2025.prod001', pages: '13-24' },
-    { titleIdx: 4, authorIdx: 4, doi: '10.5567/hcqs.2025.prod002', pages: '25-38' },
-  ]
-
-  for (let i = 0; i < publishedData.length; i++) {
-    const d = publishedData[i]
+  // ── 5. Bài PUBLISHED ──────────────────────────────────────────────────────────
+  console.log('\n✅ Tạo bài đã xuất bản (PUBLISHED)...')
+  for (let i = 0; i < publishedArticles.length; i++) {
+    const d = publishedArticles[i]
     const author = authors[d.authorIdx]
-    const subCode = `SUB-PUBL-${String(i + 1).padStart(3, '0')}`
+    const category = await ensureCategory(d.categoryCode)
+    const subCode = `NTQS-PUBL-${String(i + 1).padStart(3, '0')}`
+    const publishedAt = new Date('2026-04-15')
 
     let submission = await prisma.submission.findFirst({ where: { code: subCode } })
     if (!submission) {
       submission = await prisma.submission.create({
         data: {
           code: subCode,
-          title: articleTitles[d.titleIdx],
-          abstractVn: articleAbstracts[d.titleIdx],
-          keywords: ['hậu cần', 'trí tuệ nhân tạo', 'chiến lược'],
+          title: d.title,
+          abstractVn: d.abstract,
+          keywords: d.keywords,
           status: 'PUBLISHED',
           securityLevel: 'PUBLIC',
-          categoryId: catNCTD.id,
+          categoryId: category.id,
           createdBy: author.id,
-          lastStatusChangeAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+          assignedEditorId: managing.id,
+          lastStatusChangeAt: publishedAt,
         },
       })
     }
-    console.log(`  ✓ Submission ${submission.code}: ${submission.title.slice(0, 50)}...`)
 
     let article = await prisma.article.findUnique({ where: { submissionId: submission.id } })
     if (!article) {
@@ -295,37 +348,35 @@ async function main() {
           issueId: issuePublished.id,
           pages: d.pages,
           doiLocal: d.doi,
-          publishedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          publishedAt,
           approvalStatus: 'APPROVED',
           approvedBy: eic.id,
-          approvedAt: new Date(),
+          approvedAt: publishedAt,
         },
       })
     }
 
-    let production = await prisma.production.findUnique({ where: { articleId: article.id } })
-    if (!production) {
-      production = await prisma.production.create({
+    const existingProduction = await prisma.production.findUnique({ where: { articleId: article.id } })
+    if (!existingProduction) {
+      await prisma.production.create({
         data: {
           articleId: article.id,
           issueId: issuePublished.id,
           layoutUrl: PLACEHOLDER_LAYOUT_URL,
           doi: d.doi,
           published: true,
-          publishedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          publishedAt,
           approvedBy: eic.id,
-          notes: 'Đã xuất bản chính thức trong Số 4/2025',
+          notes: `Đã xuất bản chính thức trong Số ${issuePublished.number}/${issuePublished.year}`,
         },
       })
     }
-    console.log(`    ✓ Production (published): DOI ${d.doi}`)
 
-    // UploadedFile
     const existingFile = await prisma.uploadedFile.findFirst({ where: { submissionId: submission.id } })
     if (!existingFile) {
       await prisma.uploadedFile.create({
         data: {
-          originalName: `${subCode}-final.pdf`,
+          originalName: `${subCode}-ban-cuoi.pdf`,
           cloudStoragePath: `production/${subCode}/final.pdf`,
           fileType: 'FINAL_VERSION',
           mimeType: 'application/pdf',
@@ -336,22 +387,24 @@ async function main() {
         },
       })
     }
+
+    await recordStatusHistory(article.id, 'PUBLISHED', eic.id, 'Bài đã xuất bản công khai')
+    console.log(`  ✓ ${subCode} — DOI ${d.doi} (tr. ${d.pages})`)
   }
 
-  // ── Summary ───────────────────────────────────────────────────────────────
+  // ── Tổng kết ───────────────────────────────────────────────────────────────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('✅ Production seed hoàn thành!')
+  console.log('✅ Seed Dàn trang & Xuất bản (NTQS) hoàn thành!')
   console.log('\n📊 Dữ liệu đã tạo:')
-  console.log('   - 5 author users (author-prod-1..5@hcqs.edu.vn / Author@123)')
-  console.log('   - Volume 15 (2025) + 2 Issues (Số 3 DRAFT, Số 4 PUBLISHED)')
-  console.log('   - 3 bài IN_PRODUCTION: SUB-PROD-001..003')
-  console.log('     • SUB-PROD-001: có số TJ, đang biên tập')
-  console.log('     • SUB-PROD-002: chưa gán số')
-  console.log('     • SUB-PROD-003: chưa gán số')
-  console.log('   - 2 bài PUBLISHED: SUB-PUBL-001..002')
-  console.log('\n🔑 Truy cập trang:')
-  console.log('   http://localhost:3001/dashboard/layout/production')
-  console.log('   (Đăng nhập với eic@hcqs.edu.vn hoặc managing@hcqs.edu.vn)')
+  console.log('   • 5 tác giả demo (demo-author-1..5@tacgia.ntqs.local)')
+  console.log('   • Tập 39 (2026) + 2 số: Số 5 (DRAFT, để dàn trang/xuất bản thử), Số 4 (PUBLISHED)')
+  console.log('   • 4 bài IN_PRODUCTION (NTQS-PROD-001..004): 2 đã gán số, 2 chưa gán, 1 quá hạn >30 ngày')
+  console.log('   • 3 bài PUBLISHED (NTQS-PUBL-001..003) trong Số 4/2026')
+  console.log(`\n🔑 Mật khẩu tác giả demo: ${AUTHOR_PASSWORD}`)
+  console.log('\n🔗 Kiểm thử:')
+  console.log('   • Dàn trang : http://localhost:3001/dashboard/layout/production  (đăng nhập dangtrang@tapchintqsvn.edu.vn)')
+  console.log('   • Xuất bản  : http://localhost:3001/dashboard/managing/issues   (đăng nhập tongbientap@/bientapchinh@tapchintqsvn.edu.vn)')
+  console.log('   → Vào Số 5/2026 (DRAFT) để thử nút "Xuất bản số" (chỉ EIC/SYSADMIN)')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 }
 

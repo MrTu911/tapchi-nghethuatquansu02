@@ -53,7 +53,7 @@ export function PublishConfirmDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
+            <CheckCircle className="h-5 w-5 text-[#1E3924] dark:text-emerald-300" />
             Xác nhận xuất bản
           </DialogTitle>
           <DialogDescription>
@@ -81,7 +81,7 @@ export function PublishConfirmDialog({
           <Button
             onClick={handlePublish}
             disabled={publishing}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-[#1E3924] text-white hover:bg-[#15281a]"
           >
             {publishing ? 'Đang xuất bản...' : 'Xuất bản ngay'}
           </Button>

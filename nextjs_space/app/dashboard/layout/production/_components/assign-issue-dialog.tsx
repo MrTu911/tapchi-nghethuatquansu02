@@ -87,7 +87,7 @@ export function AssignIssueDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-blue-600" />
+            <BookOpen className="h-5 w-5 text-[#1E3924] dark:text-emerald-300" />
             Gán số tạp chí
           </DialogTitle>
           <DialogDescription className="text-sm">

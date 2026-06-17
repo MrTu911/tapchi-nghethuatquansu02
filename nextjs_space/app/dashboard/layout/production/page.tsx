@@ -10,7 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
-import { Eye, FileSearch, BookMarked } from 'lucide-react'
+import { Eye, FileSearch, BookMarked, Printer, Upload, Send } from 'lucide-react'
 import { TableScrollWrapper } from '@/components/dashboard/table-scroll-wrapper'
 
 import { ProductionKpiCards } from './_components/production-kpi-cards'
@@ -133,12 +133,21 @@ export default function ProductionQueuePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="border-l-4 border-primary pl-4">
-        <h1 className="text-2xl font-bold tracking-tight">Hàng đợi Sản xuất</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Quản lý bài viết trong giai đoạn biên tập, dàn trang và xuất bản
-        </p>
+      {/* Header — banner thương hiệu NTQS */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1E3924] via-[#244a2c] to-[#1E3924] px-6 py-6 text-[#F9F9F9] shadow-md">
+        <div className="absolute -right-6 -top-8 h-36 w-36 rounded-full bg-[#E5C86E]/10" aria-hidden />
+        <div className="absolute -bottom-10 right-24 h-28 w-28 rounded-full bg-[#E5C86E]/5" aria-hidden />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E5C86E]/20 ring-1 ring-[#E5C86E]/40">
+            <Printer className="h-6 w-6 text-[#E5C86E]" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Hàng đợi Sản xuất &amp; Dàn trang</h1>
+            <p className="mt-1 text-sm text-[#F9F9F9]/80">
+              Biên tập, dàn trang và xuất bản bài viết của Tạp chí Nghệ thuật Quân sự Việt Nam
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* KPI */}
@@ -214,11 +223,11 @@ export default function ProductionQueuePage() {
                           </TableCell>
                           <TableCell>
                             {item.issue ? (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                              <Badge variant="outline" className="border-[#1E3924]/20 bg-[#1E3924]/5 text-xs text-[#1E3924] dark:bg-[#1E3924]/30 dark:text-emerald-200">
                                 Tập {item.issue.volume.volumeNo}, Số {item.issue.number}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                              <Badge variant="outline" className="border-[#E5C86E]/50 bg-[#E5C86E]/15 text-xs text-[#8a6a14] dark:text-[#E5C86E]">
                                 Chưa gán số
                               </Badge>
                             )}
@@ -241,26 +250,28 @@ export default function ProductionQueuePage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-xs h-8"
+                                className="h-8 text-xs"
                                 onClick={() => setAssignDialog({ open: true, item })}
                               >
-                                <BookMarked className="h-3.5 w-3.5 mr-1" />
+                                <BookMarked className="mr-1 h-3.5 w-3.5" />
                                 Gán số
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-xs h-8"
+                                className="h-8 text-xs"
                                 onClick={() => setUploadDialog({ open: true, item })}
                               >
+                                <Upload className="mr-1 h-3.5 w-3.5" />
                                 Tải file
                               </Button>
                               {canPublish && (
                                 <Button
                                   size="sm"
-                                  className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  className="h-8 bg-[#1E3924] text-xs text-white hover:bg-[#15281a]"
                                   onClick={() => setPublishDialog({ open: true, item })}
                                 >
+                                  <Send className="mr-1 h-3.5 w-3.5" />
                                   Xuất bản
                                 </Button>
                               )}
@@ -323,7 +334,7 @@ export default function ProductionQueuePage() {
                           </TableCell>
                           <TableCell>
                             {item.issue ? (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                              <Badge variant="outline" className="border-[#1E3924]/20 bg-[#1E3924]/5 text-xs text-[#1E3924] dark:bg-[#1E3924]/30 dark:text-emerald-200">
                                 Tập {item.issue.volume.volumeNo}, Số {item.issue.number}
                               </Badge>
                             ) : '—'}
