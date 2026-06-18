@@ -255,6 +255,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
         id: 'repository', label: '6. Kho Bài Báo', icon: Archive,
         items: [
           { label: 'CSDL Báo chí', icon: Database, href: '/dashboard/repository', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC', 'SECTION_EDITOR'], permission: 'articles.view' },
+          { label: 'Số hóa số báo cũ', icon: Upload, href: '/dashboard/repository/ingest', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC', 'LAYOUT_EDITOR'] },
           { label: 'Bài báo lịch sử', icon: History, href: '/dashboard/repository/press-archive', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC', 'SECTION_EDITOR'], permission: 'articles.view' },
           { label: 'Tất cả Bài báo', icon: BookMarked, href: '/dashboard/admin/articles', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'], permission: 'articles.view' },
           { label: 'Báo cáo công bố', icon: FileBarChart, href: '/dashboard/reports/publications', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC', 'SECTION_EDITOR'], permission: 'articles.view' },

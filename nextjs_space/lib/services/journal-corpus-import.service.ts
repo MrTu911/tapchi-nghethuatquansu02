@@ -27,7 +27,7 @@ const ISSUES_DATA_DIR = path.join(process.cwd(), 'public', 'data', 'issues')
 const JOURNAL_ISSN = '1859-0454'
 /** Số đặc biệt nằm ở Volume RIÊNG (volumeNo = base + năm) → number giữ thứ tự thật (1, 4...)
  *  mà vẫn không đụng unique [volumeId, number] với số thường. */
-const SPECIAL_VOLUME_BASE = 900000
+export const SPECIAL_VOLUME_BASE = 900000
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
@@ -168,7 +168,7 @@ function parseIssueMeta(slug: string, corpus: Corpus): IssueMeta {
 
 // ─── Upsert helpers ──────────────────────────────────────────────────────────
 
-async function upsertVolume(year: number, isSpecial: boolean) {
+export async function upsertVolume(year: number, isSpecial: boolean) {
   // Số thường: 1 Volume/năm (volumeNo = năm). Số đặc biệt: Volume riêng (volumeNo = base + năm)
   // để number giữ thứ tự thật mà không đụng unique [volumeId, number].
   const volumeNo = isSpecial ? SPECIAL_VOLUME_BASE + year : year

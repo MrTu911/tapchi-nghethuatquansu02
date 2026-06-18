@@ -23,7 +23,8 @@ import sharp from 'sharp'
 import { prisma } from '@/lib/prisma'
 import { extractPdfText } from '@/lib/pdf-metadata'
 import { ocrPdfToText } from '@/lib/ocr/pdf-ocr'
-import { getAbsolutePath } from '@/lib/local-storage'
+import { resolveStoredFileToAbsolute } from '@/lib/storage-path'
+import { looksLikeVietnameseProse } from '@/lib/pdf-text-quality'
 import { slugify } from '@/lib/services/journal-issue-import.service'
 import type {
   Corpus,
@@ -309,25 +310,6 @@ async function markExtractionStatus(articleId: string, status: string): Promise<
   }
 }
 
-/**
- * Phân biệt text PDF đọc được (tiếng Việt) với rác do font phi-Unicode (TCVN3/glyph cũ).
- * Rác thường rất nhiều chữ số/ký hiệu, thiếu hẳn các hư từ tiếng Việt phổ biến.
- */
-function looksLikeVietnameseProse(raw: string): boolean {
-  const sample = raw.slice(0, 4000)
-  const nonSpace = sample.replace(/\s/g, '')
-  if (nonSpace.length < 80) return false
-
-  const letters = (sample.match(/[A-Za-zÀ-ỹ]/g) ?? []).length
-  const letterRatio = letters / nonSpace.length
-  if (letterRatio < 0.6) return false
-
-  // Phải xuất hiện hư từ tiếng Việt phổ biến thì mới coi là văn bản thật
-  const stopwords = [' và ', ' của ', ' các ', ' trong ', ' là ', ' có ', ' cho ', ' những ', ' được ', ' với ']
-  const lower = ` ${sample.toLowerCase()} `
-  return stopwords.some((w) => lower.includes(w))
-}
-
 /** Tách phần "TÀI LIỆU THAM KHẢO" khỏi thân bài; trả về body + references. */
 function splitBodyAndReferences(raw: string): {
   paragraphs: CorpusParagraph[]
@@ -428,17 +410,6 @@ function htmlToText(html: string): string {
 }
 
 // ─── File helpers ──────────────────────────────────────────────────────────────
-
-/**
- * DB lưu file dưới 2 dạng: URL công khai ('/uploads/...') hoặc đường dẫn tương đối
- * từ UPLOAD_ROOT ('images/issues/...'). Quy về absolute path để đọc bytes.
- */
-function resolveStoredFileToAbsolute(stored: string): string {
-  if (stored.startsWith('/')) {
-    return path.join(PUBLIC_DIR, stored.replace(/^\/+/, ''))
-  }
-  return getAbsolutePath(stored)
-}
 
 async function writeCover(coverImage: string | null, outDir: string): Promise<boolean> {
   if (!coverImage) return false

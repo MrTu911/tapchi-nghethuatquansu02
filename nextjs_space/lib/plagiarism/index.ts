@@ -268,6 +268,36 @@ export async function checkTextPlagiarism(
   return finalizeResult(matches, candidates.length, method)
 }
 
+export interface BulkTextCheckItem {
+  key: string
+  text: string
+}
+
+export interface BulkTextCheckResult {
+  key: string
+  result: PlagiarismResult
+}
+
+/**
+ * Kiểm tra NHIỀU văn bản với kho — NẠP ỨNG VIÊN MỘT LẦN dùng chung.
+ * Dùng khi số hóa cả một số báo (nhiều bài) để tránh nạp lại kho mỗi bài (N+1).
+ * Lưu ý: chỉ so với bài đã PUBLISHED → bài DRAFT đang nhập không tự trùng với chính nó.
+ */
+export async function checkTextsAgainstCorpus(
+  items: BulkTextCheckItem[],
+  method: 'cosine' | 'jaccard' = 'cosine',
+): Promise<BulkTextCheckResult[]> {
+  if (items.length === 0) return []
+  const candidates = await loadCandidates()
+  return items.map((item) => {
+    if (item.text.trim().length < 50) {
+      return { key: item.key, result: emptyResult(method) }
+    }
+    const matches = computeMatches(item.text, candidates, method)
+    return { key: item.key, result: finalizeResult(matches, candidates.length, method) }
+  })
+}
+
 /**
  * Lưu kết quả kiểm tra vào database.
  * `originalityScore` và `sourceBreakdown` KHÔNG lưu cột riêng (tính lại được từ score +
