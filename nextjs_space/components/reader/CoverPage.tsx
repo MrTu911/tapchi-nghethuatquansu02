@@ -37,7 +37,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '24px',
+      padding: '0px', // Completely remove padding around the covers
       boxSizing: 'border-box',
     }}>
       {showTwoPages ? (
@@ -49,9 +49,6 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           justifyContent: 'center',
           width: '100%',
           height: '100%',
-          maxWidth: '1200px',
-          maxHeight: '100%',
-          gap: '4px', // minimal gap to simulate a book spine
           boxSizing: 'border-box',
         }}>
           {/* Left Page: Cover 2 */}
@@ -61,11 +58,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
             height: '100%',
             aspectRatio: '1 / 1.414',
             maxHeight: '100%',
-            borderRadius: '8px 0 0 8px',
             overflow: 'hidden',
-            boxShadow: '-10px 10px 25px rgba(0,0,0,0.15)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRight: 'none',
           }}>
             <Image
               src={cover2Src}
@@ -78,19 +71,6 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
             />
           </div>
 
-          {/* Spine shadow in the middle */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '32px',
-            background: 'linear-gradient(to right, rgba(0,0,0,0.15), rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.15))',
-            pointerEvents: 'none',
-            zIndex: 10,
-          }} />
-
           {/* Right Page: Cover 1 */}
           <div style={{
             position: 'relative',
@@ -98,11 +78,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
             height: '100%',
             aspectRatio: '1 / 1.414',
             maxHeight: '100%',
-            borderRadius: '0 8px 8px 0',
             overflow: 'hidden',
-            boxShadow: '10px 10px 25px rgba(0,0,0,0.15)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderLeft: 'none',
           }}>
             <Image
               src={cover1Src}
@@ -119,14 +95,10 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
         <div style={{
           position: 'relative',
           width: '100%',
-          maxWidth: '500px',
           height: '100%',
           aspectRatio: '1 / 1.414',
           maxHeight: '100%',
-          borderRadius: '8px',
           overflow: 'hidden',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.18)',
-          border: '1px solid rgba(0,0,0,0.08)',
         }}>
           <Image
             src={cover1Src}

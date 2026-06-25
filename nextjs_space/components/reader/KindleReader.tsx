@@ -106,13 +106,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
   const spineGrad = `linear-gradient(to right, transparent 0%, rgba(0,0,0,${settings.dark ? 0.25 : 0.04}) 30%, rgba(0,0,0,${settings.dark ? 0.5 : 0.08}) 50%, rgba(0,0,0,${settings.dark ? 0.25 : 0.04}) 70%, transparent 100%)`
 
   return (
-    <div className="ntqs-root" style={{
-      position: 'fixed',
-      inset: 0,
-      background: isCover ? '#15110d' : C.bgGradient,
-      overflow: 'hidden',
-      transition: 'background 0.3s ease',
-    }}>
+    <div className="ntqs-root" style={{ position: 'fixed', inset: 0, background: C.bgGradient, overflow: 'hidden' }}>
       
       <ReaderIntro corpus={corpus} issueId={issueId} settings={settings} C={C} readerControls={readerControls} />
 
