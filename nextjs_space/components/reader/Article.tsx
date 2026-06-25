@@ -3,7 +3,20 @@ import type { CorpusArticle } from '@/types/corpus'
 export default function Article({ article, C, issueId }: { article: CorpusArticle; C: Record<string, string>; issueId: string }) {
   const titleFull = [article.title.main, article.title.subtitle].filter(Boolean).join(' ')
   const sectionLine = article.section_header || article.section
-  const maxRef = article.references.length
+  
+  // Dynamically calculate the actual maximum citation number from the references list
+  let maxRef = article.references.length
+  if (article.references.length > 0) {
+    const allNums = article.references.flatMap(ref => {
+      const match = ref.match(/^[\d\s,và\-–]+/);
+      if (!match) return [];
+      const nums = match[0].match(/\d+/g);
+      return nums ? nums.map(n => parseInt(n)) : [];
+    });
+    if (allNums.length > 0) {
+      maxRef = Math.max(...allNums);
+    }
+  }
 
   return (
     <>
@@ -80,7 +93,7 @@ export default function Article({ article, C, issueId }: { article: CorpusArticl
                       ? `<sup class="ntqs-cite">[${num}]</sup>` 
                       : match
                   })
-                  .replace(/([\p{Ll}\)\]”"'][.,;:”"']?)(\d{1,3})([\.,;:\s\)\]”"']|$)/gu, (match, prefix, num, suffix) => {
+                  .replace(/([a-zA-Zà-ỹđĐ\p{Ll}\p{M}\)\]”"’'“‘]+[.,;:”"’'“‘]?)(\d{1,3})([\.,;:\s\)\]”"’'“‘]|$)/gu, (match, prefix, num, suffix) => {
                     return (maxRef > 0 && parseInt(num) > 0 && parseInt(num) <= maxRef)
                       ? `${prefix}<sup class="ntqs-cite">${num}</sup>${suffix}`
                       : match

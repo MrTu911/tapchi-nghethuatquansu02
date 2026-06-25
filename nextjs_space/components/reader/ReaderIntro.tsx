@@ -119,10 +119,10 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
           overflow: 'hidden', 
           transform: 'translateZ(-1px)', // Fix Z-fighting with the cover
         }}>
-          {/* Render Cover 1 directly, filling the page completely */}
+          {/* Render Cover 2 directly, filling the page completely */}
           <Image
-            src={`/data/issues/${issueId}/cover.jpg`}
-            alt="Bìa 1"
+            src={`/data/issues/${issueId}/cover_2.jpg`}
+            alt="Bìa 2"
             fill
             sizes="50vw"
             className="object-cover"
@@ -164,8 +164,8 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
           }}>
             {hasCover2 ? (
               <Image
-                src={`/data/issues/${issueId}/cover_2.jpg`}
-                alt="Bìa 2"
+                src={`/data/issues/${issueId}/cover.jpg`}
+                alt="Bìa 1"
                 fill
                 sizes="50vw"
                 className="object-cover" // Fills the page completely to eliminate edge remnants

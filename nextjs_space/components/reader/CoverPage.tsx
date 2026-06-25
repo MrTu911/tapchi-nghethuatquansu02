@@ -54,7 +54,24 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           maxWidth: '100%',
           boxSizing: 'border-box',
         }}>
-          {/* Left Page: Cover 2 */}
+          {/* Left Page: Cover 1 */}
+          <div style={{
+            position: 'relative',
+            width: '50%',
+            height: '100%',
+            overflow: 'hidden',
+          }}>
+            <Image
+              src={cover1Src}
+              alt="Bìa 1"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-contain"
+              priority
+            />
+          </div>
+
+          {/* Right Page: Cover 2 */}
           <div style={{
             position: 'relative',
             width: '50%',
@@ -69,23 +86,6 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
               className="object-contain"
               priority
               onError={() => setHasCover2(false)}
-            />
-          </div>
-
-          {/* Right Page: Cover 1 */}
-          <div style={{
-            position: 'relative',
-            width: '50%',
-            height: '100%',
-            overflow: 'hidden',
-          }}>
-            <Image
-              src={cover1Src}
-              alt="Bìa 1"
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-contain"
-              priority
             />
           </div>
         </div>
