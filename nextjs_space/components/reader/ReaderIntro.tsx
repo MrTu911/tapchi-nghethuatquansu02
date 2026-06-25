@@ -119,8 +119,15 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
           overflow: 'hidden', 
           transform: 'translateZ(-1px)', // Fix Z-fighting with the cover
         }}>
-          {/* Render the actual title page here so it looks like a real book opening */}
-          <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={false} />
+          {/* Render Cover 1 directly, filling the page completely */}
+          <Image
+            src={`/data/issues/${issueId}/cover.jpg`}
+            alt="Bìa 1"
+            fill
+            sizes="50vw"
+            className="object-cover"
+            priority
+          />
         </div>
 
         {/* The Flappable Cover */}
@@ -161,7 +168,7 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
                 alt="Bìa 2"
                 fill
                 sizes="50vw"
-                className="object-contain"
+                className="object-cover" // Fills the page completely to eliminate edge remnants
                 priority
                 onError={() => setHasCover2(false)}
               />
