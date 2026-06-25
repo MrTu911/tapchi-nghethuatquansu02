@@ -113,10 +113,10 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
         {/* The First Page (Revealed under the cover - Right side) */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: settings.dark ? '#1A1614' : '#E8DFCC',
+          background: 'transparent', // Remove sepia background under cover
           borderRadius: 'inherit',
-          borderRight: `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
-          overflow: 'hidden', // Prevent CoverPage borders from overflowing rounded corners
+          borderRight: 'none', // Remove page border under cover
+          overflow: 'hidden', 
           transform: 'translateZ(-1px)', // Fix Z-fighting with the cover
         }}>
           {/* Render the actual title page here so it looks like a real book opening */}
@@ -150,10 +150,10 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
             position: 'absolute', inset: 0,
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
-            background: settings.dark ? '#1A1614' : '#E8DFCC', // Match paper color!
-            borderLeft: `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+            background: hasCover2 ? 'transparent' : (settings.dark ? '#1A1614' : '#E8DFCC'), // Transparent when Cover 2 is present
+            borderLeft: hasCover2 ? 'none' : `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
             borderRadius: 'inherit',
-            overflow: 'hidden' // Keep text inside
+            overflow: 'hidden' 
           }}>
             {hasCover2 ? (
               <Image
