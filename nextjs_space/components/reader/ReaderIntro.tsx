@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { motion, useAnimation } from 'framer-motion'
 import { ReaderSettings } from './types'
 import CoverPage from './CoverPage'
@@ -18,6 +19,7 @@ interface ReaderIntroProps {
 export default function ReaderIntro({ corpus, issueId, settings, C, readerControls }: ReaderIntroProps) {
   const [introState, setIntroState] = useState<{ rect: any, ready: boolean }>({ rect: null, ready: false })
   const [introDone, setIntroDone] = useState(false)
+  const [hasCover2, setHasCover2] = useState(true)
   const coverControls = useAnimation()
   const flipControls = useAnimation()
 
@@ -118,7 +120,7 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
           transform: 'translateZ(-1px)', // Fix Z-fighting with the cover
         }}>
           {/* Render the actual title page here so it looks like a real book opening */}
-          <CoverPage issue={corpus.issue} issueId={issueId} C={C} />
+          <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={false} />
         </div>
 
         {/* The Flappable Cover */}
@@ -153,7 +155,19 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
             borderRadius: 'inherit',
             overflow: 'hidden' // Keep text inside
           }}>
-            <EditorialPage C={C} />
+            {hasCover2 ? (
+              <Image
+                src={`/data/issues/${issueId}/cover_2.jpg`}
+                alt="Bìa 2"
+                fill
+                sizes="50vw"
+                className="object-contain"
+                priority
+                onError={() => setHasCover2(false)}
+              />
+            ) : (
+              <EditorialPage C={C} />
+            )}
           </div>
         </motion.div>
       </motion.div>
