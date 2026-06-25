@@ -37,27 +37,28 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '0px', // Completely remove padding around the covers
+      padding: '0px',
       boxSizing: 'border-box',
     }}>
       {showTwoPages ? (
+        /* Two-Page Spread: Container locked to combined aspect ratio (2 / 1.414) */
         <div style={{
           position: 'relative',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '100%',
           height: '100%',
+          aspectRatio: '2 / 1.414', // Locked combined aspect ratio (approx 1.414)
+          maxHeight: '100%',
+          maxWidth: '100%',
           boxSizing: 'border-box',
         }}>
           {/* Left Page: Cover 2 */}
           <div style={{
             position: 'relative',
-            flex: 1,
+            width: '50%',
             height: '100%',
-            aspectRatio: '1 / 1.414',
-            maxHeight: '100%',
             overflow: 'hidden',
           }}>
             <Image
@@ -74,10 +75,8 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           {/* Right Page: Cover 1 */}
           <div style={{
             position: 'relative',
-            flex: 1,
+            width: '50%',
             height: '100%',
-            aspectRatio: '1 / 1.414',
-            maxHeight: '100%',
             overflow: 'hidden',
           }}>
             <Image
@@ -91,7 +90,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           </div>
         </div>
       ) : (
-        /* Single Page: Cover 1 only (centered) */
+        /* Single Page: Cover 1 only (centered, aspect ratio 1 / 1.414) */
         <div style={{
           position: 'relative',
           width: '100%',
