@@ -1,15 +1,33 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import type { CorpusIssue } from '@/types/corpus'
-import { SERIF } from './types'
 
 interface CoverPageProps {
   issue: CorpusIssue
   issueId: string
   C: Record<string, string>
+  twoPage?: boolean
 }
 
-export default function CoverPage({ issue, issueId, C }: CoverPageProps) {
-  const coverSrc = `/data/issues/${issueId}/cover.jpg`
+export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPageProps) {
+  const [hasCover2, setHasCover2] = useState(true)
+  const [isWideScreen, setIsWideScreen] = useState(true)
+
+  const cover1Src = `/data/issues/${issueId}/cover.jpg`
+  const cover2Src = `/data/issues/${issueId}/cover_2.jpg`
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsWideScreen(window.innerWidth >= 768)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const showTwoPages = twoPage && isWideScreen && hasCover2
 
   return (
     <div style={{
@@ -20,98 +38,106 @@ export default function CoverPage({ issue, issueId, C }: CoverPageProps) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px',
+      boxSizing: 'border-box',
     }}>
-      {/* Aspect ratio box that acts like a book cover (roughly 1:1.414) */}
-      <div style={{
-        containerType: 'size',
-        position: 'relative',
-        width: '100%',
-        maxWidth: '800px',
-        aspectRatio: '1 / 1.4',
-        maxHeight: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '6cqmin',
-        textAlign: 'center',
-      }}>
-        {/* Elegant vintage double border */}
+      {showTwoPages ? (
         <div style={{
-          position: 'absolute', inset: '4cqmin',
-          border: `1px solid ${C.accent}`,
-          opacity: 0.6,
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', inset: '5.5cqmin',
-          border: `2px solid ${C.accent}`,
-          opacity: 0.8,
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ 
-          zIndex: 10, width: '100%', height: '100%',
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          padding: '6cqmin',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+          maxWidth: '1200px',
+          maxHeight: '100%',
+          gap: '4px', // minimal gap to simulate a book spine
+          boxSizing: 'border-box',
         }}>
-          {/* Top Text */}
+          {/* Left Page: Cover 2 */}
           <div style={{
-            fontFamily: SERIF,
-            fontSize: '5cqmin',
-            fontWeight: 700,
-            color: C.accent,
-            letterSpacing: '0.5cqmin',
-            marginTop: '2cqmin',
+            position: 'relative',
+            flex: 1,
+            height: '100%',
+            aspectRatio: '1 / 1.414',
+            maxHeight: '100%',
+            borderRadius: '8px 0 0 8px',
+            overflow: 'hidden',
+            boxShadow: '-10px 10px 25px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRight: 'none',
           }}>
-            Học viện Quốc phòng
+            <Image
+              src={cover2Src}
+              alt="Bìa 2"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-contain"
+              priority
+              onError={() => setHasCover2(false)}
+            />
           </div>
 
-          {/* Center Text */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{
-              fontFamily: SERIF,
-              fontSize: '11cqmin',
-              fontWeight: 700,
-              color: C.text,
-              lineHeight: 1.3,
-              marginBottom: '6cqmin',
-              letterSpacing: '0.2cqmin',
-            }}>
-              {issue.title}
-            </div>
-
-            <div style={{
-              width: '15cqmin', height: '2px',
-              background: C.accent,
-              margin: '0 auto 6cqmin',
-              opacity: 0.8,
-            }} />
-
-            <div style={{
-              fontFamily: SERIF,
-              fontSize: '8cqmin',
-              fontWeight: 600,
-              color: C.text,
-            }}>
-              {issue.name}
-            </div>
-          </div>
-
-          {/* Bottom Text */}
+          {/* Spine shadow in the middle */}
           <div style={{
-            fontFamily: SERIF,
-            fontSize: '4.5cqmin',
-            fontWeight: 700,
-            color: C.accent,
-            letterSpacing: '0.4cqmin',
-            opacity: 0.9,
-            marginBottom: '2cqmin',
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '32px',
+            background: 'linear-gradient(to right, rgba(0,0,0,0.15), rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.15))',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }} />
+
+          {/* Right Page: Cover 1 */}
+          <div style={{
+            position: 'relative',
+            flex: 1,
+            height: '100%',
+            aspectRatio: '1 / 1.414',
+            maxHeight: '100%',
+            borderRadius: '0 8px 8px 0',
+            overflow: 'hidden',
+            boxShadow: '10px 10px 25px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderLeft: 'none',
           }}>
-            Viện Khoa học Nghệ thuật Quân sự
+            <Image
+              src={cover1Src}
+              alt="Bìa 1"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-contain"
+              priority
+            />
           </div>
         </div>
-      </div>
+      ) : (
+        /* Single Page: Cover 1 only (centered) */
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '500px',
+          height: '100%',
+          aspectRatio: '1 / 1.414',
+          maxHeight: '100%',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 12px 36px rgba(0,0,0,0.18)',
+          border: '1px solid rgba(0,0,0,0.08)',
+        }}>
+          <Image
+            src={cover1Src}
+            alt="Bìa chính"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-contain"
+            priority
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -154,7 +154,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
             <div ref={viewportRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
 
               {isCover ? (
-                <CoverPage issue={corpus.issue} issueId={issueId} C={C} />
+                <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={settings.twoPage} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0 }}>
 
