@@ -207,13 +207,13 @@ export default function LoginPage() {
         className="block w-full bg-white dark:bg-slate-900 shadow-sm"
       >
         <div className="relative w-full max-w-[1280px] mx-auto">
-          {/* Mobile */}
+          {/* Mobile — building-less crop, contain để hiện trọn logo + tên */}
           <div className="relative w-full h-[120px] md:hidden">
             <Image
               src="/banner-mobile.png"
               alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
               fill
-              className="object-cover object-center"
+              className="object-contain object-center"
               priority
               sizes="768px"
             />

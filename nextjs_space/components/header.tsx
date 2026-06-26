@@ -117,13 +117,13 @@ export function Header() {
       {/* Banner - Full Width with Responsive Images */}
       <div className="w-full bg-white dark:bg-slate-900 transition-colors">
         <div className="relative w-full max-w-[1280px] mx-auto">
-          {/* Mobile Banner */}
-          <div className="relative w-full h-[144px] md:hidden">
+          {/* Mobile Banner — building-less crop, contain để hiện trọn logo + tên */}
+          <div className="relative w-full h-[120px] md:hidden">
             <Image
               src="/banner-mobile.png"
               alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
               fill
-              className="object-cover object-center"
+              className="object-contain object-center"
               priority
               sizes="768px"
             />
