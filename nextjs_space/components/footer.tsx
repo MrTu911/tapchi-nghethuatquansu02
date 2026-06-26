@@ -22,6 +22,11 @@ export async function Footer() {
               <div className="mt-4 flex gap-2">
                 <span className="text-[10px] bg-[#8B1A1A] text-[#C8960C] px-2 py-1 rounded border border-[#C8960C]/30">ISSN: 1859-0454</span>
               </div>
+              <div className="mt-4 space-y-1 text-[11px] text-[#F9F9F9]/55 leading-relaxed">
+                <p>Giấy phép hoạt động báo chí số 619/GP-BTTTT do Bộ Thông tin và Truyền thông cấp ngày 23-12-2020.</p>
+                <p>In tại Xưởng in Học viện Quốc phòng.</p>
+                <p>Hòm thư: 2EA6 – Hà Nội.</p>
+              </div>
             </div>
 
             {/* Cột 2: Chuyên mục */}
