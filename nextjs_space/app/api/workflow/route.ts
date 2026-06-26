@@ -25,6 +25,7 @@ import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit } from '@/lib/audit-logger'
 import { SubmissionStatus } from '@prisma/client'
 import { isValidTransition } from '@/lib/workflow'
+import { isClassified, canDecideClassified } from '@/lib/classified-submission'
 
 type StageRole = 'editor' | 'managing' | 'eic'
 
@@ -142,10 +143,19 @@ export async function POST(request: NextRequest) {
 
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
-      select: { id: true, status: true, title: true, createdBy: true },
+      select: { id: true, status: true, title: true, createdBy: true, securityLevel: true },
     })
     if (!submission) {
       return errorResponse('Không tìm thấy bài nộp', 404)
+    }
+
+    // Bài mật: mọi bước chuyển giai đoạn (kể cả desk_reject) chỉ EIC + Kiểm định bảo mật
+    // được thực hiện — đồng bộ nguyên tắc hai người ở route quyết định bài mật.
+    if (isClassified(submission.securityLevel) && !canDecideClassified(session.role)) {
+      return errorResponse(
+        `Chỉ EIC và Kiểm định bảo mật mới được xử lý quy trình bài ${submission.securityLevel}`,
+        403,
+      )
     }
 
     // Quyền

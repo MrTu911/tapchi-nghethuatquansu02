@@ -16,6 +16,12 @@ import { logger } from '@/lib/logger'
 import { createNotification } from '@/lib/notification-manager'
 import { getStepConfig } from '@/lib/services/workflow-config.service'
 import { canEditorAccessSubmission } from '@/lib/editor-scope'
+import {
+  isClassified,
+  canDecideClassified,
+  hasDualSignature,
+  CLASSIFIED_DECISION_ROLES,
+} from '@/lib/classified-submission'
 
 interface RouteContext {
   params: {
@@ -60,25 +66,32 @@ export async function POST(
       )
     }
 
-    // Phân quyền: editor thường (can.decide) HOẶC SECURITY_AUDITOR đồng ký bài mật.
-    // SECURITY_AUDITOR phải được ra quyết định ACCEPT để hoàn tất two-person rule
-    // cho bài SECRET/TOP_SECRET (nếu không bài mật sẽ kẹt vĩnh viễn).
-    const isClassified =
-      submission.securityLevel === 'SECRET' || submission.securityLevel === 'TOP_SECRET'
-    const canCoSignSecurity = isClassified && session.role === 'SECURITY_AUDITOR'
-    if (!can.decide(session.role as any) && !canCoSignSecurity) {
-      return NextResponse.json(
-        { error: 'Không có quyền đưa ra quyết định' },
-        { status: 403 }
-      )
-    }
-
-    // Scope chuyên mục: BTV chuyên mục chỉ ra quyết định trên bài được phân công.
-    if (!canEditorAccessSubmission(session.role, session.uid, submission.assignedEditorId) && !canCoSignSecurity) {
-      return NextResponse.json(
-        { error: 'Bài này không thuộc phạm vi phụ trách của bạn' },
-        { status: 403 }
-      )
+    // Phân quyền theo độ mật của bài.
+    // - Bài mật (SECRET/TOP_SECRET): chỉ EIC + Kiểm định bảo mật được ra MỌI quyết định
+    //   (bỏ qua scope chuyên mục vì bài mật không giao cho BTV thường).
+    // - Bài thường: editor có can.decide và đúng phạm vi phân công.
+    const classified = isClassified(submission.securityLevel)
+    if (classified) {
+      if (!canDecideClassified(session.role)) {
+        return NextResponse.json(
+          { error: `Chỉ EIC và Kiểm định bảo mật mới có quyền quyết định bài ${submission.securityLevel}` },
+          { status: 403 }
+        )
+      }
+    } else {
+      if (!can.decide(session.role as any)) {
+        return NextResponse.json(
+          { error: 'Không có quyền đưa ra quyết định' },
+          { status: 403 }
+        )
+      }
+      // Scope chuyên mục: BTV chuyên mục chỉ ra quyết định trên bài được phân công.
+      if (!canEditorAccessSubmission(session.role, session.uid, submission.assignedEditorId)) {
+        return NextResponse.json(
+          { error: 'Bài này không thuộc phạm vi phụ trách của bạn' },
+          { status: 403 }
+        )
+      }
     }
 
     // Chỉ ra quyết định khi bài đang ở trạng thái hợp lệ (đang/đã phản biện)
@@ -115,34 +128,27 @@ export async function POST(
       )
     }
 
-    // ✅ Two-person rule cho bài SECRET và TOP_SECRET
-    if ((submission.securityLevel === 'SECRET' || submission.securityLevel === 'TOP_SECRET') && decision === 'ACCEPT') {
-      // Kiểm tra xem có đủ 2 người ký chưa (EIC + SECURITY_AUDITOR)
+    // ✅ Nguyên tắc hai người cho bài SECRET / TOP_SECRET:
+    // mọi quyết định CHUNG THẨM (chấp nhận / từ chối) cần đủ 2 chữ ký
+    // (EIC + Kiểm định bảo mật) trước khi có hiệu lực.
+    if (classified && (decision === 'ACCEPT' || decision === 'REJECT')) {
       const approvals = await prisma.editorDecision.findMany({
         where: {
           submissionId: id,
           roundNo,
-          decision: 'ACCEPT'
+          decision: decision as Decision,
+          editor: { role: { in: CLASSIFIED_DECISION_ROLES } },
         },
-        include: {
-          editor: {
-            select: {
-              role: true
-            }
-          }
-        }
+        include: { editor: { select: { role: true } } },
       })
 
-      const hasEICApproval = approvals.some(a => a.editor.role === 'EIC')
-      const hasSecurityApproval = approvals.some(a => a.editor.role === 'SECURITY_AUDITOR')
-
-      if (!hasEICApproval || !hasSecurityApproval) {
+      if (!hasDualSignature(approvals)) {
         // Chưa đủ 2 chữ ký → giữ nguyên status, chờ người còn lại ký
         return NextResponse.json({
           success: true,
           decision: editorDecision,
-          message: `Bài ${submission.securityLevel} cần 2 chữ ký (EIC + SECURITY_AUDITOR). Chờ người còn lại phê duyệt.`,
-          requiresAdditionalApproval: true
+          message: `Bài ${submission.securityLevel} cần 2 chữ ký (EIC + Kiểm định bảo mật). Chờ người còn lại phê duyệt.`,
+          requiresAdditionalApproval: true,
         })
       }
     }

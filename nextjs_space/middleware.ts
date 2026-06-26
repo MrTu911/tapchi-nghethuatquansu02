@@ -36,7 +36,9 @@ const dashboardAccessControl: Record<string, string[]> = {
   '/dashboard/layout': ['LAYOUT_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
   '/dashboard/security': ['SECURITY_AUDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
   '/dashboard/reviewer': ['REVIEWER', 'SECTION_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN'],
-  '/dashboard/author': ['AUTHOR', 'REVIEWER', 'SECTION_EDITOR', 'LAYOUT_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN', 'SECURITY_AUDITOR', 'COMMANDER'],
+  // READER dùng chung dashboard tác giả (roleDashboardMap trỏ READER → /dashboard/author).
+  // Thiếu READER ở đây gây vòng lặp redirect: bị từ chối → đẩy về /dashboard/author → lại bị từ chối.
+  '/dashboard/author': ['READER', 'AUTHOR', 'REVIEWER', 'SECTION_EDITOR', 'LAYOUT_EDITOR', 'MANAGING_EDITOR', 'DEPUTY_EIC', 'EIC', 'SYSADMIN', 'SECURITY_AUDITOR', 'COMMANDER'],
   '/dashboard/commander': ['COMMANDER', 'SYSADMIN'],
 }
 
