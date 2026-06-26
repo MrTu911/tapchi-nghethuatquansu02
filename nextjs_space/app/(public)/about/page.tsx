@@ -49,9 +49,17 @@ async function getPageData() {
         },
       },
     }),
+    // Ban biên tập công khai theo măng-sét chính thức: Tổng biên tập, Thư ký tòa soạn,
+    // các Biên tập viên. Chỉ lấy tài khoản đã duyệt + đang hoạt động để không lộ
+    // tài khoản test/đã khóa lên trang công khai. Măng-sét không có Phó Tổng biên tập
+    // nên không liệt kê DEPUTY_EIC ở đây.
     prisma.user.findMany({
-      where: { role: { in: ['EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'SECTION_EDITOR'] } },
-      select: { id: true, fullName: true, role: true, org: true },
+      where: {
+        role: { in: ['EIC', 'MANAGING_EDITOR', 'SECTION_EDITOR'] },
+        status: 'APPROVED',
+        isActive: true,
+      },
+      select: { id: true, fullName: true, role: true, org: true, rank: true, academicDegree: true },
       orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
     }),
     prisma.article.findMany({
@@ -84,7 +92,16 @@ async function getPageData() {
 
 const ROLE_ORDER: Record<string, number> = { EIC: 0, MANAGING_EDITOR: 1, SECTION_EDITOR: 2 }
 function getRoleLabel(role: string) {
-  return ({ EIC: 'Tổng biên tập', MANAGING_EDITOR: 'Phó tổng biên tập', SECTION_EDITOR: 'Biên tập viên' })[role] ?? role
+  return ({ EIC: 'Tổng biên tập', MANAGING_EDITOR: 'Thư ký tòa soạn', SECTION_EDITOR: 'Biên tập viên' })[role] ?? role
+}
+
+// Viết tắt học vị/học hàm để dựng kính ngữ "Đại tá, TS" theo phong cách măng-sét.
+const DEGREE_ABBR: Record<string, string> = {
+  'Tiến sĩ': 'TS', 'Thạc sĩ': 'ThS', 'Phó Giáo sư': 'PGS', 'Giáo sư': 'GS',
+}
+function formatHonorific(rank?: string | null, degree?: string | null): string {
+  const degreeShort = degree ? (DEGREE_ABBR[degree] ?? degree) : null
+  return [rank, degreeShort].filter(Boolean).join(', ')
 }
 
 // Nội dung tĩnh fallback khi CMS chưa có dữ liệu
@@ -319,6 +336,9 @@ export default async function AboutPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">{person.fullName}</p>
                       <p className="text-xs text-[#295232] dark:text-emerald-400 font-medium">{getRoleLabel(person.role)}</p>
+                      {formatHonorific(person.rank, person.academicDegree) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatHonorific(person.rank, person.academicDegree)}</p>
+                      )}
                       {person.org && <p className="text-xs text-gray-400 line-clamp-1">{person.org}</p>}
                     </div>
                   </div>

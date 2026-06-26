@@ -37,7 +37,7 @@ export default function EditorialPage({ C }: { C: Record<string, string> }) {
         <div style={{ fontSize: '4.5cqmin', lineHeight: 1.6, marginBottom: '6cqmin', opacity: 0.85 }}>
           <strong>CƠ QUAN CHỦ QUẢN:</strong> Học viện Quốc phòng<br />
           <strong>TỔNG BIÊN TẬP:</strong> Đại tá, TS. Lê Ngọc Bảo<br />
-          <strong>PHÓ TỔNG BIÊN TẬP:</strong> Đại tá, TS. Nguyễn Văn A
+          <strong>THƯ KÝ TÒA SOẠN:</strong> Thượng tá, ThS. Nguyễn Ngọc Nam
         </div>
 
         <div style={{ width: '20cqmin', height: '3px', background: C.accent, marginBottom: '6cqmin', opacity: 0.5 }} />
