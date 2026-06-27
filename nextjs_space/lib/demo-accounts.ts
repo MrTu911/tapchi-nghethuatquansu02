@@ -13,7 +13,7 @@ import { ROLE_LABELS } from '@/lib/role-labels'
  * Mật khẩu chung giữ nguyên như demo hiện tại để không phá quy ước cũ.
  *
  * Lưu ý branding NTQS: tất cả email dùng domain @tapchintqsvn.edu.vn
- * (KHÔNG dùng @hcqs.edu.vn của codebase nguồn tapchi-hcqs).
+ * (KHÔNG dùng domain email của codebase nguồn cũ).
  */
 export const DEMO_PASSWORD = 'TapChi@2025'
 
