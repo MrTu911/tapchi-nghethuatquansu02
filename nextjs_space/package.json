@@ -9,6 +9,8 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "seed:production": "tsx --require dotenv/config scripts/seed-production.ts",
+    "seed:workflow": "tsx --require dotenv/config scripts/seed-workflow.ts",
+    "seed:content": "tsx --require dotenv/config scripts/seed-content.ts",
     "journal:split-issue": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts",
     "journal:split-issue:replace": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts --replace",
     "journal:build-corpus": "tsx --require dotenv/config scripts/journal/build-corpus.ts",
