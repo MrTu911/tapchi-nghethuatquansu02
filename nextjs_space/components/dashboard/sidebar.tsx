@@ -289,6 +289,7 @@ export default function DashboardSidebar({ role, isMobileOpen = false, onMobileC
       sections.push({
         id: 'cms', label: 'CMS & Website', icon: Globe,
         items: [
+          { label: 'Trung tâm CMS', icon: LayoutIcon, href: '/dashboard/admin/cms', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'], permission: 'cms.pages.manage' },
           { label: 'Trang chủ', icon: Home, href: '/dashboard/admin/cms/homepage', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR'], permission: 'cms.homepage.manage' },
           { label: 'Trang công khai', icon: Globe, href: '/dashboard/admin/cms/pages', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'], permission: 'cms.pages.manage' },
           { label: 'Tin tức', icon: Newspaper, href: '/dashboard/admin/news', roles: ['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC', 'SECTION_EDITOR'], permission: 'cms.news.manage' },

@@ -1,6 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
+import { can, type Role } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/homepage-sections/[id] - Get single section
@@ -44,11 +46,10 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const userRole = session.role;
-    if (!["SYSADMIN", "EIC", "DEPUTY_EIC", "MANAGING_EDITOR"].includes(userRole)) {
+    if (!can.admin(session.role as Role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    
+
     const { id } = params;
     const body = await req.json();
     
@@ -87,7 +88,15 @@ export async function PUT(
       where: { id },
       data: updateData,
     });
-    
+
+    await logAudit({
+      actorId: session.uid,
+      action: "HOMEPAGE_SECTION_UPDATED",
+      object: `homepage-section:${section.id}`,
+      objectId: section.id,
+      after: { key: section.key, isActive: section.isActive },
+    });
+
     return NextResponse.json({ success: true, data: section });
   } catch (error: any) {
     console.error("Error updating homepage section:", error);
@@ -110,17 +119,24 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const userRole = session.role;
-    if (!["SYSADMIN", "EIC", "DEPUTY_EIC", "MANAGING_EDITOR"].includes(userRole)) {
+    if (!can.admin(session.role as Role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    
+
     const { id } = params;
-    
-    await prisma.homepageSection.delete({
+
+    const deleted = await prisma.homepageSection.delete({
       where: { id },
     });
-    
+
+    await logAudit({
+      actorId: session.uid,
+      action: "HOMEPAGE_SECTION_DELETED",
+      object: `homepage-section:${deleted.id}`,
+      objectId: deleted.id,
+      before: { key: deleted.key },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting homepage section:", error);

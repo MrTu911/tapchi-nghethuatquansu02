@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 import { getServerSession } from "@/lib/auth";
+import { can, type Role } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
 
 /**
  * API: Navigation Item Operations
@@ -49,10 +51,16 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession();
-    
-    if (!session || !['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'].includes(session.role)) {
+
+    if (!session) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!can.admin(session.role as Role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
         { status: 403 }
       );
     }
@@ -72,6 +80,14 @@ export async function PATCH(
     const item = await prisma.navigationItem.update({
       where: { id: params.id },
       data: updateData
+    });
+
+    await logAudit({
+      actorId: session.uid,
+      action: "NAVIGATION_ITEM_UPDATED",
+      object: `navigation:${item.id}`,
+      objectId: item.id,
+      after: { label: item.label, url: item.url, isActive: item.isActive },
     });
 
     return NextResponse.json({
@@ -111,8 +127,16 @@ export async function DELETE(
       );
     }
 
-    await prisma.navigationItem.delete({
+    const deleted = await prisma.navigationItem.delete({
       where: { id: params.id }
+    });
+
+    await logAudit({
+      actorId: session.uid,
+      action: "NAVIGATION_ITEM_DELETED",
+      object: `navigation:${deleted.id}`,
+      objectId: deleted.id,
+      before: { label: deleted.label, url: deleted.url },
     });
 
     return NextResponse.json({

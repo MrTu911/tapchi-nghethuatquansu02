@@ -52,6 +52,11 @@ interface ExternalLinkItem {
   isActive: boolean;
 }
 
+interface FooterCategoryItem {
+  label: string;
+  href: string;
+}
+
 const ICON_OPTIONS = ['School', 'Shield', 'Globe', 'Newspaper', 'BookOpen', 'Link2'];
 
 export default function SiteSettingsPage() {
@@ -63,10 +68,18 @@ export default function SiteSettingsPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkItem[]>([]);
+  const [footerCategories, setFooterCategories] = useState<FooterCategoryItem[]>([]);
 
   // Load settings on mount
   useEffect(() => {
     fetchSettings();
+  }, []);
+
+  // Mở đúng tab khi điều hướng từ Trung tâm CMS (?tab=footer ...).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) setActiveTab(tab);
   }, []);
 
   const fetchSettings = async () => {
@@ -92,6 +105,16 @@ export default function SiteSettingsPage() {
             setExternalLinks(JSON.parse(extLinksRaw));
           } catch {
             setExternalLinks([]);
+          }
+        }
+
+        // Parse footer categories
+        const footerCatRaw = data.data.settings.find((s: SiteSetting) => s.key === 'footer_categories')?.value;
+        if (footerCatRaw) {
+          try {
+            setFooterCategories(JSON.parse(footerCatRaw));
+          } catch {
+            setFooterCategories([]);
           }
         }
       }
@@ -136,6 +159,27 @@ export default function SiteSettingsPage() {
     const updated = externalLinks.filter((_, i) => i !== idx).map((l, i) => ({ ...l, order: i + 1 }));
     setExternalLinks(updated);
     setFormData((prev) => ({ ...prev, external_links: JSON.stringify(updated) }));
+    setHasChanges(true);
+  };
+
+  const addFooterCategory = () => {
+    const updated = [...footerCategories, { label: '', href: '' }];
+    setFooterCategories(updated);
+    setFormData((prev) => ({ ...prev, footer_categories: JSON.stringify(updated) }));
+    setHasChanges(true);
+  };
+
+  const updateFooterCategory = (idx: number, field: keyof FooterCategoryItem, value: string) => {
+    const updated = footerCategories.map((c, i) => (i === idx ? { ...c, [field]: value } : c));
+    setFooterCategories(updated);
+    setFormData((prev) => ({ ...prev, footer_categories: JSON.stringify(updated) }));
+    setHasChanges(true);
+  };
+
+  const removeFooterCategory = (idx: number) => {
+    const updated = footerCategories.filter((_, i) => i !== idx);
+    setFooterCategories(updated);
+    setFormData((prev) => ({ ...prev, footer_categories: JSON.stringify(updated) }));
     setHasChanges(true);
   };
 
@@ -257,7 +301,10 @@ export default function SiteSettingsPage() {
 
   // Render settings form for a category
   const renderCategorySettings = (category: string) => {
-    const categorySettings = groupedSettings[category] || [];
+    // Field JSON (footer_categories) có editor cấu trúc riêng — bỏ khỏi form generic.
+    const categorySettings = (groupedSettings[category] || []).filter(
+      (s) => s.type !== 'json'
+    );
 
     if (categorySettings.length === 0) {
       return (
@@ -485,6 +532,73 @@ export default function SiteSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>{renderCategorySettings('footer')}</CardContent>
+          </Card>
+
+          {/* Cột chuyên mục (footer) — editor cấu trúc cho footer_categories */}
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link2 className="w-5 h-5 text-emerald-600" />
+                    Cột chuyên mục (Footer)
+                  </CardTitle>
+                  <CardDescription>
+                    Danh sách liên kết ở cột &quot;Chuyên Mục&quot; trong footer
+                  </CardDescription>
+                </div>
+                <Button onClick={addFooterCategory} size="sm" variant="outline" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Thêm mục
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {footerCategories.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  <Link2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="mb-3">Chưa có mục nào</p>
+                  <Button onClick={addFooterCategory} size="sm" variant="outline" className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Thêm mục đầu tiên
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {footerCategories.map((cat, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg border bg-muted/30">
+                      <GripVertical className="w-4 h-4 mt-3 text-muted-foreground shrink-0" />
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Tên hiển thị</Label>
+                          <Input
+                            value={cat.label}
+                            onChange={(e) => updateFooterCategory(idx, 'label', e.target.value)}
+                            placeholder="VD: Nghệ thuật quân sự"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Đường dẫn</Label>
+                          <Input
+                            value={cat.href}
+                            onChange={(e) => updateFooterCategory(idx, 'href', e.target.value)}
+                            placeholder="/categories/..."
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeFooterCategory(idx)}
+                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 

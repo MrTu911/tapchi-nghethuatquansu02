@@ -245,6 +245,106 @@ export const getFooterContent = cache(async () => {
 });
 
 /**
+ * Liên kết chuyên mục hiển thị ở chân trang.
+ */
+export interface FooterCategoryLink {
+  label: string;
+  href: string;
+}
+
+// Giá trị mặc định = đúng nội dung đang hiển thị (identity NTQS), dùng làm fallback
+// khi setting chưa được cấu hình trong DB.
+const DEFAULT_FOOTER_CATEGORIES: FooterCategoryLink[] = [
+  { label: 'Nghệ thuật quân sự', href: '/categories/nghe-thuat-quan-su' },
+  { label: 'Nghiên cứu khoa học', href: '/categories/nckh' },
+  { label: 'Đào tạo & Giáo dục', href: '/categories/dao-tao' },
+  { label: 'Tin tức Học viện', href: '/news' },
+  { label: 'Thông báo', href: '/news?category=thong_bao' },
+  { label: 'Hợp tác quốc tế', href: '/news?category=hop_tac_quoc_te' },
+];
+
+/**
+ * Toàn bộ nội dung thương hiệu hiển thị ở chân trang (DB-driven, có fallback NTQS).
+ * Cho phép chỉnh tên tạp chí, ISSN, giấy phép, địa chỉ, liên hệ, mạng xã hội,
+ * danh sách chuyên mục... từ giao diện Cài đặt mà không phải sửa code.
+ */
+export const getFooterBranding = cache(async () => {
+  const [
+    siteName,
+    aboutText,
+    issn,
+    licenseText,
+    printText,
+    poBoxText,
+    address,
+    phone,
+    email,
+    hours,
+    publisher,
+    facebook,
+    youtube,
+    zalo,
+    categories,
+  ] = await Promise.all([
+    getSettingWithDefault('site_name', 'Tạp chí Nghệ thuật Quân sự Việt Nam'),
+    getSettingWithDefault(
+      'footer_about_text',
+      'Diễn đàn khoa học uy tín về nghệ thuật quân sự, công bố các công trình nghiên cứu có giá trị khoa học và thực tiễn cao.'
+    ),
+    getSettingWithDefault('site_issn', '1859-0454'),
+    getSettingWithDefault(
+      'footer_license_text',
+      'Giấy phép hoạt động báo chí số 619/GP-BTTTT do Bộ Thông tin và Truyền thông cấp ngày 23-12-2020.'
+    ),
+    getSettingWithDefault('footer_print_text', 'In tại Xưởng in Học viện Quốc phòng.'),
+    getSettingWithDefault('footer_pobox_text', 'Hòm thư: 2EA6 – Hà Nội.'),
+    getSettingWithDefault(
+      'contact_address',
+      'Học viện Quốc phòng, 93 Hoàng Quốc Việt, Nghĩa Đô, Hà Nội'
+    ),
+    getSettingWithDefault('contact_phone', '(069) 556 635'),
+    getSettingWithDefault('contact_email', 'tapchintqsvn@gmail.com'),
+    getSettingWithDefault('contact_working_hours', 'Thứ 2 – Thứ 6: 8:00 – 17:00'),
+    getSettingWithDefault('site_publisher', 'Học viện Quốc phòng'),
+    getSettingWithDefault('social_facebook', 'https://facebook.com'),
+    getSettingWithDefault('social_youtube', 'https://youtube.com'),
+    getSettingWithDefault('social_zalo', 'https://zalo.me'),
+    getJsonSetting<FooterCategoryLink[]>('footer_categories', DEFAULT_FOOTER_CATEGORIES),
+  ]);
+
+  return {
+    siteName,
+    aboutText,
+    issn,
+    licenseText,
+    printText,
+    poBoxText,
+    address,
+    phone,
+    email,
+    hours,
+    publisher,
+    facebook,
+    youtube,
+    zalo,
+    categories:
+      categories && categories.length > 0 ? categories : DEFAULT_FOOTER_CATEGORIES,
+  };
+});
+
+/**
+ * Ảnh banner header theo từng thiết bị (DB-driven, fallback về ảnh tĩnh hiện có).
+ */
+export const getHeaderBanners = cache(async () => {
+  const [desktop, tablet, mobile] = await Promise.all([
+    getSettingWithDefault('appearance_banner_desktop', '/banner-pc.png'),
+    getSettingWithDefault('appearance_banner_tablet', '/banner-tablet.png'),
+    getSettingWithDefault('appearance_banner_mobile', '/banner-mobile.png'),
+  ]);
+  return { desktop, tablet, mobile };
+});
+
+/**
  * Get SEO metadata
  */
 export const getSeoMetadata = cache(async () => {

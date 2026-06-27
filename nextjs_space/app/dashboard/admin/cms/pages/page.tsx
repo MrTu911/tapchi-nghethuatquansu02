@@ -622,7 +622,7 @@ export default function PublicPagesManagement() {
                       {/* Actions */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {page.isPublished && (
+                          {page.isPublished ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -637,6 +637,25 @@ export default function PublicPagesManagement() {
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Xem trang công khai</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-muted-foreground hover:text-amber-600"
+                                  onClick={() =>
+                                    window.open(
+                                      `/api/public-pages/preview?id=${page.id}`,
+                                      "_blank"
+                                    )
+                                  }
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Xem trước bản nháp</TooltipContent>
                             </Tooltip>
                           )}
 

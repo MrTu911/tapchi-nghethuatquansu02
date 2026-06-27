@@ -1208,9 +1208,38 @@ model PublicPage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  versions PublicPageVersion[]
+
   @@index([slug])
   @@index([isPublished])
   @@index([order])
+}
+
+// 🕓 Lịch sử phiên bản trang public — snapshot trạng thái trước mỗi lần lưu tay/publish/restore.
+// Người sửa lưu phẳng (createdById/createdByName) để không phải thêm back-relation vào model User.
+model PublicPageVersion {
+  id          String  @id @default(uuid())
+  pageId      String
+  page        PublicPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  versionNo   Int
+  title       String
+  titleEn     String?
+  content     String  @db.Text
+  contentEn   String? @db.Text
+  metaTitle   String?
+  metaTitleEn String?
+  metaDesc    String? @db.Text
+  metaDescEn  String? @db.Text
+  ogImage     String?
+  template    String  @default("default")
+  changeNote  String?
+  createdById String?
+  createdByName String?
+  createdAt   DateTime @default(now())
+
+  @@unique([pageId, versionNo])
+  @@index([pageId])
+  @@index([createdAt])
 }
 
 // 🧭 Navigation Menu Management

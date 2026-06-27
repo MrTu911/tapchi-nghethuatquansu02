@@ -49,9 +49,11 @@ import {
   Clock,
   AlertCircle,
   LayoutTemplate,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
-import { RichTextEditor } from "@/components/rich-text-editor";
+import { ModernEditor } from "@/components/modern-editor";
+import { PageVersionHistory } from "@/components/dashboard/page-version-history";
 
 interface PublicPage {
   id: string;
@@ -182,7 +184,11 @@ export default function EditPublicPagePage({
 
     try {
       setSaving(true);
-      const res = await fetch(`/api/public-pages/${params.id}`, {
+      // Autosave (silent) không tạo phiên bản; chỉ lưu tay mới chụp snapshot.
+      const url = silent
+        ? `/api/public-pages/${params.id}?snapshot=false`
+        : `/api/public-pages/${params.id}`;
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -298,24 +304,38 @@ export default function EditPublicPagePage({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {formData.isPublished && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      window.open(`/pages/${formData.slug}`, "_blank")
-                    }
-                    className="gap-2"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="hidden sm:inline">Xem công khai</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Mở trang trên website</TooltipContent>
-              </Tooltip>
-            )}
+            <PageVersionHistory
+              pageId={params.id}
+              onRestored={fetchPage}
+              trigger={
+                <Button variant="outline" size="sm" className="gap-2">
+                  <History className="h-4 w-4" />
+                  <span className="hidden sm:inline">Lịch sử</span>
+                </Button>
+              }
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    // Lưu bản hiện tại (nếu có thay đổi) trước khi xem nháp,
+                    // để preview phản ánh nội dung đang soạn.
+                    if (hasUnsavedChanges) await handleSave(true);
+                    window.open(
+                      `/api/public-pages/preview?id=${params.id}`,
+                      "_blank"
+                    );
+                  }}
+                  className="gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">Xem trước</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Xem trước bản nháp (cả khi chưa xuất bản)</TooltipContent>
+            </Tooltip>
             <Button
               onClick={() => handleSave(false)}
               disabled={saving || !hasUnsavedChanges}
@@ -388,14 +408,14 @@ export default function EditPublicPagePage({
                       <Label htmlFor="content">
                         Nội dung <span className="text-red-500">*</span>
                       </Label>
-                      <RichTextEditor
+                      <ModernEditor
                         value={formData.content}
                         onChange={(value) => handleFieldChange("content", value)}
-                        placeholder="Nhập nội dung trang..."
+                        placeholder="Nhập nội dung trang... Gõ '/' để xem lệnh nhanh."
                         height="480px"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Sử dụng thanh công cụ để định dạng, thêm hình ảnh, bảng, video...
+                        Gõ &quot;/&quot; để chèn nhanh, hoặc dùng thanh công cụ để định dạng, thêm hình ảnh, video...
                       </p>
                     </div>
                   </CardContent>
@@ -429,12 +449,12 @@ export default function EditPublicPagePage({
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="contentEn">Content (English)</Label>
-                      <RichTextEditor
+                      <ModernEditor
                         value={formData.contentEn}
                         onChange={(value) =>
                           handleFieldChange("contentEn", value)
                         }
-                        placeholder="Enter page content in English..."
+                        placeholder="Enter page content in English... Type '/' for quick commands."
                         height="480px"
                       />
                     </div>

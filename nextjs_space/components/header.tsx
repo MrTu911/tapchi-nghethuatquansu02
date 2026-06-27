@@ -64,7 +64,35 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [menuItems, setMenuItems] = useState<NavigationItem[]>([])
   const [loading, setLoading] = useState(true)
+  // Ảnh banner lấy từ Cài đặt (category appearance) — fallback về ảnh tĩnh.
+  const [banners, setBanners] = useState({
+    desktop: '/banner-pc.png',
+    tablet: '/banner-tablet.png',
+    mobile: '/banner-mobile.png',
+  })
   const router = useRouter()
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const res = await fetch('/api/site-settings?category=appearance')
+        const data = await res.json()
+        const list = data?.data?.settings ?? []
+        const map: Record<string, string> = {}
+        for (const s of list) {
+          if (s?.key && s?.value) map[s.key] = s.value
+        }
+        setBanners({
+          desktop: map['appearance_banner_desktop'] || '/banner-pc.png',
+          tablet: map['appearance_banner_tablet'] || '/banner-tablet.png',
+          mobile: map['appearance_banner_mobile'] || '/banner-mobile.png',
+        })
+      } catch {
+        // Giữ fallback tĩnh.
+      }
+    }
+    fetchBanners()
+  }, [])
 
   useEffect(() => {
     const fetchNavigation = async () => {
@@ -120,34 +148,37 @@ export function Header() {
           {/* Mobile Banner — building-less crop, contain để hiện trọn logo + tên */}
           <div className="relative w-full h-[120px] md:hidden">
             <Image
-              src="/banner-mobile.png"
+              src={banners.mobile}
               alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
               fill
               className="object-contain object-center"
               priority
               sizes="768px"
+              unoptimized={banners.mobile.startsWith('http')}
             />
           </div>
           {/* Tablet Banner */}
           <div className="relative w-full h-[192px] hidden md:block lg:hidden">
             <Image
-              src="/banner-tablet.png"
+              src={banners.tablet}
               alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
               fill
               className="object-cover object-center"
               priority
               sizes="1024px"
+              unoptimized={banners.tablet.startsWith('http')}
             />
           </div>
           {/* PC Banner */}
           <div className="relative w-full h-[240px] hidden lg:block">
             <Image
-              src="/banner-pc.png"
+              src={banners.desktop}
               alt="Tạp chí Nghệ thuật Quân sự Việt Nam"
               fill
               className="object-cover object-center"
               priority
               sizes="1280px"
+              unoptimized={banners.desktop.startsWith('http')}
             />
           </div>
         </div>

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/homepage-sections - Get all homepage sections
@@ -106,7 +107,15 @@ export async function POST(req: NextRequest) {
         isActive,
       },
     });
-    
+
+    await logAudit({
+      actorId: session.uid,
+      action: "HOMEPAGE_SECTION_CREATED",
+      object: `homepage-section:${section.id}`,
+      objectId: section.id,
+      after: { key: section.key, type: section.type },
+    });
+
     return NextResponse.json({ success: true, data: section });
   } catch (error: any) {
     console.error("Error creating homepage section:", error);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 import { getServerSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
 import sanitizeHtml from "sanitize-html";
 
 /**
@@ -129,6 +130,18 @@ export async function POST(req: NextRequest) {
         template: template || "default",
         order: order || 0
       }
+    });
+
+    await logAudit({
+      actorId: session.uid,
+      action: "PUBLIC_PAGE_CREATED",
+      object: `public-page:${page.id}`,
+      objectId: page.id,
+      after: { slug: page.slug, title: page.title, isPublished: page.isPublished },
+      ipAddress:
+        req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+        req.headers.get("x-real-ip") ||
+        undefined,
     });
 
     return NextResponse.json({

@@ -3,7 +3,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 import { getServerSession } from "@/lib/auth";
+import { can, type Role } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
+import {
+  snapshotPublicPage,
+  hasContentChange,
+} from "@/lib/services/public-page-versions";
 import sanitizeHtml from "sanitize-html";
+
+function getClientIp(req: NextRequest): string | undefined {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("x-real-ip") ||
+    undefined
+  );
+}
 
 /**
  * API: Public Page Operations
@@ -50,13 +64,34 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession();
-    
-    if (!session || !['SYSADMIN', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'EIC'].includes(session.role)) {
+
+    if (!session) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!can.admin(session.role as Role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
         { status: 403 }
       );
     }
+
+    // Trạng thái hiện tại — cần để snapshot version + ghi audit before/after.
+    const current = await prisma.publicPage.findUnique({
+      where: { id: params.id },
+    });
+    if (!current) {
+      return NextResponse.json(
+        { success: false, message: "Page not found" },
+        { status: 404 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    // Autosave gọi với ?snapshot=false để không tạo version cho mỗi lần gõ.
+    const allowSnapshot = searchParams.get("snapshot") !== "false";
 
     const body = await req.json();
     const updateData: any = {};
@@ -101,14 +136,42 @@ export async function PATCH(
     // Handle publish status
     if (body.isPublished !== undefined) {
       updateData.isPublished = body.isPublished;
-      if (body.isPublished && !updateData.publishedAt) {
+      if (body.isPublished && !current.publishedAt) {
         updateData.publishedAt = new Date();
       }
     }
 
-    const page = await prisma.publicPage.update({
-      where: { id: params.id },
-      data: updateData
+    // Snapshot trạng thái cũ trước khi ghi đè (bỏ qua khi autosave hoặc không đổi nội dung).
+    const willSnapshot = allowSnapshot && hasContentChange(current, updateData);
+
+    const page = await prisma.$transaction(async (tx) => {
+      if (willSnapshot) {
+        await snapshotPublicPage(current, {
+          changeNote: typeof body.changeNote === "string" ? body.changeNote : undefined,
+          actorId: session.uid,
+          actorName: session.fullName,
+          tx,
+        });
+      }
+      return tx.publicPage.update({
+        where: { id: params.id },
+        data: updateData,
+      });
+    });
+
+    // Audit: phân biệt publish / unpublish / update thường.
+    let action = "PUBLIC_PAGE_UPDATED";
+    if (body.isPublished !== undefined && body.isPublished !== current.isPublished) {
+      action = body.isPublished ? "PUBLIC_PAGE_PUBLISHED" : "PUBLIC_PAGE_UNPUBLISHED";
+    }
+    await logAudit({
+      actorId: session.uid,
+      action,
+      object: `public-page:${page.id}`,
+      objectId: page.id,
+      before: { isPublished: current.isPublished, title: current.title, slug: current.slug },
+      after: { isPublished: page.isPublished, title: page.title, slug: page.slug },
+      ipAddress: getClientIp(req),
     });
 
     return NextResponse.json({
@@ -155,8 +218,17 @@ export async function DELETE(
       );
     }
 
-    await prisma.publicPage.delete({
+    const deleted = await prisma.publicPage.delete({
       where: { id: params.id }
+    });
+
+    await logAudit({
+      actorId: session.uid,
+      action: "PUBLIC_PAGE_DELETED",
+      object: `public-page:${deleted.id}`,
+      objectId: deleted.id,
+      before: { slug: deleted.slug, title: deleted.title },
+      ipAddress: getClientIp(req),
     });
 
     return NextResponse.json({

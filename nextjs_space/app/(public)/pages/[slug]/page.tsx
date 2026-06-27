@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { draftMode } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -21,8 +22,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { isEnabled: isPreview } = draftMode();
   const page = await prisma.publicPage.findUnique({
-    where: { slug: params.slug, isPublished: true }
+    where: { slug: params.slug, ...(isPreview ? {} : { isPublished: true }) }
   });
 
   if (!page) {
@@ -51,10 +53,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function PublicPage({ params }: PageProps) {
+  // Khi admin bật draftMode (qua /api/public-pages/preview), cho phép xem cả bản chưa publish.
+  const { isEnabled: isPreview } = draftMode();
+
   const page = await prisma.publicPage.findUnique({
-    where: { 
+    where: {
       slug: params.slug,
-      isPublished: true 
+      ...(isPreview ? {} : { isPublished: true }),
     }
   });
 
@@ -64,6 +69,19 @@ export default async function PublicPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {isPreview && (
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950 shadow">
+          <span>
+            Đang xem bản nháp{!page.isPublished ? " (chưa xuất bản)" : ""} — nội dung này chưa hiển thị công khai.
+          </span>
+          <a
+            href={`/api/public-pages/preview/disable?slug=${encodeURIComponent(page.slug)}`}
+            className="rounded-md bg-amber-950 px-3 py-1 text-amber-50 hover:bg-amber-900"
+          >
+            Thoát xem trước
+          </a>
+        </div>
+      )}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-5xl">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm flex items-center gap-2">

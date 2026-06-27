@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 import { getServerSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit-logger";
 
 /**
  * API: Navigation Menu CRUD
@@ -91,6 +92,14 @@ export async function POST(req: NextRequest) {
         target: target || "_self",
         icon
       }
+    });
+
+    await logAudit({
+      actorId: session.uid,
+      action: "NAVIGATION_ITEM_CREATED",
+      object: `navigation:${item.id}`,
+      objectId: item.id,
+      after: { label: item.label, url: item.url },
     });
 
     return NextResponse.json({
