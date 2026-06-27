@@ -282,16 +282,44 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10')));
 
-    // 3. Build where clause
-    const where: any = {};
+    // 3. Phạm vi theo vai trò (RBAC scope) — chống rò danh sách bài nộp + danh tính tác giả.
+    //    Trước đây chỉ AUTHOR bị giới hạn; mọi vai trò khác nhận TOÀN BỘ bài nộp kèm
+    //    PII tác giả — vừa lộ bài chưa xuất bản, vừa phá phản biện kín. Xem
+    //    tests/unit/submission-list-scope-route.test.ts.
+    // Full-access (xem toàn bộ): MANAGING_EDITOR, DEPUTY_EIC, EIC, SYSADMIN — không cần nhánh riêng.
+    const role = session.user.role;
+    const NO_LIST_ACCESS_ROLES = ['READER', 'COMMANDER', 'SECURITY_AUDITOR'];
+    const LAYOUT_VISIBLE_STATUSES = ['ACCEPTED', 'IN_PRODUCTION', 'PUBLISHED'];
 
-    // Filter by role - Authors only see their own submissions
-    if (session.user.role === 'AUTHOR') {
-      where.createdBy = session.user.id;
+    // Các vai trò này không có nghiệp vụ liệt kê bài nộp cá nhân ở endpoint này.
+    if (NO_LIST_ACCESS_ROLES.includes(role)) {
+      return NextResponse.json({
+        success: true,
+        submissions: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      });
     }
 
+    const where: any = {};
+
+    if (role === 'AUTHOR') {
+      where.createdBy = session.user.id; // chỉ bài của mình
+    } else if (role === 'REVIEWER') {
+      where.reviews = { some: { reviewerId: session.user.id } }; // chỉ bài được phân công phản biện
+    } else if (role === 'SECTION_EDITOR') {
+      where.assignedEditorId = session.user.id; // chỉ bài được phân công biên tập
+    } else if (role === 'LAYOUT_EDITOR') {
+      where.status = { in: LAYOUT_VISIBLE_STATUSES }; // chỉ bài đã chấp nhận/đang sản xuất/đã xuất bản
+    }
+    // FULL_ACCESS_ROLES: không thêm giới hạn cơ sở (xem toàn bộ).
+
+    // Bộ lọc status từ query chỉ được THU HẸP trong phạm vi vai trò, không mở rộng.
     if (status) {
-      where.status = status;
+      if (role === 'LAYOUT_EDITOR') {
+        where.status = LAYOUT_VISIBLE_STATUSES.includes(status) ? status : { in: LAYOUT_VISIBLE_STATUSES };
+      } else {
+        where.status = status;
+      }
     }
 
     if (categoryId) {

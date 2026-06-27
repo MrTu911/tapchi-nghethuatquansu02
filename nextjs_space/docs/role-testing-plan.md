@@ -154,3 +154,56 @@ Chạy tuần tự, mỗi bước đăng nhập bằng tài khoản tương ứn
 - Panel demo trên `/auth/login` hiển thị mật khẩu — phù hợp môi trường **LAN/air-gapped**. Nếu triển khai ra Internet công khai, nên ẩn panel sau cờ env (ví dụ `NODE_ENV==='production'` hoặc `ENABLE_DEMO_LOGIN`).
 - Script `npm run verify:roles` chỉ kiểm tầng đăng nhập + quyền-route (smoke). Kiểm hành vi UI/workflow theo checklist mục 3–4 (thủ công hoặc bổ sung E2E sau).
 - Tài khoản demo idempotent: chạy lại `npm run seed:demo-accounts` an toàn, không ghi đè tên măng-sét Ban biên tập.
+
+---
+
+## 6. Kết quả thực thi (2026-06-27)
+
+### 6.1. Cách chạy bộ kiểm thử
+
+| Lệnh | Tầng kiểm | Kết quả |
+|---|---|---|
+| `npm run verify:roles` | Đăng nhập DB (11 vai trò) | 11/11 PASS |
+| `npm test` | Unit/route-handler (Jest) | 30 suite · 515 test PASS |
+| `npm run smoke:roles` | **App thật (HTTP)** — RBAC + guard + bảo mật + vòng đời | 16/16 PASS |
+
+`smoke:roles` (`scripts/smoke/role-flow-smoke.ts`) cần app đang chạy ở `SMOKE_BASE_URL` (mặc định `http://localhost:3001`). Kiểm 5 nhóm trên server thật:
+1. Đăng nhập 11 vai trò qua `/api/auth/login` (đặt `X-Forwarded-For` riêng để né rate-limit login localhost).
+2. Ma trận RBAC tầng API (nộp bài / phân công / gán phản biện / xuất bản) khớp SSOT `lib/rbac.ts` + `lib/api-guards.ts`.
+3. Middleware chặn dashboard chéo vai trò (redirect `?error=access_denied`).
+4. Bảo mật danh sách: READER không liệt kê bài chưa xuất bản; AUTHOR/READER không liệt kê phản biện.
+5. Vòng đời 1 bản thảo qua HTTP thật: `NEW → UNDER_REVIEW → REVISION →` (guard chặn ACCEPT-từ-REVISION = 409) `→ ACCEPTED`. Fixture prefix `SMOKE-NTQS-`, tự dọn ở `finally`.
+
+### 6.2. Lỗi nghiêm trọng đã phát hiện & sửa
+
+1. **Rò danh sách bài nộp (`GET /api/submissions`).** Trước đây chỉ AUTHOR bị giới hạn `createdBy`; mọi vai trò khác (kể cả READER) nhận TOÀN BỘ bài nộp kèm danh tính tác giả → lộ bài chưa xuất bản + phá phản biện kín. Smoke ban đầu báo READER thấy **33/45 bài chưa xuất bản kèm PII**.
+   → Vá: phân phạm vi theo vai trò (AUTHOR=của mình; REVIEWER=được phân công; SECTION_EDITOR=được giao biên tập; LAYOUT_EDITOR=ACCEPTED/IN_PRODUCTION/PUBLISHED; MANAGING/DEPUTY/EIC/SYSADMIN=toàn bộ; READER/COMMANDER/SECURITY_AUDITOR=rỗng). Regression: `tests/unit/submission-list-scope-route.test.ts`.
+2. **Rò danh sách phản biện (`GET /api/reviews`).** Tương tự: AUTHOR/READER... nhận mọi review (nhận xét + danh tính phản biện).
+   → Vá: `NO_REVIEW_LIST_ROLES` trả rỗng; REVIEWER chỉ thấy review của mình. Regression: `tests/unit/reviews-list-scope-route.test.ts`.
+3. **Branding leak trong test guard.** `lib/demo-accounts.ts` chứa chuỗi cấm trong comment → `branding-guard` đỏ. Đã sửa lời comment.
+4. **Dọn code chết.** Gỡ `tests/e2e/submission-workflow.test.ts` (Playwright không cài, sai cổng/tài khoản — không chạy được); luồng vòng đời nay được phủ bằng route-test + smoke.
+
+### 6.3. Nâng cấp UI/UX (trong dashboard)
+
+- Dashboard admin: bỏ gradient amber/blue/purple, áp `.theme-leadership` (NTQS) + `BrandStatCard` — nhất quán với khu lãnh đạo. (`app/dashboard/admin/layout.tsx`, `page.tsx`)
+- `EmptyState` dùng chung (`components/ui/empty-state.tsx`), rút từ bản inline trong `workflow-deadline-tabs`.
+- Bổ sung `loading.tsx` (skeleton dùng chung `dashboard-loading-skeleton.tsx`) cho 7 dashboard còn thiếu: managing, deputy, eic, layout, admin, security, commander.
+
+### 6.4. Quyết định branding còn treo (cần ý kiến chủ quản)
+
+- **Màu chrome trang public** (header + footer) đang dùng tông **đỏ đô (#8B1A1A/#6B1313) + vàng #C8960C** — header/footer đồng bộ với nhau nhưng **khác** palette NTQS bắt buộc trong CLAUDE.md (xanh quân sự #1E3924 + vàng #E5C86E). Lần này **giữ nguyên** (theo yêu cầu "không đụng lớn trang public"). Cần quyết: giữ đỏ đô hay đổi sang xanh NTQS toàn trang public.
+
+### 6.5. Bổ sung & tồn đọng (đợt 2026-06-27, vòng 2)
+
+**Đã làm thêm trong vòng này:**
+
+- Hoàn tất phần code cho mục 6.2#2: **thực sự vá `GET /api/reviews`** (`app/api/reviews/route.ts`) — trước đó báo cáo mô tả nhưng code chưa đổi; smoke đã xác nhận còn rò (AUTHOR/READER thấy 8 review) → sau vá + rebuild = rỗng.
+- Test bổ sung: `revision-resubmit-service.test.ts` (ownership, versionNo server-side, REVISION→UNDER_REVIEW), `review-respond-route.test.ts` (nhận/từ chối lời mời, khóa sau khi nộp), `submission-create-route.test.ts`.
+- **Smoke nâng cấp**: thêm kiểm tra rò `GET /api/reviews` + **vòng đời đi thật qua HTTP** (Prisma seed fixture `SMOKE-NTQS-`, dọn ở `finally`). Tổng smoke: **16/16 PASS** sau rebuild pm2.
+- Sửa branding sót trong **comment `prisma/schema.prisma`** (`HCQS-…`, "Lịch sử Hậu cần") — branding-guard không quét schema nên trước đó lọt.
+
+**Tồn đọng (chưa làm — đề xuất):**
+
+- `prisma/seed-news-batch2.ts` còn URL ảnh `hocvienhaucan.edu.vn` (ảnh thật host ngoài). Đổi sẽ vỡ ảnh seed → cần thay bằng ảnh NTQS trước.
+- Có thể siết scope mịn hơn cho **SECTION_EDITOR ở `/api/reviews`** (chỉ bài được phân công) nếu nghiệp vụ yêu cầu.
+- **Quy trình deploy**: sửa route/UI phải `npm run build` + `pm2 reload tapchi-ntqs` thì app production ở `:3001` mới phản ánh (smoke chạy vào app đã build, không phải source).

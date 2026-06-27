@@ -203,7 +203,7 @@ model Category {
 
 model Submission {
   id            String           @id @default(uuid())
-  code          String           @unique // Auto-generated: HCQS-YYYYMMDD-XXX
+  code          String           @unique // Auto-generated: MS-YYYY-NNNN (mã bản thảo)
   title         String
   abstractVn    String?
   abstractEn    String?
@@ -1719,7 +1719,7 @@ enum JournalClassification {
   OTHER
 }
 
-// Chuyên mục trong một số báo (e.g. "Nghiên cứu - Trao đổi", "Lịch sử Hậu cần")
+// Chuyên mục trong một số báo (e.g. "Nghiên cứu - Trao đổi", "Lịch sử Quân sự")
 model IssueSection {
   id        String   @id @default(uuid())
   issueId   String

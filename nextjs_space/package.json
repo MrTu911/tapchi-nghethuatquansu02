@@ -27,7 +27,8 @@
     "journal:generate-article-pdfs": "tsx --require dotenv/config scripts/journal/generate-demo-article-pdfs.ts",
     "journal:build-issue-pdfs": "tsx --require dotenv/config scripts/journal/build-issue-pdfs.ts",
     "seed:demo-accounts": "tsx --require dotenv/config scripts/seed-demo-accounts.ts",
-    "verify:roles": "tsx --require dotenv/config scripts/verify-role-access.ts"
+    "verify:roles": "tsx --require dotenv/config scripts/verify-role-access.ts",
+    "smoke:roles": "tsx --require dotenv/config scripts/smoke/role-flow-smoke.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

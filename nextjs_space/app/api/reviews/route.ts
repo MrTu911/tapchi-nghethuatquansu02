@@ -121,10 +121,20 @@ export async function GET(request: NextRequest) {
     });
 
     const session = await requireAuth(request)
+    const role = session.user.role
 
     const searchParams = request.nextUrl.searchParams
     const submissionId = searchParams.get('submissionId')
     const reviewerId = searchParams.get('reviewerId')
+
+    // Phạm vi liệt kê phản biện theo vai trò — chống rò phản biện kín (blind review).
+    // Trước đây where chỉ ràng buộc khi role===REVIEWER; AUTHOR/READER... nhận TOÀN BỘ review
+    // (nhận xét + danh tính phản biện của mọi bài). Xem tests/unit/reviews-list-scope-route.test.ts.
+    const NO_REVIEW_LIST_ROLES = ['READER', 'AUTHOR', 'LAYOUT_EDITOR', 'COMMANDER', 'SECURITY_AUDITOR']
+    if (NO_REVIEW_LIST_ROLES.includes(role)) {
+      // Không có nghiệp vụ liệt kê phản biện ở endpoint này → trả rỗng (giữ contract mảng).
+      return NextResponse.json([])
+    }
 
     const where: any = {}
 
@@ -132,15 +142,13 @@ export async function GET(request: NextRequest) {
       where.submissionId = submissionId
     }
 
-    if (reviewerId) {
-      // REVIEWERs can only filter by their own ID — editors can filter by any reviewer
-      const isPrivilegedRole = ['SYSADMIN', 'EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'SECTION_EDITOR'].includes(session.user.role)
-      if (!isPrivilegedRole && reviewerId !== session.user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-      where.reviewerId = reviewerId
-    } else if (session.user.role === 'REVIEWER') {
+    if (role === 'REVIEWER') {
+      // Phản biện viên LUÔN chỉ thấy phản biện của chính mình (kể cả khi lọc theo submissionId),
+      // không thấy nhận xét của đồng phản biện → giữ tính kín của vòng phản biện.
       where.reviewerId = session.user.id
+    } else if (reviewerId) {
+      // Vai trò biên tập/quản trị (đã qua cổng trên) được lọc theo reviewerId bất kỳ.
+      where.reviewerId = reviewerId
     }
 
     const reviews = await prisma.review.findMany({

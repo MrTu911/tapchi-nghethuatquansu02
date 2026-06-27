@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { BrandStatCard } from '@/components/dashboard/brand-stat-card'
 
 interface DashboardStats {
   overview: {
@@ -79,7 +80,7 @@ export default function AdminDashboardPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <Activity className="h-8 w-8 animate-spin mx-auto mb-2 text-amber-500" />
+          <Activity className="h-8 w-8 animate-spin mx-auto mb-2 text-[#1E3924] dark:text-[#E5C86E]" />
           <p className="text-slate-600 dark:text-military-300">Đang tải dữ liệu...</p>
         </div>
       </div>
@@ -117,7 +118,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 dark:from-amber-400 dark:via-amber-500 dark:to-amber-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold text-[#1E3924] dark:text-[#E5C86E]">
           Dashboard Quản trị
         </h1>
         <p className="text-slate-600 dark:text-military-300 mt-2 font-medium">
@@ -125,67 +126,36 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Stats Cards - Military Theme */}
+      {/* Stats Cards — palette thương hiệu NTQS (BrandStatCard) */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Users */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 hover:scale-105">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white uppercase tracking-wide">Người dùng</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative">
-            <div className="text-4xl font-bold text-white mb-1">{stats.overview.totalUsers}</div>
-            <p className="text-xs text-blue-100 font-medium">Tổng số người dùng</p>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Articles */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 to-emerald-600 hover:shadow-2xl hover:shadow-emerald-500/20 transition-all duration-300 hover:scale-105">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white uppercase tracking-wide">Bài báo</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative">
-            <div className="text-4xl font-bold text-white mb-1">{stats.overview.totalSubmissions}</div>
-            <p className="text-xs text-emerald-100 font-medium">Tổng bài nộp ({stats.overview.acceptanceRate}% chấp nhận)</p>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Reviewers */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 to-amber-600 hover:shadow-2xl hover:shadow-amber-500/20 transition-all duration-300 hover:scale-105">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white uppercase tracking-wide">Phản biện</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Activity className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative">
-            <div className="text-4xl font-bold text-white mb-1">{stats.overview.activeReviewers}</div>
-            <p className="text-xs text-amber-100 font-medium">Hoạt động trong 30 ngày</p>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Issues */}
-        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:scale-105">
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-semibold text-white uppercase tracking-wide">Số báo</CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative">
-            <div className="text-4xl font-bold text-white mb-1">{stats.overview.publishedIssues}</div>
-            <p className="text-xs text-purple-100 font-medium">Đã xuất bản ({stats.overview.totalIssues} tổng)</p>
-          </CardContent>
-        </Card>
+        <BrandStatCard
+          label="Người dùng"
+          value={stats.overview.totalUsers}
+          icon={Users}
+          tone="green"
+          hint="Tổng số người dùng"
+        />
+        <BrandStatCard
+          label="Bài nộp"
+          value={stats.overview.totalSubmissions}
+          icon={FileText}
+          tone="emerald"
+          hint={`${stats.overview.acceptanceRate}% chấp nhận`}
+        />
+        <BrandStatCard
+          label="Phản biện hoạt động"
+          value={stats.overview.activeReviewers}
+          icon={Activity}
+          tone="sky"
+          hint="Trong 30 ngày"
+        />
+        <BrandStatCard
+          label="Số báo đã xuất bản"
+          value={stats.overview.publishedIssues}
+          icon={BookOpen}
+          tone="gold"
+          hint={`${stats.overview.totalIssues} tổng số`}
+        />
       </div>
 
       {/* Charts Section */}

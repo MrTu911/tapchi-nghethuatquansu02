@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Pagination,
@@ -58,16 +58,6 @@ function toDeadlineCardShape(item: DeadlineItem) {
     dueDate: new Date(item.dueDate),
     completedAt: item.completedAt ? new Date(item.completedAt) : null,
   };
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <Card>
-      <CardContent className="py-8">
-        <p className="text-center text-muted-foreground">{message}</p>
-      </CardContent>
-    </Card>
-  );
 }
 
 interface DeadlineListProps {
