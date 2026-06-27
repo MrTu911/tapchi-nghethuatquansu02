@@ -25,7 +25,9 @@
     "journal:check-pdfs": "tsx --require dotenv/config scripts/diagnostics/check-article-pdfs.ts",
     "journal:rebuild-pdfs": "tsx --require dotenv/config scripts/journal/rebuild-missing-article-pdfs.ts",
     "journal:generate-article-pdfs": "tsx --require dotenv/config scripts/journal/generate-demo-article-pdfs.ts",
-    "journal:build-issue-pdfs": "tsx --require dotenv/config scripts/journal/build-issue-pdfs.ts"
+    "journal:build-issue-pdfs": "tsx --require dotenv/config scripts/journal/build-issue-pdfs.ts",
+    "seed:demo-accounts": "tsx --require dotenv/config scripts/seed-demo-accounts.ts",
+    "verify:roles": "tsx --require dotenv/config scripts/verify-role-access.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import Link from 'next/link'
 import {
   FileText, Clock, CheckCircle, AlertTriangle, ArrowRight,
@@ -69,12 +70,12 @@ export default async function DeputyDashboardPage() {
   const completed = acceptedCount + rejectedCount
   const acceptanceRate = completed > 0 ? ((acceptedCount / completed) * 100).toFixed(1) : '0'
 
-  const kpis = [
-    { label: 'Cần quyết định', value: pendingDecisions, icon: Clock, tone: 'text-amber-600', bg: 'from-amber-50 to-white dark:from-amber-950/30 dark:to-slate-800 border-amber-200 dark:border-amber-800', hint: 'Phản biện đã xong' },
-    { label: 'Đang phản biện', value: underReviewCount, icon: FileText, tone: 'text-blue-600', bg: 'from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-800 border-blue-100 dark:border-blue-800', hint: 'Tổng số đang xử lý' },
-    { label: 'Chờ chỉnh sửa', value: revisionCount, icon: ClipboardList, tone: 'text-orange-600', bg: 'from-orange-50 to-white dark:from-orange-950/30 dark:to-slate-800 border-orange-100 dark:border-orange-800', hint: 'Tác giả đang sửa' },
-    { label: 'Chờ TBT ký', value: inProductionCount, icon: Layers, tone: 'text-emerald-600', bg: 'from-emerald-50 to-white dark:from-emerald-950/30 dark:to-slate-800 border-emerald-100 dark:border-emerald-800', hint: 'Đã dàn trang' },
-    { label: 'Tỷ lệ chấp nhận', value: `${acceptanceRate}%`, icon: CheckCircle, tone: 'text-green-600', bg: 'from-green-50 to-white dark:from-green-950/30 dark:to-slate-800 border-green-100 dark:border-green-800', hint: `${acceptedCount}/${completed} hoàn tất` },
+  const kpis: { label: string; value: string | number; icon: typeof Clock; tone: BrandTone; hint: string }[] = [
+    { label: 'Cần quyết định', value: pendingDecisions, icon: Clock, tone: 'amber', hint: 'Phản biện đã xong' },
+    { label: 'Đang phản biện', value: underReviewCount, icon: FileText, tone: 'sky', hint: 'Tổng số đang xử lý' },
+    { label: 'Chờ chỉnh sửa', value: revisionCount, icon: ClipboardList, tone: 'gold', hint: 'Tác giả đang sửa' },
+    { label: 'Chờ TBT ký', value: inProductionCount, icon: Layers, tone: 'emerald', hint: 'Đã dàn trang' },
+    { label: 'Tỷ lệ chấp nhận', value: `${acceptanceRate}%`, icon: CheckCircle, tone: 'green', hint: `${acceptedCount}/${completed} hoàn tất` },
   ]
 
   return (
@@ -108,17 +109,8 @@ export default async function DeputyDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {kpis.map(({ label, value, icon: Icon, tone, bg, hint }) => (
-          <Card key={label} className={`bg-gradient-to-br ${bg}`}>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium">{label}</CardTitle>
-              <Icon className={`h-4 w-4 ${tone}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-bold ${tone}`}>{value}</div>
-              <p className="text-xs text-muted-foreground">{hint}</p>
-            </CardContent>
-          </Card>
+        {kpis.map(({ label, value, icon, tone, hint }) => (
+          <BrandStatCard key={label} label={label} value={value} icon={icon} tone={tone} hint={hint} />
         ))}
       </div>
 

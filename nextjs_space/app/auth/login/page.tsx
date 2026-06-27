@@ -21,108 +21,21 @@ import {
   Star,
   Zap,
 } from 'lucide-react'
+import {
+  DEMO_ACCOUNTS,
+  DEMO_PASSWORD,
+  getDemoAccountsByGroup,
+  type DemoAccount,
+  type DemoGroup,
+} from '@/lib/demo-accounts'
+import { getRoleDashboard } from '@/lib/role-dashboard'
 
-type DemoAccount = {
-  label: string
-  role: string
-  email: string
-  password: string
-  color: string
-  icon: string
-  description: string
-}
-
-const DEMO_ACCOUNTS: DemoAccount[] = [
-  {
-    label: 'Quản trị viên',
-    role: 'SYSADMIN',
-    email: 'admin@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-red-50 border-red-200 hover:bg-red-100 text-red-700',
-    icon: '🛡️',
-    description: 'Toàn quyền hệ thống',
-  },
-  {
-    label: 'Tổng Biên Tập',
-    role: 'EIC',
-    email: 'tongbientap@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700',
-    icon: '👑',
-    description: 'Quyết định xuất bản',
-  },
-  {
-    label: 'Phó Tổng Biên Tập',
-    role: 'DEPUTY_EIC',
-    email: 'photongbientap@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-700',
-    icon: '🎖️',
-    description: 'Giám sát, trình duyệt',
-  },
-  {
-    label: 'Biên Tập Chính',
-    role: 'MANAGING_EDITOR',
-    email: 'bientapchinh@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700',
-    icon: '📋',
-    description: 'Quản lý quy trình',
-  },
-  {
-    label: 'Biên Tập Chuyên Mục',
-    role: 'SECTION_EDITOR',
-    email: 'bientap@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100 text-cyan-700',
-    icon: '✏️',
-    description: 'Phân công phản biện',
-  },
-  {
-    label: 'Tác Giả',
-    role: 'AUTHOR',
-    email: 'tacgia@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-700',
-    icon: '📝',
-    description: 'Nộp & theo dõi bài',
-  },
-  {
-    label: 'Phản Biện',
-    role: 'REVIEWER',
-    email: 'phanbien@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700',
-    icon: '🔍',
-    description: 'Đánh giá bài nộp',
-  },
-  {
-    label: 'Chỉ huy Học viện',
-    role: 'COMMANDER',
-    email: 'chihuy@tapchintqsvn.edu.vn',
-    password: 'TapChi@2025',
-    color: 'bg-slate-50 border-slate-300 hover:bg-slate-100 text-slate-800',
-    icon: '⭐',
-    description: 'Giám sát & chỉ đạo',
-  },
-]
-
-const getRoleDashboard = (role: string) => {
-  const roleMap: Record<string, string> = {
-    SYSADMIN: '/dashboard/admin',
-    EIC: '/dashboard/eic',
-    DEPUTY_EIC: '/dashboard/deputy',
-    MANAGING_EDITOR: '/dashboard/managing',
-    SECTION_EDITOR: '/dashboard/editor',
-    EDITOR: '/dashboard/editor',
-    REVIEWER: '/dashboard/reviewer',
-    AUTHOR: '/dashboard/author',
-    SECURITY_AUDITOR: '/dashboard/security',
-    LAYOUT_EDITOR: '/dashboard/layout',
-    COMMANDER: '/dashboard/commander',
-    READER: '/dashboard/author',
-  }
-  return roleMap[role] || '/dashboard/author'
+// Tông màu nút demo theo nhóm vai trò (chỉ để phân biệt thị giác trên panel).
+const DEMO_GROUP_BUTTON_COLOR: Record<DemoGroup, string> = {
+  leadership: 'bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700',
+  editorial: 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700',
+  operations: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-700',
+  system: 'bg-rose-50 border-rose-200 hover:bg-rose-100 text-rose-700',
 }
 
 export default function LoginPage() {
@@ -367,7 +280,7 @@ export default function LoginPage() {
             >
               <div className="flex items-center gap-2">
                 <span>🧪</span>
-                <span>Tài khoản demo — click để tự điền</span>
+                <span>Tài khoản demo theo vai trò ({DEMO_ACCOUNTS.length}) — bấm để tự điền</span>
               </div>
               <ChevronRight
                 className={`w-4 h-4 transition-transform ${showDemoPanel ? 'rotate-90' : ''}`}
@@ -375,20 +288,30 @@ export default function LoginPage() {
             </button>
 
             {showDemoPanel && (
-              <div className="px-3 pb-3 grid grid-cols-2 gap-2">
-                {DEMO_ACCOUNTS.map((account) => (
-                  <button
-                    key={account.role}
-                    type="button"
-                    onClick={() => fillDemoAccount(account)}
-                    className={`flex items-start gap-2 p-2.5 rounded-lg border text-left transition-all text-xs ${account.color}`}
-                  >
-                    <span className="text-base leading-none mt-0.5">{account.icon}</span>
-                    <div className="min-w-0">
-                      <div className="font-semibold truncate">{account.label}</div>
-                      <div className="opacity-70 truncate">{account.description}</div>
+              <div className="px-3 pb-3 space-y-3">
+                {getDemoAccountsByGroup().map((grp) => (
+                  <div key={grp.group}>
+                    <div className="px-0.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700/80">
+                      {grp.label}
                     </div>
-                  </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      {grp.accounts.map((account) => (
+                        <button
+                          key={account.role}
+                          type="button"
+                          onClick={() => fillDemoAccount(account)}
+                          title={account.email}
+                          className={`flex items-start gap-2 p-2.5 rounded-lg border text-left transition-all text-xs ${DEMO_GROUP_BUTTON_COLOR[account.group]}`}
+                        >
+                          <span className="text-base leading-none mt-0.5">{account.icon}</span>
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">{account.label}</div>
+                            <div className="opacity-70 truncate">{account.description}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -501,7 +424,7 @@ export default function LoginPage() {
             <p className="text-center text-xs text-gray-400">
               Mật khẩu chung:{' '}
               <code className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">
-                TapChi@2025
+                {DEMO_PASSWORD}
               </code>
             </p>
           )}

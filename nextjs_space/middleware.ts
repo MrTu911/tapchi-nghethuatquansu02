@@ -3,27 +3,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyTokenEdge } from './lib/auth-edge'
 import { checkRateLimit } from './lib/rate-limiter'
+import { getRoleDashboard } from './lib/role-dashboard'
 
 /**
  * ✅ Giai đoạn 2: Rate Limiting with Redis/Memory fallback
  * Tự động dùng Redis nếu có UPSTASH_REDIS_REST_URL
  * Fallback to in-memory nếu không
  */
-
-// Role-based dashboard mapping
-const roleDashboardMap: Record<string, string> = {
-  'SYSADMIN': '/dashboard/admin',
-  'EIC': '/dashboard/eic',
-  'DEPUTY_EIC': '/dashboard/deputy',
-  'MANAGING_EDITOR': '/dashboard/managing',
-  'SECTION_EDITOR': '/dashboard/editor',
-  'LAYOUT_EDITOR': '/dashboard/layout',
-  'SECURITY_AUDITOR': '/dashboard/security',
-  'REVIEWER': '/dashboard/reviewer',
-  'AUTHOR': '/dashboard/author',
-  'READER': '/dashboard/author',
-  'COMMANDER': '/dashboard/commander',
-}
 
 // Role-based access control. Phó Tổng biên tập (DEPUTY_EIC) giám sát toàn tòa soạn
 // ngang Tổng biên tập, nhưng quyền publish cuối được kiểm ở từng API (EIC-only).
@@ -47,7 +33,7 @@ function hasAccess(userRole: string, requiredRoles: string[]): boolean {
 }
 
 function getDefaultDashboard(role: string): string {
-  return roleDashboardMap[role] || '/dashboard/author'
+  return getRoleDashboard(role)
 }
 
 /**

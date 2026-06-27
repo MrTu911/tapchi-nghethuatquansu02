@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import Link from 'next/link'
 import {
   ShieldAlert, Activity, FileLock, Lock, AlertTriangle, ArrowRight, CheckCircle, Clock,
@@ -58,11 +59,11 @@ export default async function SecurityDashboardPage() {
     MEDIUM: 'bg-amber-100 text-amber-700', LOW: 'bg-slate-100 text-slate-700',
   }
 
-  const kpis = [
-    { label: 'Cảnh báo chờ xử lý', value: pendingAlerts, icon: ShieldAlert, tone: 'text-red-600', bg: 'from-red-50 to-white dark:from-red-950/30 dark:to-slate-800 border-red-100 dark:border-red-800' },
-    { label: 'Phiên đang hoạt động', value: activeSessions, icon: Activity, tone: 'text-blue-600', bg: 'from-blue-50 to-white dark:from-blue-950/30 dark:to-slate-800 border-blue-100 dark:border-blue-800' },
-    { label: 'Sự kiện kiểm toán hôm nay', value: auditToday, icon: FileLock, tone: 'text-violet-600', bg: 'from-violet-50 to-white dark:from-violet-950/30 dark:to-slate-800 border-violet-100 dark:border-violet-800' },
-    { label: 'Bài mật đang xử lý', value: classifiedActive, icon: Lock, tone: 'text-amber-600', bg: 'from-amber-50 to-white dark:from-amber-950/30 dark:to-slate-800 border-amber-200 dark:border-amber-800' },
+  const kpis: { label: string; value: number; icon: typeof Lock; tone: BrandTone; hint: string }[] = [
+    { label: 'Cảnh báo chờ xử lý', value: pendingAlerts, icon: ShieldAlert, tone: 'rose', hint: 'Cần xử lý' },
+    { label: 'Phiên đang hoạt động', value: activeSessions, icon: Activity, tone: 'sky', hint: 'Đang đăng nhập' },
+    { label: 'Sự kiện kiểm toán hôm nay', value: auditToday, icon: FileLock, tone: 'green', hint: 'Thao tác nhạy cảm' },
+    { label: 'Bài mật đang xử lý', value: classifiedActive, icon: Lock, tone: 'amber', hint: 'SECRET/TOP_SECRET' },
   ]
 
   return (
@@ -78,16 +79,8 @@ export default async function SecurityDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map(({ label, value, icon: Icon, tone, bg }) => (
-          <Card key={label} className={`bg-gradient-to-br ${bg}`}>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium">{label}</CardTitle>
-              <Icon className={`h-4 w-4 ${tone}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-3xl font-bold ${tone}`}>{value}</div>
-            </CardContent>
-          </Card>
+        {kpis.map(({ label, value, icon, tone, hint }) => (
+          <BrandStatCard key={label} label={label} value={value} icon={icon} tone={tone} hint={hint} />
         ))}
       </div>
 
