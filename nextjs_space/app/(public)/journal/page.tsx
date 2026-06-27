@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { prisma } from '@/lib/prisma'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 import { BookOpen, Calendar, FileText } from 'lucide-react'
 
 export const metadata = {
@@ -20,9 +21,7 @@ export default async function JournalArchivePage() {
         },
         include: {
           _count: {
-            select: {
-              articles: true
-            }
+            select: ISSUE_ARTICLE_COUNT_SELECT
           }
         },
         orderBy: {
@@ -102,7 +101,7 @@ export default async function JournalArchivePage() {
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <FileText className="h-4 w-4" />
-                                  <span>{issue._count.articles} bài viết</span>
+                                  <span>{getIssueArticleCount(issue)} bài viết</span>
                                 </div>
                                 {issue.publishDate && (
                                   <div className="flex items-center gap-2 text-muted-foreground">

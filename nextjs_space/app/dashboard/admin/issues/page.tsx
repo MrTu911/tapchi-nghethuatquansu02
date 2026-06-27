@@ -34,6 +34,7 @@ import {
 import Image from 'next/image'
 import { IssueForm } from '@/components/dashboard/issue-form'
 import { TableScrollWrapper } from '@/components/dashboard/table-scroll-wrapper'
+import { getIssueArticleCount } from '@/lib/issue-utils'
 
 interface Issue {
   id: string
@@ -54,6 +55,7 @@ interface Issue {
   status: 'DRAFT' | 'PUBLISHED'
   _count?: {
     articles: number
+    journalArticles?: number
   }
 }
 
@@ -306,10 +308,10 @@ export default function IssuesManagementPage() {
                         {/* Article count */}
                         <TableCell className="text-center">
                           <Badge
-                            variant={(issue._count?.articles ?? 0) > 0 ? 'default' : 'outline'}
-                            className={(issue._count?.articles ?? 0) > 0 ? 'bg-blue-600 hover:bg-blue-600' : ''}
+                            variant={getIssueArticleCount(issue) > 0 ? 'default' : 'outline'}
+                            className={getIssueArticleCount(issue) > 0 ? 'bg-blue-600 hover:bg-blue-600' : ''}
                           >
-                            {issue._count?.articles ?? 0}
+                            {getIssueArticleCount(issue)}
                           </Badge>
                         </TableCell>
 
@@ -392,9 +394,9 @@ export default function IssuesManagementPage() {
                 {issueToDelete?.year})
               </strong>
               ?
-              {issueToDelete?._count && issueToDelete._count.articles > 0 && (
+              {issueToDelete && getIssueArticleCount(issueToDelete) > 0 && (
                 <span className="block mt-2 text-destructive font-medium">
-                  ⚠️ Số này có {issueToDelete._count.articles} bài viết. Cần gỡ bài viết trước khi xóa.
+                  ⚠️ Số này có {getIssueArticleCount(issueToDelete)} bài viết. Cần gỡ bài viết trước khi xóa.
                 </span>
               )}
               <span className="block mt-2 text-sm">Thao tác này không thể hoàn tác.</span>

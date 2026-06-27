@@ -2,6 +2,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
 import { getFileUrl } from '@/lib/local-storage'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,7 +25,7 @@ export default async function IssuesPage() {
     include: {
       volume: true,
       _count: {
-        select: { articles: true }
+        select: ISSUE_ARTICLE_COUNT_SELECT
       }
     },
     orderBy: [
@@ -109,7 +110,7 @@ export default async function IssuesPage() {
                     <div className="flex items-center gap-3 pt-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <FileText className="h-3 w-3" />
-                        <span>{issue._count.articles} bài</span>
+                        <span>{getIssueArticleCount(issue)} bài</span>
                       </div>
                       {issue.publishDate && (
                         <div className="flex items-center gap-1">

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { LATEST_ISSUE_ORDER } from '@/lib/services/issue-ordering'
+import { ISSUE_ARTICLE_COUNT_SELECT } from '@/lib/issue-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       include: {
         volume: true,
         _count: {
-          select: { articles: true }
+          select: ISSUE_ARTICLE_COUNT_SELECT
         },
         articles: {
           include: {

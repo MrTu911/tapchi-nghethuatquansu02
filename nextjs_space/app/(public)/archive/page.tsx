@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BookOpen, FileText } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import { getFileUrl } from '@/lib/local-storage'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
@@ -118,7 +119,7 @@ async function getMergedIssues(): Promise<MergedArchiveIssue[]> {
         where: { status: 'PUBLISHED' },
         include: {
           volume: { select: { volumeNo: true } },
-          _count: { select: { articles: true } },
+          _count: { select: ISSUE_ARTICLE_COUNT_SELECT },
         },
         orderBy: [{ year: 'desc' }, { number: 'desc' }],
       }),
@@ -156,7 +157,7 @@ async function getMergedIssues(): Promise<MergedArchiveIssue[]> {
           name: db.title || `Số ${db.number} (${db.year})`,
           year: db.year,
           coverUrl: dbCover,
-          articleCount: db._count.articles,
+          articleCount: getIssueArticleCount(db),
           libraryUrl: null,
           viewerUrl: `/issues/${db.id}/viewer`,
           tocUrl: `/issues/${db.id}`,

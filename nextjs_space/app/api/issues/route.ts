@@ -4,6 +4,7 @@ import { getServerSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { auditLogger, AuditEventType, logAudit } from '@/lib/audit-logger';
 import { saveFile, getFileUrl } from '@/lib/local-storage';
+import { ISSUE_ARTICLE_COUNT_SELECT } from '@/lib/issue-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const include: any = {
       volume: true,
       _count: {
-        select: { articles: true }
+        select: ISSUE_ARTICLE_COUNT_SELECT
       }
     };
 

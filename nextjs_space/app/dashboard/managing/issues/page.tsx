@@ -2,6 +2,7 @@
 import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,14 +20,14 @@ export default async function IssuesManagementPage() {
   const issues = await prisma.issue.findMany({
     include: {
       volume: true,
-      _count: { select: { articles: true } },
+      _count: { select: ISSUE_ARTICLE_COUNT_SELECT },
     },
     orderBy: [{ year: 'desc' }, { number: 'desc' }],
   })
 
   const publishedCount = issues.filter(i => i.status === 'PUBLISHED').length
   const draftCount = issues.filter(i => i.status === 'DRAFT').length
-  const totalArticles = issues.reduce((sum, i) => sum + i._count.articles, 0)
+  const totalArticles = issues.reduce((sum, i) => sum + getIssueArticleCount(i), 0)
 
   return (
     <div className="space-y-6">
@@ -133,7 +134,7 @@ export default async function IssuesManagementPage() {
                   <div className="mt-auto space-y-1.5 pt-2 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5" />
-                      {issue._count.articles} bài viết
+                      {getIssueArticleCount(issue)} bài viết
                     </p>
                     {issue.publishDate && (
                       <p className="flex items-center gap-1.5">

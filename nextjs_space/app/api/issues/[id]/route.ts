@@ -5,6 +5,7 @@ import { getServerSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { auditLogger, AuditEventType, logAudit } from '@/lib/audit-logger';
 import { saveFile, getFileUrl } from '@/lib/local-storage';
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils';
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +34,7 @@ export async function GET(
           }
         },
         _count: {
-          select: { articles: true }
+          select: ISSUE_ARTICLE_COUNT_SELECT
         }
       }
     });
@@ -230,12 +231,14 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Check if issue has articles
+    // Check if issue has articles — đếm cả Article (peer-review) lẫn JournalArticle
+    // (số hóa từ corpus). JournalArticle có onDelete: Cascade nên nếu không chặn,
+    // việc xóa số sẽ xóa luôn hàng chục bài đã số hóa mà không cảnh báo.
     const issue = await prisma.issue.findUnique({
       where: { id },
       include: {
         _count: {
-          select: { articles: true }
+          select: ISSUE_ARTICLE_COUNT_SELECT
         }
       }
     });
@@ -247,7 +250,7 @@ export async function DELETE(
       );
     }
 
-    if (issue._count.articles > 0) {
+    if (getIssueArticleCount(issue) > 0) {
       return NextResponse.json(
         { error: 'Không thể xóa số tạp chí có bài báo. Vui lòng xóa bài báo trước.' },
         { status: 400 }

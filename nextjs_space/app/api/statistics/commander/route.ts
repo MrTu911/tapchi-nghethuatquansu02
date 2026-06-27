@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/auth'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 
 const WORKFLOW_ORDER = ['NEW', 'UNDER_REVIEW', 'REVISION', 'ACCEPTED', 'IN_PRODUCTION', 'PUBLISHED', 'DESK_REJECT', 'REJECTED']
 
@@ -66,6 +67,11 @@ export async function GET(req: NextRequest) {
       acceptDecisions,
       reviewsForPerformance,
       activeUsersLast30Days,
+      // Bài số hóa (JournalArticle) — đa số bài đã xuất bản nằm ở đây, không phải Article
+      publishedJournalArticlesAllTime,
+      currentPublishedArticles,
+      currentPublishedJournal,
+      prevPublishedJournal,
     ] = await Promise.all([
       // 1. Tổng bài đã xuất bản (all time)
       prisma.article.count(),
@@ -141,7 +147,7 @@ export async function GET(req: NextRequest) {
         where: { status: 'PUBLISHED' },
         orderBy: { publishDate: 'desc' },
         take: 8,
-        include: { _count: { select: { articles: true } } },
+        include: { _count: { select: ISSUE_ARTICLE_COUNT_SELECT } },
       }),
 
       // 16. Security level distribution
@@ -226,6 +232,22 @@ export async function GET(req: NextRequest) {
       // 26. Active users last 30 days (users registered or updated recently)
       prisma.user.count({
         where: { isActive: true },
+      }),
+
+      // 27. Bài số hóa đã xuất bản (all time) — nguồn chính của bài đã công bố
+      prisma.journalArticle.count({ where: { status: 'PUBLISHED' } }),
+
+      // 28. Article xuất bản trong kỳ hiện tại
+      prisma.article.count({ where: { publishedAt: { gte: periodStart } } }),
+
+      // 29. JournalArticle xuất bản trong kỳ hiện tại (theo publishDate của số)
+      prisma.journalArticle.count({
+        where: { status: 'PUBLISHED', issue: { publishDate: { gte: periodStart } } },
+      }),
+
+      // 30. JournalArticle xuất bản trong kỳ trước (để so sánh)
+      prisma.journalArticle.count({
+        where: { status: 'PUBLISHED', issue: { publishDate: { gte: prevPeriodStart, lt: periodStart } } },
       }),
     ])
 
@@ -355,7 +377,7 @@ export async function GET(req: NextRequest) {
       code: `${issue.year}-${issue.number}`,
       year: issue.year,
       volume: issue.number,
-      articleCount: (issue as any)._count?.articles ?? 0,
+      articleCount: getIssueArticleCount(issue),
       publishedAt: issue.publishDate,
     }))
 
@@ -367,10 +389,12 @@ export async function GET(req: NextRequest) {
     }))
 
     // ── Repository metrics ───────────────────────────────────────────
+    // Kho học liệu gồm cả Article (peer-review) lẫn JournalArticle (số hóa từ corpus).
+    // Views/downloads chỉ có trên Article nên giữ nguyên nguồn; tổng số bài cộng cả hai.
     const repositoryMetrics = {
       totalViews: repositoryAggregate._sum.views ?? 0,
       totalDownloads: repositoryAggregate._sum.downloads ?? 0,
-      totalArticles: repositoryAggregate._count._all,
+      totalArticles: repositoryAggregate._count._all + publishedJournalArticlesAllTime,
     }
 
     const topArticles = topArticlesByDownload.map(a => ({
@@ -454,13 +478,15 @@ export async function GET(req: NextRequest) {
       .slice(0, 10)
 
     // ── KPI comparison (% change vs previous period) ─────────────────
-    const currentArticleCount = repositoryAggregate._count._all
+    // Bài đã xuất bản trong kỳ = Article (theo publishedAt) + JournalArticle (theo publishDate của số)
+    const currentPublishedTotal = currentPublishedArticles + currentPublishedJournal
+    const prevPublishedTotal = prevPublished + prevPublishedJournal
     const calcChange = (current: number, prev: number): number => {
       if (prev === 0) return current > 0 ? 100 : 0
       return Math.round(((current - prev) / prev) * 100)
     }
     const comparison = {
-      totalPublishedChange: calcChange(currentArticleCount, prevPublished),
+      totalPublishedChange: calcChange(currentPublishedTotal, prevPublishedTotal),
       totalIssuesChange: 0,
       totalAuthorsChange: calcChange(totalAuthors, prevAuthors),
       acceptanceRateChange: Math.round(acceptanceRate - prevAcceptanceRate),
@@ -472,7 +498,8 @@ export async function GET(req: NextRequest) {
       success: true,
       data: {
         overview: {
-          totalPublished,
+          // Tổng bài đã xuất bản = Article (peer-review) + JournalArticle (số hóa)
+          totalPublished: totalPublished + publishedJournalArticlesAllTime,
           totalIssues,
           totalAuthors,
           acceptanceRate,

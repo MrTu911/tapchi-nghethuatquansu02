@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { BookOpen, Calendar, FileText, ArrowRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { getIssueArticleCount } from '@/lib/issue-utils'
 
 interface Issue {
   id: string
@@ -22,6 +23,7 @@ interface Issue {
   year: number
   _count?: {
     articles: number
+    journalArticles?: number
   }
 }
 
@@ -97,7 +99,7 @@ export default function EnhancedIssuesSidebar({ issues }: EnhancedIssuesSidebarP
                   {mainIssue._count && (
                     <div className="flex items-center gap-1">
                       <FileText className="h-3.5 w-3.5" />
-                      <span>{mainIssue._count.articles} bài</span>
+                      <span>{getIssueArticleCount(mainIssue)} bài</span>
                     </div>
                   )}
                 </div>
@@ -144,7 +146,7 @@ export default function EnhancedIssuesSidebar({ issues }: EnhancedIssuesSidebarP
                     {issue._count && (
                       <>
                         <span>•</span>
-                        <span>{issue._count.articles} bài</span>
+                        <span>{getIssueArticleCount(issue)} bài</span>
                       </>
                     )}
                   </div>

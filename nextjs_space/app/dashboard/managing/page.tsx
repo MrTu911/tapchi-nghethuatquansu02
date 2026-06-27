@@ -2,6 +2,7 @@
 import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
 import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import {
   BookOpen, FileText, CheckCircle, ClipboardList, Clock, Layers,
@@ -53,7 +54,7 @@ export default async function ManagingEditorDashboardPage() {
     }),
     prisma.issue.findMany({
       take: 5,
-      include: { volume: true, _count: { select: { articles: true } } },
+      include: { volume: true, _count: { select: ISSUE_ARTICLE_COUNT_SELECT } },
       orderBy: { publishDate: 'desc' },
     }),
   ])
@@ -170,7 +171,7 @@ export default async function ManagingEditorDashboardPage() {
                         Tập {issue.volume?.volumeNo || issue.year}, Số {issue.number} ({issue.year})
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{issue._count.articles} bài</span>
+                        <span className="text-xs text-muted-foreground">{getIssueArticleCount(issue)} bài</span>
                         <Badge variant={issue.status === 'PUBLISHED' ? 'default' : 'secondary'} className="text-[10px] py-0">
                           {issue.status === 'PUBLISHED' ? 'Đã xuất bản' : 'Nháp'}
                         </Badge>
