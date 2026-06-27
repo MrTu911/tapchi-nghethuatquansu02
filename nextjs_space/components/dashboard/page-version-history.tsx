@@ -2,7 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { History, RotateCcw, Loader2, Clock, User as UserIcon } from "lucide-react";
+import {
+  History,
+  RotateCcw,
+  Loader2,
+  Clock,
+  User as UserIcon,
+  GitCompare,
+} from "lucide-react";
+import { diffWords, stripHtml, summarizeDiff } from "@/lib/text-diff";
 import {
   Sheet,
   SheetContent,
@@ -29,6 +37,7 @@ interface PageVersion {
   id: string;
   versionNo: number;
   title: string;
+  content: string;
   changeNote?: string | null;
   createdByName?: string | null;
   createdAt: string;
@@ -54,6 +63,9 @@ export function PageVersionHistory({
   const [versions, setVersions] = useState<PageVersion[]>([]);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [confirmVersion, setConfirmVersion] = useState<PageVersion | null>(null);
+  const [comparingId, setComparingId] = useState<string | null>(null);
+  const [currentContent, setCurrentContent] = useState<string | null>(null);
+  const [currentTitle, setCurrentTitle] = useState<string>("");
 
   const fetchVersions = async () => {
     setLoading(true);
@@ -72,9 +84,37 @@ export function PageVersionHistory({
     }
   };
 
+  // Lấy nội dung hiện tại của trang (1 lần) để so sánh với phiên bản cũ.
+  const ensureCurrentLoaded = async () => {
+    if (currentContent !== null) return;
+    try {
+      const res = await fetch(`/api/public-pages/${pageId}`);
+      const data = await res.json();
+      if (data.success) {
+        setCurrentContent(data.data.content || "");
+        setCurrentTitle(data.data.title || "");
+      }
+    } catch {
+      // Giữ null — diff sẽ hiển thị thông báo lỗi tải.
+    }
+  };
+
+  const toggleCompare = async (versionId: string) => {
+    if (comparingId === versionId) {
+      setComparingId(null);
+      return;
+    }
+    await ensureCurrentLoaded();
+    setComparingId(versionId);
+  };
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next) fetchVersions();
+    if (next) {
+      fetchVersions();
+    } else {
+      setComparingId(null);
+    }
   };
 
   const handleRestore = async (version: PageVersion) => {
@@ -98,6 +138,61 @@ export function PageVersionHistory({
     } finally {
       setRestoringId(null);
     }
+  };
+
+  const renderDiff = (version: PageVersion) => {
+    if (currentContent === null) {
+      return (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Không tải được nội dung hiện tại để so sánh.
+        </p>
+      );
+    }
+    const segments = diffWords(
+      `${version.title}\n${stripHtml(version.content)}`,
+      `${currentTitle}\n${stripHtml(currentContent)}`
+    );
+    const { added, removed } = summarizeDiff(segments);
+    const noChange = added === 0 && removed === 0;
+    return (
+      <div className="mt-2 rounded-md border bg-background p-3">
+        <div className="mb-2 flex items-center gap-3 text-[11px]">
+          <span className="text-muted-foreground">So với bản hiện tại:</span>
+          <span className="font-medium text-emerald-600">+{added}</span>
+          <span className="font-medium text-red-500">−{removed}</span>
+        </div>
+        {noChange ? (
+          <p className="text-xs text-muted-foreground">
+            Không có khác biệt về nội dung văn bản.
+          </p>
+        ) : (
+          <p className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed">
+            {segments.map((s, i) =>
+              s.type === "eq" ? (
+                <span key={i}>{s.value}</span>
+              ) : s.type === "add" ? (
+                <span
+                  key={i}
+                  className="rounded bg-emerald-100 px-0.5 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                >
+                  {s.value}
+                </span>
+              ) : (
+                <span
+                  key={i}
+                  className="rounded bg-red-100 px-0.5 text-red-700 line-through dark:bg-red-900/30 dark:text-red-300"
+                >
+                  {s.value}
+                </span>
+              )
+            )}
+          </p>
+        )}
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Xanh = có ở bản hiện tại (thêm) · Đỏ gạch = chỉ có ở phiên bản này (đã bỏ).
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -155,20 +250,33 @@ export function PageVersionHistory({
                             </Badge>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 gap-1.5 text-xs"
-                          onClick={() => setConfirmVersion(v)}
-                          disabled={restoringId !== null}
-                        >
-                          {restoringId === v.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          )}
-                          Khôi phục
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 gap-1.5 text-xs ${
+                              comparingId === v.id ? "text-emerald-700" : ""
+                            }`}
+                            onClick={() => toggleCompare(v.id)}
+                          >
+                            <GitCompare className="h-3.5 w-3.5" />
+                            {comparingId === v.id ? "Đóng" : "So sánh"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1.5 text-xs"
+                            onClick={() => setConfirmVersion(v)}
+                            disabled={restoringId !== null}
+                          >
+                            {restoringId === v.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            Khôi phục
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm font-medium line-clamp-1">{v.title}</p>
                       {v.changeNote && (
@@ -188,6 +296,7 @@ export function PageVersionHistory({
                           </span>
                         )}
                       </div>
+                      {comparingId === v.id && renderDiff(v)}
                     </li>
                   ))}
                 </ul>

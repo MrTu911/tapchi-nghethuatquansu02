@@ -30,6 +30,21 @@ import {
   GripVertical,
   ExternalLink,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SiteSetting {
   id: string;
@@ -58,6 +73,73 @@ interface FooterCategoryItem {
 }
 
 const ICON_OPTIONS = ['School', 'Shield', 'Globe', 'Newspaper', 'BookOpen', 'Link2'];
+
+// Hàng kéo-thả cho một mục "Chuyên Mục" của footer.
+function SortableFooterCategory({
+  id,
+  cat,
+  onChange,
+  onRemove,
+}: {
+  id: string;
+  cat: FooterCategoryItem;
+  onChange: (field: keyof FooterCategoryItem, value: string) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-start gap-3 p-4 rounded-lg border bg-muted/30 ${
+        isDragging ? 'shadow-lg z-50' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className="mt-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
+        {...attributes}
+        {...listeners}
+        aria-label="Kéo để sắp xếp"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Tên hiển thị</Label>
+          <Input
+            value={cat.label}
+            onChange={(e) => onChange('label', e.target.value)}
+            placeholder="VD: Nghệ thuật quân sự"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Đường dẫn</Label>
+          <Input
+            value={cat.href}
+            onChange={(e) => onChange('href', e.target.value)}
+            placeholder="/categories/..."
+          />
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onRemove}
+        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
 
 export default function SiteSettingsPage() {
   const router = useRouter();
@@ -182,6 +264,19 @@ export default function SiteSettingsPage() {
     setFormData((prev) => ({ ...prev, footer_categories: JSON.stringify(updated) }));
     setHasChanges(true);
   };
+
+  const handleFooterCategoryDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+    const updated = arrayMove(footerCategories, oldIndex, newIndex);
+    setFooterCategories(updated);
+    setFormData((prev) => ({ ...prev, footer_categories: JSON.stringify(updated) }));
+    setHasChanges(true);
+  };
+
+  const footerDndSensors = useSensors(useSensor(PointerSensor));
 
   const handleSave = async () => {
     try {
@@ -564,39 +659,32 @@ export default function SiteSettingsPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {footerCategories.map((cat, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg border bg-muted/30">
-                      <GripVertical className="w-4 h-4 mt-3 text-muted-foreground shrink-0" />
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Tên hiển thị</Label>
-                          <Input
-                            value={cat.label}
-                            onChange={(e) => updateFooterCategory(idx, 'label', e.target.value)}
-                            placeholder="VD: Nghệ thuật quân sự"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Đường dẫn</Label>
-                          <Input
-                            value={cat.href}
-                            onChange={(e) => updateFooterCategory(idx, 'href', e.target.value)}
-                            placeholder="/categories/..."
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFooterCategory(idx)}
-                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                <DndContext
+                  sensors={footerDndSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleFooterCategoryDragEnd}
+                >
+                  <SortableContext
+                    items={footerCategories.map((_, idx) => String(idx))}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {footerCategories.map((cat, idx) => (
+                        <SortableFooterCategory
+                          key={idx}
+                          id={String(idx)}
+                          cat={cat}
+                          onChange={(field, value) => updateFooterCategory(idx, field, value)}
+                          onRemove={() => removeFooterCategory(idx)}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Kéo biểu tượng <GripVertical className="inline w-3 h-3" /> để sắp xếp thứ tự
+                    hiển thị. Nhớ bấm <b>Lưu</b> để áp dụng.
+                  </p>
+                </DndContext>
               )}
             </CardContent>
           </Card>
