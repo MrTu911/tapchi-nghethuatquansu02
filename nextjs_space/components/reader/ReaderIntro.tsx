@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { motion, useAnimation } from 'framer-motion'
 import { ReaderSettings } from './types'
 import CoverPage from './CoverPage'
@@ -18,6 +19,7 @@ interface ReaderIntroProps {
 export default function ReaderIntro({ corpus, issueId, settings, C, readerControls }: ReaderIntroProps) {
   const [introState, setIntroState] = useState<{ rect: any, ready: boolean }>({ rect: null, ready: false })
   const [introDone, setIntroDone] = useState(false)
+  const [hasCover2, setHasCover2] = useState(true)
   const coverControls = useAnimation()
   const flipControls = useAnimation()
 
@@ -111,14 +113,21 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
         {/* The First Page (Revealed under the cover - Right side) */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: settings.dark ? '#1A1614' : '#E8DFCC',
+          background: 'transparent', // Remove sepia background under cover
           borderRadius: 'inherit',
-          borderRight: `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
-          overflow: 'hidden', // Prevent CoverPage borders from overflowing rounded corners
+          borderRight: 'none', // Remove page border under cover
+          overflow: 'hidden', 
           transform: 'translateZ(-1px)', // Fix Z-fighting with the cover
         }}>
-          {/* Render the actual title page here so it looks like a real book opening */}
-          <CoverPage issue={corpus.issue} issueId={issueId} C={C} />
+          {/* Render Cover 2 directly, filling the page completely */}
+          <Image
+            src={`/data/issues/${issueId}/cover_2.jpg`}
+            alt="Bìa 2"
+            fill
+            sizes="50vw"
+            className="object-cover"
+            priority
+          />
         </div>
 
         {/* The Flappable Cover */}
@@ -148,12 +157,24 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
             position: 'absolute', inset: 0,
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
-            background: settings.dark ? '#1A1614' : '#E8DFCC', // Match paper color!
-            borderLeft: `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+            background: hasCover2 ? 'transparent' : (settings.dark ? '#1A1614' : '#E8DFCC'), // Transparent when Cover 2 is present
+            borderLeft: hasCover2 ? 'none' : `2px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
             borderRadius: 'inherit',
-            overflow: 'hidden' // Keep text inside
+            overflow: 'hidden' 
           }}>
-            <EditorialPage C={C} />
+            {hasCover2 ? (
+              <Image
+                src={`/data/issues/${issueId}/cover.jpg`}
+                alt="Bìa 1"
+                fill
+                sizes="50vw"
+                className="object-cover" // Fills the page completely to eliminate edge remnants
+                priority
+                onError={() => setHasCover2(false)}
+              />
+            ) : (
+              <EditorialPage C={C} />
+            )}
           </div>
         </motion.div>
       </motion.div>

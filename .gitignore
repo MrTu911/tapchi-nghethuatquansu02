@@ -50,3 +50,6 @@ nextjs_space/public/uploads/**/*.doc
 nextjs_space/public/uploads/**/*.docx
 # Keep .gitkeep so empty directories are tracked
 !nextjs_space/public/uploads/**/.gitkeep
+
+# Local Netlify folder
+.netlify

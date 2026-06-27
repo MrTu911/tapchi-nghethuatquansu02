@@ -141,20 +141,34 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
           </>
         )}
 
-        <div style={{ gridArea: 'main', padding: '16px 20px 20px 16px', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+        <div style={{
+          gridArea: 'main',
+          padding: isCover ? '0px' : '16px 20px 20px 16px',
+          overflow: 'hidden',
+          display: 'flex',
+          minHeight: 0
+        }}>
           <main style={{
-            position: 'relative', flex: 1,
-            background: settings.dark ? 'rgba(26,22,17,0.95)' : 'rgba(251,246,230,0.92)',
-            backdropFilter: 'blur(32px) saturate(150%)', WebkitBackdropFilter: 'blur(32px) saturate(150%)',
-            borderRadius: '12px',
-            boxShadow: settings.dark ? '0 12px 48px rgba(0,0,0,0.4)' : '0 12px 48px rgba(0,0,0,0.08)',
-            border: `1px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}`,
+            position: 'relative',
+            flex: 1,
+            background: isCover
+              ? 'transparent'
+              : (settings.dark ? 'rgba(26,22,17,0.95)' : 'rgba(251,246,230,0.92)'),
+            backdropFilter: isCover ? 'none' : 'blur(32px) saturate(150%)',
+            WebkitBackdropFilter: isCover ? 'none' : 'blur(32px) saturate(150%)',
+            borderRadius: isCover ? '0px' : '12px',
+            boxShadow: isCover
+              ? 'none'
+              : (settings.dark ? '0 12px 48px rgba(0,0,0,0.4)' : '0 12px 48px rgba(0,0,0,0.08)'),
+            border: isCover
+              ? 'none'
+              : `1px solid ${settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}`,
             overflow: 'hidden',
           }}>
             <div ref={viewportRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
 
               {isCover ? (
-                <CoverPage issue={corpus.issue} issueId={issueId} C={C} />
+                <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={settings.twoPage} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0 }}>
 
