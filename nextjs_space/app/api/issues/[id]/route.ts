@@ -33,6 +33,28 @@ export async function GET(
             }
           }
         },
+        // Bài số hóa/nhập từ kho corpus — nguồn bài thứ hai của một số tạp chí.
+        // Phải trả về cùng GET này để trang chi tiết hiển thị đủ danh sách bài.
+        journalArticles: {
+          orderBy: { pageStart: 'asc' },
+          include: {
+            authors: {
+              orderBy: { order: 'asc' },
+              select: {
+                id: true,
+                name: true,
+                militaryRank: true,
+                academicTitle: true,
+                degree: true,
+                organization: true,
+                order: true,
+              }
+            },
+            section: {
+              select: { id: true, name: true, slug: true, order: true }
+            }
+          }
+        },
         _count: {
           select: ISSUE_ARTICLE_COUNT_SELECT
         }

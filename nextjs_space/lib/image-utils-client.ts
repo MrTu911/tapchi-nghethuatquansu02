@@ -23,6 +23,14 @@ export function getImageUrl(filePath: string | null | undefined): string {
     return filePath;
   }
 
+  // Root-relative public assets (e.g. /images/..., /uploads/...) are served
+  // directly by Next.js from public/. They are NOT S3 object keys — real S3
+  // keys never start with "/" (they carry a numeric folder prefix like 8414/),
+  // so these must never be routed through the S3 proxy.
+  if (filePath.startsWith('/')) {
+    return filePath;
+  }
+
   // All S3 paths (starting with folder prefix like 8414/) go through proxy
   // This handles: 8414/images/..., 8414/videos/..., etc.
   if (/^\d+\//.test(filePath)) {

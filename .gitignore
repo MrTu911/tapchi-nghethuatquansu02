@@ -23,6 +23,8 @@ __pycache__/
 nextjs_space/.env
 nextjs_space/.env.*
 nextjs_space/.env.backup*
+# ...but DO commit the template (no secrets) so installs are reproducible
+!nextjs_space/.env.example
 
 # OS files
 .DS_Store

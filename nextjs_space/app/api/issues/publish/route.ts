@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { logAudit, AuditEventType } from '@/lib/audit-logger';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { revalidatePath } from 'next/cache';
+import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils';
 
 /**
  * API để xuất bản một số tạp chí
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
             submission: true,
           },
         },
+        // Đếm cả bài số hóa (JournalArticle) để không chặn xuất bản các số chỉ
+        // gồm bài nhập từ kho corpus.
+        _count: {
+          select: ISSUE_ARTICLE_COUNT_SELECT,
+        },
       },
     });
 
@@ -46,8 +52,8 @@ export async function POST(req: NextRequest) {
       return errorResponse('Không tìm thấy số tạp chí', 404);
     }
 
-    // Kiểm tra đã có bài báo chưa
-    if (currentIssue.articles.length === 0) {
+    // Kiểm tra đã có bài báo chưa (gồm cả Article phản biện lẫn JournalArticle số hóa)
+    if (getIssueArticleCount(currentIssue) === 0) {
       return errorResponse('Số tạp chí chưa có bài báo nào', 400);
     }
 
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
         issueTitle: currentIssue.title,
         volumeNo: currentIssue.volume.volumeNo,
         issueNumber: currentIssue.number,
-        articleCount: currentIssue.articles.length,
+        articleCount: getIssueArticleCount(currentIssue),
       },
     });
 
@@ -120,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Đã xuất bản số ${currentIssue.volume.volumeNo}.${currentIssue.number} với ${currentIssue.articles.length} bài báo`,
+      message: `Đã xuất bản số ${currentIssue.volume.volumeNo}.${currentIssue.number} với ${getIssueArticleCount(currentIssue)} bài báo`,
       data: {
         issue: finalIssue,
       },

@@ -4,6 +4,12 @@ import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+// Chế độ NỀN (foundation-only): chỉ tạo chuyên mục + tài khoản chính thức +
+// reviewer profile + khung Volume/Issue, BỎ QUA khối bài/submission/audit mẫu.
+// Dùng cho cài đặt "tối thiểu/sạch" (seed-full.ts --mode=minimal).
+// Mặc định KHÔNG bật → giữ nguyên hành vi cũ cho `prisma db seed`.
+const MINIMAL = process.argv.includes('--minimal') || process.env.SEED_MINIMAL === '1'
+
 // 9 chuyên mục chính thức của Tạp chí Nghệ thuật Quân sự Việt Nam
 const CATEGORIES = [
   {
@@ -343,6 +349,13 @@ async function main() {
   // Validation: Đảm bảo authors tồn tại
   if (!author || !author2) {
     throw new Error('❌ Không tìm thấy authors cần thiết cho seed process')
+  }
+
+  // Chế độ NỀN: dừng tại đây, không tạo dữ liệu bài/submission/audit demo.
+  if (MINIMAL) {
+    console.log('✅ Seed NỀN hoàn tất (minimal): chuyên mục + tài khoản + reviewer profile + khung số tạp chí.')
+    console.log(`📚 ${categories.length} chuyên mục, 👥 ${createdUsers.length} người dùng, 📖 2 số tạp chí.`)
+    return
   }
 
   // 5. Seed sample articles (15 bài phân bố đều 11 chuyên mục)

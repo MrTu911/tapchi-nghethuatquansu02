@@ -92,6 +92,33 @@ interface Article {
   }
 }
 
+interface JournalArticleAuthor {
+  id: string
+  name: string
+  militaryRank?: string
+  academicTitle?: string
+  degree?: string
+  organization?: string
+  order: number
+}
+
+interface JournalArticle {
+  id: string
+  title: string
+  slug: string
+  authorsText: string
+  pageStart: number
+  pageEnd?: number
+  status: string
+  keywords: string[]
+  authors: JournalArticleAuthor[]
+  section?: {
+    id: string
+    name: string
+    slug: string
+  }
+}
+
 interface Issue {
   id: string
   volumeNo: number
@@ -106,8 +133,10 @@ interface Issue {
   publishDate?: string
   status: 'DRAFT' | 'PUBLISHED'
   articles: Article[]
+  journalArticles?: JournalArticle[]
   _count?: {
     articles: number
+    journalArticles?: number
   }
 }
 
@@ -152,7 +181,8 @@ export default function IssueDetailPage() {
   const handlePublish = async () => {
     if (!issue) return
 
-    if (!issue.articles || issue.articles.length === 0) {
+    const totalArticles = (issue.articles?.length || 0) + (issue.journalArticles?.length || 0)
+    if (totalArticles === 0) {
       toast.error('Không thể xuất bản số tạp chí chưa có bài viết')
       return
     }
@@ -233,7 +263,11 @@ export default function IssueDetailPage() {
     )
   }
 
-  const articleCount = issue.articles?.length || 0
+  // Một số tạp chí có hai nguồn bài: bài phản biện (Article) và bài số hóa từ kho
+  // (JournalArticle). Tổng số bài phải cộng cả hai để KPI và bảng không báo thiếu.
+  const peerArticles = issue.articles ?? []
+  const journalArticles = issue.journalArticles ?? []
+  const articleCount = peerArticles.length + journalArticles.length
   const volumeNo = issue.volume?.volumeNo || issue.volumeNo
   const isPublished = issue.status === 'PUBLISHED'
 
@@ -467,93 +501,166 @@ export default function IssueDetailPage() {
                   </Button>
                 </div>
               ) : (
-                <TableScrollWrapper>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-10">STT</TableHead>
-                        <TableHead>Tiêu đề / Mã</TableHead>
-                        <TableHead>Tác giả</TableHead>
-                        <TableHead>Danh mục</TableHead>
-                        <TableHead className="text-center w-20">
-                          <Eye className="h-4 w-4 mx-auto" />
-                        </TableHead>
-                        <TableHead className="text-center w-20">
-                          <Download className="h-4 w-4 mx-auto" />
-                        </TableHead>
-                        <TableHead className="text-right w-16">Thao tác</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {issue.articles.map((article, index) => (
-                        <TableRow key={article.id} className="group">
-                          <TableCell className="font-medium text-muted-foreground">
-                            {index + 1}
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-0.5">
-                              <Link
-                                href={`/articles/${article.id}`}
-                                target="_blank"
-                                className="font-medium text-sm hover:text-primary hover:underline leading-snug line-clamp-2 transition-colors"
-                              >
-                                {article.submission?.title || 'Chưa có tiêu đề'}
-                              </Link>
-                              {article.submission?.code && (
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {article.submission.code}
-                                </span>
-                              )}
-                              {article.doi && (
-                                <div className="text-xs text-muted-foreground font-mono">
-                                  DOI: {article.doi}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-sm">
-                                {article.submission?.author.fullName}
-                              </p>
-                              {article.submission?.author.org && (
-                                <p className="text-xs text-muted-foreground line-clamp-1">
-                                  {article.submission.author.org}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {article.submission?.category ? (
-                              <Badge variant="outline" className="text-xs">
-                                {article.submission.category.name}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className="text-sm tabular-nums">{article.views}</span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className="text-sm tabular-nums">{article.downloads}</span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleRemoveArticle(article.id)}
-                              className="h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Gỡ khỏi số này"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableScrollWrapper>
+                <div className="space-y-6">
+                  {/* Bài qua quy trình phản biện/biên tập (model Article) */}
+                  {peerArticles.length > 0 && (
+                    <div className="space-y-2">
+                      {journalArticles.length > 0 && (
+                        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5" />
+                          Bài qua phản biện ({peerArticles.length})
+                        </h3>
+                      )}
+                      <TableScrollWrapper>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10">STT</TableHead>
+                              <TableHead>Tiêu đề / Mã</TableHead>
+                              <TableHead>Tác giả</TableHead>
+                              <TableHead>Danh mục</TableHead>
+                              <TableHead className="text-center w-20">
+                                <Eye className="h-4 w-4 mx-auto" />
+                              </TableHead>
+                              <TableHead className="text-center w-20">
+                                <Download className="h-4 w-4 mx-auto" />
+                              </TableHead>
+                              <TableHead className="text-right w-16">Thao tác</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {peerArticles.map((article, index) => (
+                              <TableRow key={article.id} className="group">
+                                <TableCell className="font-medium text-muted-foreground">
+                                  {index + 1}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-0.5">
+                                    <Link
+                                      href={`/articles/${article.id}`}
+                                      target="_blank"
+                                      className="font-medium text-sm hover:text-primary hover:underline leading-snug line-clamp-2 transition-colors"
+                                    >
+                                      {article.submission?.title || 'Chưa có tiêu đề'}
+                                    </Link>
+                                    {article.submission?.code && (
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                        {article.submission.code}
+                                      </span>
+                                    )}
+                                    {article.doi && (
+                                      <div className="text-xs text-muted-foreground font-mono">
+                                        DOI: {article.doi}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {article.submission?.author.fullName}
+                                    </p>
+                                    {article.submission?.author.org && (
+                                      <p className="text-xs text-muted-foreground line-clamp-1">
+                                        {article.submission.author.org}
+                                      </p>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {article.submission?.category ? (
+                                    <Badge variant="outline" className="text-xs">
+                                      {article.submission.category.name}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className="text-sm tabular-nums">{article.views}</span>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className="text-sm tabular-nums">{article.downloads}</span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleRemoveArticle(article.id)}
+                                    className="h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Gỡ khỏi số này"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableScrollWrapper>
+                    </div>
+                  )}
+
+                  {/* Bài số hóa/nhập từ kho corpus (model JournalArticle) */}
+                  {journalArticles.length > 0 && (
+                    <div className="space-y-2">
+                      {peerArticles.length > 0 && (
+                        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <BookOpen className="h-3.5 w-3.5" />
+                          Bài số hóa từ kho ({journalArticles.length})
+                        </h3>
+                      )}
+                      <TableScrollWrapper>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10">STT</TableHead>
+                              <TableHead>Tiêu đề</TableHead>
+                              <TableHead>Tác giả</TableHead>
+                              <TableHead>Chuyên mục</TableHead>
+                              <TableHead className="text-center w-20">Trang</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {journalArticles.map((article, index) => (
+                              <TableRow key={article.id} className="group">
+                                <TableCell className="font-medium text-muted-foreground">
+                                  {index + 1}
+                                </TableCell>
+                                <TableCell>
+                                  <Link
+                                    href={`/journal-articles/${article.id}`}
+                                    target="_blank"
+                                    className="font-medium text-sm hover:text-primary hover:underline leading-snug line-clamp-2 transition-colors"
+                                  >
+                                    {article.title}
+                                  </Link>
+                                </TableCell>
+                                <TableCell>
+                                  <p className="text-sm line-clamp-2">{article.authorsText}</p>
+                                </TableCell>
+                                <TableCell>
+                                  {article.section ? (
+                                    <Badge variant="outline" className="text-xs">
+                                      {article.section.name}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center text-sm tabular-nums">
+                                  {article.pageEnd
+                                    ? `${article.pageStart}–${article.pageEnd}`
+                                    : article.pageStart}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableScrollWrapper>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
