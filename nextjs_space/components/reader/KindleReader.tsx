@@ -25,9 +25,11 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
   const measureRef = useRef<HTMLDivElement>(null)
   const jumpToLastSpread = useRef(false)
 
-  const isCover = currentIdx === -1
-  const article = isCover ? null : corpus.articles[currentIdx]
   const total = corpus.articles.length
+  const isFrontCover = currentIdx === -1
+  const isBackCover = currentIdx === total
+  const isCover = isFrontCover || isBackCover
+  const article = isCover ? null : corpus.articles[currentIdx]
   const C = settings.dark ? DARK_COLORS : COLORS
 
   useEffect(() => {
@@ -43,12 +45,10 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
   useEffect(() => {
     setMounted(true)
     try { const s = localStorage.getItem(SETTINGS_KEY); if (s) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(s) }) } catch {}
-    try { const i = localStorage.getItem(`ntqs-reader-pos-${issueId}`); if (i !== null) setCurrentIdx(parseInt(i, 10) || -1) } catch {}
     if (window.innerWidth < 768) setSidebarOpen(false)
   }, [issueId])
 
   useEffect(() => { if (!mounted) return; try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)) } catch {} }, [settings, mounted])
-  useEffect(() => { if (!mounted) return; try { localStorage.setItem(`ntqs-reader-pos-${issueId}`, String(currentIdx)) } catch {} }, [currentIdx, issueId, mounted])
 
   // Lock body scroll when the reader is open
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
     return () => { document.body.style.overflow = originalOverflow }
   }, [])
 
-  const goNextArticle = useCallback(() => { setCurrentSpread(0); setCurrentIdx(i => Math.min(i + 1, total - 1)) }, [total])
+  const goNextArticle = useCallback(() => { setCurrentSpread(0); setCurrentIdx(i => Math.min(i + 1, total)) }, [total])
   const goPrevArticle = useCallback(() => { jumpToLastSpread.current = true; setCurrentIdx(i => Math.max(i - 1, -1)) }, [])
 
   const { viewportRef, viewportW, geometry, colsPerSpread, totalSpreads, totalCols, isJumping, animatedTurn } = useReaderLayout({
@@ -95,10 +95,10 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
   const changeFont = (delta: number) => setSettings(s => ({ ...s, fontScale: Math.max(70, Math.min(180, s.fontScale + delta)) }))
 
   const atStart = currentIdx === -1 && currentSpread === 0
-  const atEnd = currentIdx === total - 1 && currentSpread === totalSpreads - 1
+  const atEnd = currentIdx === total && currentSpread === totalSpreads - 1
   const isMobile = viewportW > 0 && viewportW < 768
 
-  if (currentIdx !== -1 && !article) return <div className="flex items-center justify-center min-h-screen">Không tìm thấy bài.</div>
+  if (!isCover && !article) return <div className="flex items-center justify-center min-h-screen">Không tìm thấy bài.</div>
 
   const issueShort = `${corpus.issue.title} — ${corpus.issue.name}`
   const { padding, colGap, innerW, colWidth, shiftPerSpread, pageH } = geometry
@@ -121,7 +121,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
         }}
       >
         <ReaderHeader
-          issueShort={issueShort} sectionName={article?.section || 'TRANG BÌA'}
+          issueShort={issueShort} sectionName={article?.section || (isBackCover ? 'BÌA SAU' : 'TRANG BÌA')}
           settings={settings} C={C} changeFont={changeFont}
           toggleTwoPage={() => setSettings(s => ({ ...s, twoPage: !s.twoPage }))}
           toggleDarkMode={() => setSettings(s => ({ ...s, dark: !s.dark }))}
@@ -136,6 +136,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
                 articleId={article?.id} sectionedArticles={sectionedArticles} collapsedSections={collapsedSections}
                 toggleSection={toggleSection} goToArticle={goToArticle}
                 goToCover={() => { setCurrentIdx(-1); setCurrentSpread(0); if (isMobile) setSidebarOpen(false) }}
+                goToBackCover={() => { setCurrentIdx(total); setCurrentSpread(0); if (isMobile) setSidebarOpen(false) }}
                 corpusArticles={corpus.articles} />
             </div>
           </>
@@ -168,7 +169,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
             <div ref={viewportRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
 
               {isCover ? (
-                <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={settings.twoPage} />
+                <CoverPage issue={corpus.issue} issueId={issueId} C={C} twoPage={settings.twoPage} isBack={isBackCover} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0 }}>
 
@@ -247,7 +248,7 @@ export default function KindleReader({ corpus, issueId }: { corpus: Corpus; issu
 
           {/* Progress bar */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, background: settings.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', zIndex: 20 }}>
-            <div style={{ height: '100%', background: C.accent, opacity: settings.dark ? 0.6 : 0.25, transition: 'width .42s', width: `${isCover ? 0 : ((currentIdx + currentSpread / Math.max(1, totalSpreads)) / total) * 100}%` }} />
+            <div style={{ height: '100%', background: C.accent, opacity: settings.dark ? 0.6 : 0.25, transition: 'width .42s', width: `${isCover ? (isBackCover ? 100 : 0) : ((currentIdx + currentSpread / Math.max(1, totalSpreads)) / total) * 100}%` }} />
           </div>
         </main>
       </div>

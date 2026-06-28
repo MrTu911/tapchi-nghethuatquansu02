@@ -82,6 +82,9 @@ export default function ReaderIntro({ corpus, issueId, settings, C, readerContro
           transition: { duration: 1.2, ease: [0.22, 1, 0.36, 1] }
         })
 
+        // Pause for 2 seconds so the viewer can see the cover contents
+        await new Promise(r => setTimeout(r, 2000))
+
         // Phase 3: Zoom into the pages & fade in reader UI
         readerControls.start({ opacity: 1, transition: { duration: 0.6 } })
         await coverControls.start({

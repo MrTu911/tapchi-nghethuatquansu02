@@ -13,6 +13,7 @@ interface ReaderSidebarProps {
   toggleSection: (key: string) => void
   goToArticle: (id: string) => void
   goToCover: () => void
+  goToBackCover?: () => void
   corpusArticles: CorpusArticle[]
 }
 
@@ -27,9 +28,13 @@ export default function ReaderSidebar({
   toggleSection,
   goToArticle,
   goToCover,
+  goToBackCover,
   corpusArticles,
 }: ReaderSidebarProps) {
   const scrollRef = useRef<HTMLElement>(null)
+  const total = corpusArticles.length
+  const isFrontCover = currentIdx === -1
+  const isBackCover = currentIdx === total
 
   useEffect(() => {
     if (!scrollRef.current) return
@@ -70,7 +75,7 @@ export default function ReaderSidebar({
       <h3 className="ntqs-toc-heading">Mục lục</h3>
 
       <button
-        className={`ntqs-toc-cover ${isCover ? 'is-active' : ''}`}
+        className={`ntqs-toc-cover ${isFrontCover ? 'is-active' : ''}`}
         onClick={goToCover}
       >
         <span className="ntqs-toc-cover-label">Trang tiêu đề</span>
@@ -126,6 +131,16 @@ export default function ReaderSidebar({
           )
         })}
       </ul>
+
+      {goToBackCover && (
+        <button
+          className={`ntqs-toc-cover ${isBackCover ? 'is-active' : ''}`}
+          onClick={goToBackCover}
+          style={{ marginTop: '20px', width: '100%', display: 'flex', alignItems: 'center' }}
+        >
+          <span className="ntqs-toc-cover-label">Trang bìa sau</span>
+        </button>
+      )}
     </aside>
   )
 }

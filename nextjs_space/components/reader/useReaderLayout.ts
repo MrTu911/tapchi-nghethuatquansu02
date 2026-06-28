@@ -62,7 +62,7 @@ export function useReaderLayout({
 
   useLayoutEffect(() => {
     if (!viewportW) return
-    if (currentIdx === -1) {
+    if (currentIdx === -1 || article === null) {
       setTotalCols(1)
       setTotalSpreads(1)
       if (jumpToLastSpread.current) { setCurrentSpread(0); jumpToLastSpread.current = false }

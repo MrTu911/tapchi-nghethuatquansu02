@@ -88,12 +88,42 @@ export default function Article({ article, C, issueId }: { article: CorpusArticl
             <p key={i} className={i === 0 ? 'ntqs-first-para' : ''}>
               <span dangerouslySetInnerHTML={{ 
                 __html: p.text
+                  .replace(/(?<![a-zA-Zà-ỹđĐ\p{L}\p{M}])(m|cm|dm|mm|km)(2|3)\b/gu, '$1<sup class="ntqs-unit">$2</sup>')
                   .replace(/\[(\d{1,3})\]/g, (match, num) => {
                     return (maxRef > 0 && parseInt(num) > 0 && parseInt(num) <= maxRef) 
                       ? `<sup class="ntqs-cite">[${num}]</sup>` 
                       : match
                   })
-                  .replace(/([a-zA-Zà-ỹđĐ\p{Ll}\p{M}\)\]”"’'“‘]+[.,;:”"’'“‘]?)(\d{1,3})([\.,;:\s\)\]”"’'“‘]|$)/gu, (match, prefix, num, suffix) => {
+                  .replace(/([a-zA-Zà-ỹđĐ\p{Ll}\p{M}\)\]”"’'“‘]+[.,;:”"’'“‘]?)(\d{1,3})([\.,;:\s\)\]”"’'“‘]|$)/gu, (match, prefix, num, suffix, offset, string) => {
+                    // Find the start of the word containing this match
+                    let start = offset;
+                    while (start > 0 && !/\s/.test(string[start - 1])) {
+                      start--;
+                    }
+                    // The word end is exactly the end of the digit (prefix + num)
+                    const end = offset + prefix.length + num.length;
+                    
+                    // Extract the word and clean it of leading/trailing punctuation/quotes/parentheses
+                    const fullWord = string.slice(start, end).replace(/^[.,;:?!”"’'“‘\(\[\s]+|[.,;:?!”"’'“‘\)\]\s]+$/g, '');
+                    
+                    // Remove any trailing punctuation from the prefix for length/character checks
+                    const cleanPrefix = prefix.replace(/[.,;:?!”"’'“‘\(\)\[\]\s]+$/g, '');
+                    
+                    // A word is a model designation / military code if:
+                    // 1. It contains a hyphen (e.g., Su-30MK2, B-52)
+                    // 2. It contains another digit before the matched digit (e.g., M1A2)
+                    // 3. The letter prefix before the digit is only 1 character long (e.g., K1, K2, d1, c2, b3, a4, T34, F9, A1)
+                    // 4. The letter prefix contains any uppercase letters (e.g., Su30, AK47, RPG7, Kh29, Mi8, Ka52)
+                    const isModel = 
+                      /[-]/.test(fullWord) || 
+                      (/\d/.test(fullWord.slice(0, fullWord.length - num.length))) ||
+                      (cleanPrefix.length === 1) ||
+                      (cleanPrefix !== cleanPrefix.toLowerCase());
+                    
+                    if (isModel) {
+                      return match; // Keep as is, do not superscript
+                    }
+                    
                     return (maxRef > 0 && parseInt(num) > 0 && parseInt(num) <= maxRef)
                       ? `${prefix}<sup class="ntqs-cite">${num}</sup>${suffix}`
                       : match

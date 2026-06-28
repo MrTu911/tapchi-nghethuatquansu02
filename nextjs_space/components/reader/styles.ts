@@ -442,6 +442,13 @@ export const getStyles = (settings: { dark: boolean }, C: Record<string, string>
     color: ${C.accent};
     font-weight: 600;
   }
+  .ntqs-unit {
+    display: inline;
+    white-space: nowrap;
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+  }
   .ntqs-body h2 {
     font-family: ${SERIF};
     font-size: 1.1em;

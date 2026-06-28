@@ -9,14 +9,16 @@ interface CoverPageProps {
   issueId: string
   C: Record<string, string>
   twoPage?: boolean
+  isBack?: boolean
 }
 
-export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPageProps) {
+export default function CoverPage({ issue, issueId, C, twoPage = true, isBack = false }: CoverPageProps) {
   const [hasCover2, setHasCover2] = useState(true)
   const [isWideScreen, setIsWideScreen] = useState(true)
 
-  const cover1Src = `/data/issues/${issueId}/cover.jpg`
-  const cover2Src = `/data/issues/${issueId}/cover_2.jpg`
+  const cover1Src = isBack ? `/data/issues/${issueId}/cover_3.jpg` : `/data/issues/${issueId}/cover.jpg`
+  const cover2Src = isBack ? `/data/issues/${issueId}/cover_4.jpg` : `/data/issues/${issueId}/cover_2.jpg`
+  const singleCoverSrc = isBack ? `/data/issues/${issueId}/cover_4.jpg` : `/data/issues/${issueId}/cover.jpg`
 
   useEffect(() => {
     const handleResize = () => {
@@ -54,7 +56,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           maxWidth: '100%',
           boxSizing: 'border-box',
         }}>
-          {/* Left Page: Cover 1 */}
+          {/* Left Page: Cover 1 / 3 */}
           <div style={{
             position: 'relative',
             width: '50%',
@@ -63,7 +65,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           }}>
             <Image
               src={cover1Src}
-              alt="Bìa 1"
+              alt={isBack ? "Bìa 3" : "Bìa 1"}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-contain"
@@ -71,7 +73,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
             />
           </div>
 
-          {/* Right Page: Cover 2 */}
+          {/* Right Page: Cover 2 / 4 */}
           <div style={{
             position: 'relative',
             width: '50%',
@@ -80,7 +82,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           }}>
             <Image
               src={cover2Src}
-              alt="Bìa 2"
+              alt={isBack ? "Bìa 4" : "Bìa 2"}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-contain"
@@ -90,7 +92,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           </div>
         </div>
       ) : (
-        /* Single Page: Cover 1 only (centered, aspect ratio 1 / 1.414) */
+        /* Single Page: Cover 1 / 4 only (centered, aspect ratio 1 / 1.414) */
         <div style={{
           position: 'relative',
           width: '100%',
@@ -100,7 +102,7 @@ export default function CoverPage({ issue, issueId, C, twoPage = true }: CoverPa
           overflow: 'hidden',
         }}>
           <Image
-            src={cover1Src}
+            src={singleCoverSrc}
             alt="Bìa chính"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
