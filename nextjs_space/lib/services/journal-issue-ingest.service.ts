@@ -19,7 +19,8 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { resolveStoredFileToAbsolute } from '@/lib/storage-path'
 import { slugify } from '@/lib/services/journal-issue-import.service'
-import { upsertVolume } from '@/lib/services/journal-corpus-import.service'
+import { upsertVolume, importIssueCorpus } from '@/lib/services/journal-corpus-import.service'
+import type { Corpus } from '@/types/corpus'
 import { buildUnambiguousUserNameMap, matchUserId } from '@/lib/services/journal-author-linker'
 import { splitIssueArticles } from '@/lib/services/journal-split.service'
 import { buildIssueCorpus } from '@/lib/services/journal-corpus.service'
@@ -30,10 +31,22 @@ import type { DraftArticle } from '@/lib/services/journal-toc-parser.service'
 
 const ISSUES_DATA_DIR = path.join(process.cwd(), 'public', 'data', 'issues')
 const STATUS_FILE = 'ingest-status.json'
-// Mức nghiêm trọng coi là "trùng" với bài đã có trong CSDL (cảnh báo, vẫn nhập).
-const DUP_SEVERITY_THRESHOLD = 60
+// Ngưỡng coi một bài là "đã có trong CSDL" (trùng thật, không phải cùng chủ đề).
+//
+// QUAN TRỌNG: corpus quân sự rất đồng nhất → TF-IDF cosine của hai bài KHÁC NHAU nhưng
+// cùng chủ đề vẫn 60-96% (đã quan sát thực tế: nhiều bài Số 7/2026 đạt cosine ~93-96%
+// với bài khác chủ đề liên quan, nhưng chỉ trùng ~12-20% cụm nguyên văn). Vì vậy CHỈ dùng
+// phraseOverlap (trùng cụm 4-gram NGUYÊN VĂN) làm tín hiệu trùng: thấp với bài cùng chủ đề,
+// rất cao (~100%) với bài bị sao chép / nhập trùng. KHÔNG dùng cosine để tránh nhiễu hàng loạt.
+// (Muốn dò "tương đồng chủ đề" thì dùng công cụ Đạo văn riêng, không phải bước nhập số.)
+const DUP_PHRASE_OVERLAP_THRESHOLD = 35
 // Nguồn coi là "đã có trong CSDL bài báo": kho số đã in + bài xuất bản qua phản biện.
 const DUP_SOURCE_TYPES: PlagiarismMatch['type'][] = ['journal', 'article']
+
+/** Một match là "trùng thật" khi sao chép nguyên văn nhiều cụm (không xét cosine chủ đề). */
+function isLikelyDuplicate(match: PlagiarismMatch): boolean {
+  return DUP_SOURCE_TYPES.includes(match.type) && match.phraseOverlap >= DUP_PHRASE_OVERLAP_THRESHOLD
+}
 
 // ─── Kiểu dữ liệu ────────────────────────────────────────────────────────────
 
@@ -41,6 +54,7 @@ export type IngestPhase =
   | 'CREATED'
   | 'SPLITTING'
   | 'EXTRACTING'
+  | 'IMPORTING'
   | 'EPUB'
   | 'DUPLICATE_CHECK'
   | 'PUBLISHING'
@@ -52,7 +66,7 @@ export interface DuplicateFlag {
   title: string
   slug: string
   severity: number
-  matches: { id: string; title: string; type: string; severity: number }[]
+  matches: { id: string; title: string; type: string; severity: number; phraseOverlap: number }[]
 }
 
 export interface IngestStatus {
@@ -374,6 +388,117 @@ export async function runIssueIngest(issueId: string, options: IngestRunOptions 
   }
 }
 
+/**
+ * Ghi status khởi tạo (để UI poll được ngay) rồi chạy nền pipeline nhập corpus.
+ * Route gọi hàm này SAU khi đã ghi corpus.json (+ articles_pdf, cover) vào thư mục số báo.
+ */
+export async function startCorpusIngest(slug: string, totalArticles: number): Promise<void> {
+  await writeStatus({
+    slug,
+    issueId: '',
+    status: 'processing',
+    phase: 'CREATED',
+    message: 'Đã nhận bản chuẩn (corpus). Chuẩn bị nhập...',
+    totalArticles,
+    splitDone: 0,
+    splitErrors: 0,
+    extractedFromPdf: 0,
+    ocrApplied: 0,
+    lowQuality: 0,
+    duplicatesFlagged: [],
+    errors: [],
+    startedAt: new Date().toISOString(),
+  })
+  // Chạy nền — KHÔNG await. Lỗi được ghi vào status file.
+  void runCorpusIngest(slug)
+}
+
+/**
+ * Pipeline số hóa từ CORPUS chuẩn (tcvn3-extractor). Route đã ghi corpus.json (+ articles_pdf,
+ * cover tuỳ chọn) vào public/data/issues/<slug>/. Bỏ qua tách PDF + OCR vì corpus đã có full-text
+ * glyph-perfect. Luồng: nhập DRAFT → EPUB → đối chiếu trùng → xuất bản.
+ * Fire-and-forget: tự ghi FAILED khi lỗi, KHÔNG ném ra ngoài để chặn luồng API.
+ */
+export async function runCorpusIngest(slug: string): Promise<void> {
+  const status = (await getIngestStatus(slug)) ?? {
+    slug,
+    issueId: '',
+    status: 'processing' as const,
+    phase: 'IMPORTING' as IngestPhase,
+    message: '',
+    totalArticles: 0,
+    splitDone: 0,
+    splitErrors: 0,
+    extractedFromPdf: 0,
+    ocrApplied: 0,
+    lowQuality: 0,
+    duplicatesFlagged: [],
+    errors: [],
+    startedAt: new Date().toISOString(),
+  }
+
+  const fail = async (message: string, error: unknown) => {
+    status.status = 'failed'
+    status.phase = 'FAILED'
+    status.message = message
+    status.errors.push(error instanceof Error ? error.message : String(error))
+    status.finishedAt = new Date().toISOString()
+    await writeStatus(status)
+    logger.error({ context: 'ingest.runCorpusIngest', slug, phase: status.phase, error: String(error) })
+  }
+
+  try {
+    // 1. Nhập corpus vào CSDL ở trạng thái DRAFT (full-text có sẵn, không cần OCR).
+    status.phase = 'IMPORTING'
+    status.message = 'Đang nhập bản chuẩn (corpus) vào CSDL bài báo...'
+    await writeStatus(status)
+
+    const corpusPath = path.join(ISSUES_DATA_DIR, slug, 'corpus.json')
+    const corpus = JSON.parse(await fs.readFile(corpusPath, 'utf-8')) as Corpus
+    if (!Array.isArray(corpus.articles) || corpus.articles.length === 0) {
+      throw new Error('corpus.json không có bài nào (thiếu mảng "articles").')
+    }
+    const summary = await importIssueCorpus(slug, corpus, { initialStatus: 'DRAFT' })
+
+    status.issueId = summary.issueId
+    status.totalArticles = summary.totalArticles
+    status.splitDone = summary.totalArticles
+    status.extractedFromPdf = summary.withFullText
+    status.lowQuality = summary.withoutFullText
+
+    // 2. Sinh EPUB từ corpus.
+    status.phase = 'EPUB'
+    status.message = 'Đang sinh file EPUB...'
+    await writeStatus(status)
+    const epub = await buildIssueEpub(slug)
+    status.epubUrl = epub.epubUrl
+
+    // 3. Đối chiếu trùng (bài đang DRAFT → không tự khớp chính nó).
+    status.phase = 'DUPLICATE_CHECK'
+    status.message = 'Đang đối chiếu trùng lặp với kho bài báo...'
+    await writeStatus(status)
+    status.duplicatesFlagged = await detectDuplicates(summary.issueId)
+
+    // 4. Xuất bản (số + tất cả bài của số).
+    status.phase = 'PUBLISHING'
+    status.message = 'Đang xuất bản số báo...'
+    await writeStatus(status)
+    await prisma.$transaction([
+      prisma.issue.update({ where: { id: summary.issueId }, data: { status: 'PUBLISHED' } }),
+      prisma.journalArticle.updateMany({ where: { issueId: summary.issueId }, data: { status: 'PUBLISHED' } }),
+    ])
+
+    status.status = 'done'
+    status.phase = 'DONE'
+    status.message = 'Hoàn tất nhập bản chuẩn từ tcvn3-extractor.'
+    status.libraryUrl = `/library/${slug}`
+    status.finishedAt = new Date().toISOString()
+    await writeStatus(status)
+  } catch (error) {
+    await fail('Nhập bản chuẩn thất bại — xem chi tiết lỗi.', error)
+  }
+}
+
 /** Đối chiếu toàn văn từng bài của số với kho; trả các bài trùng cao với CSDL bài báo. */
 async function detectDuplicates(issueId: string): Promise<DuplicateFlag[]> {
   const articles = await prisma.journalArticle.findMany({
@@ -392,14 +517,15 @@ async function detectDuplicates(issueId: string): Promise<DuplicateFlag[]> {
     const result = byKey.get(article.id)
     if (!result) continue
     const dupMatches = result.matches
-      .filter((m) => DUP_SOURCE_TYPES.includes(m.type) && matchSeverity(m) >= DUP_SEVERITY_THRESHOLD)
-      .map((m) => ({ id: m.id, title: m.title, type: m.type, severity: matchSeverity(m) }))
+      .filter(isLikelyDuplicate)
+      .map((m) => ({ id: m.id, title: m.title, type: m.type, severity: matchSeverity(m), phraseOverlap: m.phraseOverlap }))
+      .sort((a, b) => b.phraseOverlap - a.phraseOverlap)
     if (dupMatches.length === 0) continue
     flags.push({
       articleId: article.id,
       title: article.title,
       slug: article.slug,
-      severity: Math.max(...dupMatches.map((m) => m.severity)),
+      severity: Math.max(...dupMatches.map((m) => m.phraseOverlap)),
       matches: dupMatches.slice(0, 5),
     })
   }

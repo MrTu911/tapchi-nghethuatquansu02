@@ -47,28 +47,28 @@ export function DraftArticlesEditor({ articles, onChange }: DraftArticlesEditorP
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {articles.length} bài
+          <span className="font-medium text-[#1E3924] dark:text-emerald-200">{articles.length} bài</span>
           {lowCount > 0 && (
-            <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
+            <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5" /> {lowCount} dòng cần kiểm tra
             </span>
           )}
         </p>
-        <Button type="button" variant="outline" size="sm" onClick={add}>
+        <Button type="button" variant="outline" size="sm" onClick={add} className="border-[#1E3924]/30 text-[#1E3924] hover:bg-[#1E3924]/5 dark:text-emerald-200">
           <Plus className="mr-1 h-4 w-4" /> Thêm bài
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-lg border border-border/70">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr className="text-left">
-              <th className="w-10 p-2">#</th>
-              <th className="w-44 p-2">Chuyên mục</th>
-              <th className="p-2">Tên bài</th>
-              <th className="w-56 p-2">Tác giả</th>
-              <th className="w-20 p-2">Trang</th>
-              <th className="w-28 p-2 text-right">Thao tác</th>
+          <thead className="bg-[#1E3924]/[0.06] dark:bg-[#1E3924]/30">
+            <tr className="text-left text-[#1E3924] dark:text-emerald-200">
+              <th className="w-10 p-2 font-semibold">#</th>
+              <th className="w-44 p-2 font-semibold">Chuyên mục</th>
+              <th className="p-2 font-semibold">Tên bài</th>
+              <th className="w-56 p-2 font-semibold">Tác giả</th>
+              <th className="w-20 p-2 font-semibold">Trang</th>
+              <th className="w-28 p-2 text-right font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -82,7 +82,9 @@ export function DraftArticlesEditor({ articles, onChange }: DraftArticlesEditorP
             {articles.map((article, index) => (
               <tr
                 key={index}
-                className={article.confidence === 'low' ? 'border-l-2 border-amber-400 bg-amber-50/50' : 'border-t'}
+                className={article.confidence === 'low'
+                  ? 'border-l-2 border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                  : 'border-t hover:bg-muted/30'}
               >
                 <td className="p-2 align-top text-muted-foreground">{index + 1}</td>
                 <td className="p-2 align-top">

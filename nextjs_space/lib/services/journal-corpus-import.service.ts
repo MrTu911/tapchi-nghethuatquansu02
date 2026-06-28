@@ -43,6 +43,34 @@ export interface CorpusImportSummary {
   withoutFullText: number
 }
 
+/** Trạng thái khởi tạo Issue/JournalArticle khi nhập. */
+export type ImportInitialStatus = 'DRAFT' | 'PUBLISHED'
+
+export interface ImportCorpusOptions {
+  /**
+   * Trạng thái Issue + bài khi tạo. Mặc định 'PUBLISHED' (giữ hành vi CLI journal:import-corpus).
+   * Luồng số hóa qua wizard truyền 'DRAFT' để đối chiếu trùng không tự khớp chính nó
+   * (loadCandidates chỉ lấy bài PUBLISHED), rồi publish ở cuối pipeline.
+   */
+  initialStatus?: ImportInitialStatus
+}
+
+/**
+ * Suy slug số báo từ metadata biên tập viên nhập (đồng bộ với luồng số hóa OCR).
+ * Trả null nếu thiếu number/year → caller tự fallback sang slug trong corpus.
+ */
+export function buildMetaSlug(meta: {
+  number?: number
+  year?: number
+  issueCode?: number
+  isSpecial?: boolean
+}): string | null {
+  if (!meta.number || !meta.year) return null
+  const special = meta.isSpecial ? 'dac-biet-' : ''
+  const code = meta.issueCode ? `-${meta.issueCode}` : ''
+  return slugify(`so-${special}${meta.number}${code}-${meta.year}`)
+}
+
 /**
  * Nhập một số từ thư mục corpus theo slug (vd: "so-2-2026").
  */
@@ -75,12 +103,17 @@ export async function listCorpusSlugs(): Promise<string[]> {
 /**
  * Nhập một corpus đã parse vào DB. Tách riêng để test được không cần đọc file.
  */
-export async function importIssueCorpus(slug: string, corpus: Corpus): Promise<CorpusImportSummary> {
+export async function importIssueCorpus(
+  slug: string,
+  corpus: Corpus,
+  options: ImportCorpusOptions = {},
+): Promise<CorpusImportSummary> {
+  const initialStatus: ImportInitialStatus = options.initialStatus ?? 'PUBLISHED'
   const meta = parseIssueMeta(slug, corpus)
   const userNameMap = await buildUnambiguousUserNameMap()
 
   const volume = await upsertVolume(meta.year, meta.isSpecial)
-  const issue = await upsertIssue(volume.id, slug, meta)
+  const issue = await upsertIssue(volume.id, slug, meta, initialStatus)
 
   // Upsert chuyên mục, ghi nhớ sectionId theo tên để gán cho bài.
   const sectionIdByName = await upsertSections(issue.id, corpus)
@@ -92,7 +125,7 @@ export async function importIssueCorpus(slug: string, corpus: Corpus): Promise<C
   let withoutFullText = 0
 
   for (const corpusArticle of corpus.articles) {
-    const result = await upsertArticle(slug, issue.id, sectionIdByName, corpusArticle, userNameMap)
+    const result = await upsertArticle(slug, issue.id, sectionIdByName, corpusArticle, userNameMap, initialStatus)
     articlesUpserted++
     authorsCreated += result.authorsCreated
     authorsLinkedToUser += result.authorsLinked
@@ -182,7 +215,7 @@ export async function upsertVolume(year: number, isSpecial: boolean) {
   })
 }
 
-async function upsertIssue(volumeId: string, slug: string, meta: IssueMeta) {
+async function upsertIssue(volumeId: string, slug: string, meta: IssueMeta, status: ImportInitialStatus) {
   return prisma.issue.upsert({
     where: { slug },
     create: {
@@ -194,7 +227,7 @@ async function upsertIssue(volumeId: string, slug: string, meta: IssueMeta) {
       issueCode: meta.issueCode,
       pageCount: meta.pageCount,
       publishDate: meta.publishDate,
-      status: 'PUBLISHED',
+      status,
     },
     update: {
       number: meta.number,
@@ -202,7 +235,7 @@ async function upsertIssue(volumeId: string, slug: string, meta: IssueMeta) {
       issueCode: meta.issueCode,
       pageCount: meta.pageCount,
       publishDate: meta.publishDate,
-      status: 'PUBLISHED',
+      status,
     },
   })
 }
@@ -236,6 +269,7 @@ async function upsertArticle(
   sectionIdByName: Map<string, string>,
   corpusArticle: CorpusArticle,
   userNameMap: Map<string, string>,
+  status: ImportInitialStatus,
 ): Promise<ArticleUpsertResult> {
   const title = buildArticleTitle(corpusArticle)
   const slug = `${slugify(title)}-tr${corpusArticle.page_start}`
@@ -261,7 +295,7 @@ async function upsertArticle(
       contentSource: 'corpus-import',
       extractionStatus: contentText ? 'DONE' : 'LOW_QUALITY',
       articlePdfUrl,
-      status: 'PUBLISHED',
+      status,
     },
     update: {
       sectionId,
@@ -275,6 +309,7 @@ async function upsertArticle(
       contentSource: 'corpus-import',
       extractionStatus: contentText ? 'DONE' : 'LOW_QUALITY',
       articlePdfUrl,
+      status,
     },
   })
 

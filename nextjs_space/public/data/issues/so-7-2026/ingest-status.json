@@ -1,0 +1,35 @@
+{
+  "slug": "so-7-2026",
+  "issueId": "2d236506-247c-40a6-a271-8c3e97ee8dc1",
+  "status": "done",
+  "phase": "DONE",
+  "message": "Hoàn tất nhập bản chuẩn từ tcvn3-extractor.",
+  "totalArticles": 85,
+  "splitDone": 85,
+  "splitErrors": 0,
+  "extractedFromPdf": 85,
+  "ocrApplied": 0,
+  "lowQuality": 0,
+  "duplicatesFlagged": [
+    {
+      "articleId": "fbc46677-59a4-41ad-98e9-9635a5403a09",
+      "title": "Một số điểm mới về tổ chức, sử dụng và bố trí lực lượng phòng không trong chiến dịch phòng không",
+      "slug": "mot-so-diem-moi-ve-to-chuc-su-dung-va-bo-tri-luc-luong-phong-khong-trong-chien-dich-phong-khong-tr215",
+      "severity": 38.6,
+      "matches": [
+        {
+          "id": "40ce04dc-3139-46ea-8af2-3efe1594723d",
+          "title": "Những vấn đề mới về nghệ thuật sử dụng phòng không trong tác chiến hiện đại",
+          "type": "journal",
+          "severity": 81.4,
+          "phraseOverlap": 38.6
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "startedAt": "2026-06-28T07:09:46.272Z",
+  "epubUrl": "/data/issues/so-7-2026/issue.epub",
+  "libraryUrl": "/library/so-7-2026",
+  "finishedAt": "2026-06-28T07:26:49.906Z"
+}

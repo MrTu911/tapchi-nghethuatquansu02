@@ -50,6 +50,8 @@ export interface CorpusSection {
 export interface CorpusIssue {
   title: string
   name: string
+  /** Slug do tcvn3-extractor sinh (vd "so-7-2026"); dùng làm fallback khi suy slug số báo. */
+  slug?: string
   total_pages: number
   total_articles: number
 }

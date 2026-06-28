@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from '@/lib/auth'
-import { saveFile } from '@/lib/s3'
-// getFileUrl/getAbsolutePath dùng bản local-storage (đồng bộ): hệ thống chạy local (USE_AWS=false).
-import { getFileUrl, getAbsolutePath } from '@/lib/local-storage'
+// Toàn bộ I/O file dùng local-storage: hệ thống chạy local (USE_AWS=false).
+// lib/s3.saveFile là thuần AWS (không có nhánh local) nên KHÔNG dùng ở đây — sẽ ghi nhầm
+// lên S3 rồi đọc lại bằng path local không tồn tại, làm hỏng bước bóc tách mục lục.
+import { saveFile, getFileUrl, getAbsolutePath } from '@/lib/local-storage'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { extractTocDraft } from '@/lib/services/journal-toc-parser.service'
 
