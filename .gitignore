@@ -55,3 +55,8 @@ nextjs_space/public/uploads/**/*.docx
 
 # Local Netlify folder
 .netlify
+
+# Database backups (contain data, may be sensitive — keep out of git)
+backups/
+*.dump
+*.sql.gz
