@@ -434,7 +434,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
 
       {/* ── Ticker ─────────────────────────────────────────────── */}
-      <div className="-mx-4 sm:-mx-6 sticky top-0 z-40">
+      <div className="mx-0 sm:mx-0 sticky top-0 z-40">
         <MarqueeNewsBar newsItems={marqueeItems} />
       </div>
 

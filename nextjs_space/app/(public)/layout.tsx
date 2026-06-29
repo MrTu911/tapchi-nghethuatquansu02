@@ -11,7 +11,7 @@ export default function PublicLayout({
     <div className="w-full bg-white dark:bg-slate-900 transition-colors">
       <Header />
       <main className="flex-1 min-h-screen">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6">
+        <div className="max-w-[1280px] mx-auto px-0 sm:px-0">
           {children}
         </div>
       </main>
