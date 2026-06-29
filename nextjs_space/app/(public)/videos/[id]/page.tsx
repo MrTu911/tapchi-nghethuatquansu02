@@ -111,7 +111,7 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-8">
+      <div className="max-w-6xl mx-auto px-0 sm:px-0 py-6 lg:py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-5">
           <Link href="/" className="hover:text-[#295232]">Trang chủ</Link>

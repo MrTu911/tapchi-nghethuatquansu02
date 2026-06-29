@@ -36,7 +36,7 @@ export default async function IssueViewerPage({ params }: Props) {
 
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-5">
+        <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <Button variant="ghost" size="sm" asChild>
@@ -68,7 +68,7 @@ export default async function IssueViewerPage({ params }: Props) {
       </div>
 
       {/* PDF area */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8">
         {issue.pdfUrl ? (
           <>
             {/* PDF iframe — browser handles 404 natively; user sees "Nếu không hiển thị..." */}
@@ -131,7 +131,7 @@ export default async function IssueViewerPage({ params }: Props) {
 
       {/* Footer */}
       <div className="bg-white dark:bg-gray-900 border-t mt-8">
-        <div className="max-w-7xl mx-auto px-4 py-5 text-center">
+        <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-5 text-center">
           <p className="text-sm text-muted-foreground">
             © 2025 Tạp chí Nghệ thuật Quân sự Việt Nam
           </p>

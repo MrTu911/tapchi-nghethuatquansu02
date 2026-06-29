@@ -181,7 +181,7 @@ export default function AdvancedSearchPage() {
   const years = Array.from({ length: 30 }, (_, i) => currentYear - i)
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Link href="/" className="hover:underline">Trang chủ</Link>

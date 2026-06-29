@@ -123,7 +123,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50">
-      <div className="max-w-6xl mx-auto px-4 py-12">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-12">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 mb-4">

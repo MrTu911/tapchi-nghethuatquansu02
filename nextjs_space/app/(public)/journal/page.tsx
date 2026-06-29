@@ -35,7 +35,7 @@ export default async function JournalArchivePage() {
   })
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-12">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">

@@ -27,7 +27,7 @@ export default async function LibraryPage() {
     <div className="min-h-screen" style={{
       background: 'radial-gradient(circle at 10% 10%, #F8F3E9 0%, transparent 60%), radial-gradient(circle at 90% 10%, #E8DFCC 0%, transparent 60%), radial-gradient(circle at 90% 90%, #DFD3BA 0%, transparent 60%), radial-gradient(circle at 10% 90%, #EAE0CC 0%, transparent 60%), #DCCFB0',
     }}>
-      <div className="container mx-auto px-6 py-12 max-w-6xl">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-12">
         <div className="mb-16 text-center">
           <h1 className="text-4xl font-bold mb-3" style={{ color: '#7A2E2E' }}>Thư viện Số</h1>
           <p className="text-lg text-amber-900/70">

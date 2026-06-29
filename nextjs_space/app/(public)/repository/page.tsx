@@ -38,7 +38,7 @@ export default async function RepositoryPage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-sky-600 to-blue-700 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1280px] mx-auto px-0 sm:px-0">
           <div className="flex items-center gap-4 mb-4">
             <Database className="h-10 w-10" />
             <h1 className="text-3xl font-bold">Cơ sở dữ liệu Bài báo Khoa học</h1>
@@ -49,7 +49,7 @@ export default async function RepositoryPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-white dark:bg-gray-800 border-l-4 border-l-sky-500">

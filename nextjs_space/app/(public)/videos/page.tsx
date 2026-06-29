@@ -135,7 +135,7 @@ export default function VideosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8 space-y-8">
 
         {/* Page header */}
         <div className="flex items-center justify-between">

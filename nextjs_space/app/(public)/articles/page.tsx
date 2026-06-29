@@ -118,7 +118,7 @@ export default async function ArticlesPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen py-16">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-[1280px] mx-auto px-0 sm:px-0">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">

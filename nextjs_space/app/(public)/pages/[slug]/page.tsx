@@ -82,7 +82,7 @@ export default async function PublicPage({ params }: PageProps) {
           </a>
         </div>
       )}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-5xl">
+      <div className="max-w-5xl mx-auto px-0 sm:px-0 py-12">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm flex items-center gap-2">
           <a href="/" className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors font-medium">

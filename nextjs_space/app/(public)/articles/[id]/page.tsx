@@ -120,7 +120,7 @@ export default async function ArticlePage({ params }: PageProps) {
       <ScrollProgress />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-        <div className="max-w-[1400px] mx-auto px-4 py-8">
+        <div className="max-w-[1400px] mx-auto px-0 sm:px-0 py-8">
           {/* Back Button */}
           <div className="mb-8">
             <Button asChild variant="ghost" className="hover:bg-emerald-50">

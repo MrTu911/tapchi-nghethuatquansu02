@@ -146,7 +146,7 @@ export default function PodcastsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
+    <div className="max-w-3xl mx-auto px-0 sm:px-0 py-10 space-y-8">
       {/* Header */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-purple-100 dark:bg-purple-900 mb-2">

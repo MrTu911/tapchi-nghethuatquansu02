@@ -47,7 +47,7 @@ export default async function IssueDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-12">
       <div className="max-w-6xl mx-auto">
         {/* Issue Header */}
         <Card className="mb-8">

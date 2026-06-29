@@ -45,7 +45,7 @@ export default async function CategoryPage({
   const publishedArticles = category.submissions.filter(s => s.article)
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8">
       <div className="mb-6">
         <Button variant="ghost" asChild>
           <Link href="/categories">

@@ -86,7 +86,7 @@ export default function PodcastDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+      <div className="max-w-3xl mx-auto px-0 sm:px-0 py-10 space-y-6">
         <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
         <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-2/3" />
         <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
@@ -97,7 +97,7 @@ export default function PodcastDetailPage() {
 
   if (!podcast) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-10 text-center text-muted-foreground">
+      <div className="max-w-3xl mx-auto px-0 sm:px-0 py-10 text-center text-muted-foreground">
         <Music className="h-12 w-12 mx-auto mb-3 opacity-30" />
         <p>Podcast không tồn tại hoặc đã bị xóa</p>
         <Link href="/podcasts" className="mt-4 inline-block text-primary underline text-sm">
@@ -108,7 +108,7 @@ export default function PodcastDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
+    <div className="max-w-3xl mx-auto px-0 sm:px-0 py-10 space-y-8">
       {/* Back link */}
       <Link
         href="/podcasts"

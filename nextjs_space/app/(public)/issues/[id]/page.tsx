@@ -74,7 +74,7 @@ export default async function IssueDetailPage({ params }: Props) {
   const volumeYear  = issue.volume?.publicationPeriod ?? null
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
 
         {/* ── Left: Cover + metadata ───────────────────────────────────────── */}

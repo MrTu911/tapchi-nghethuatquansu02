@@ -54,7 +54,7 @@ export default async function RepositoryArticlePage({ params }: { params: { id: 
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-0 sm:px-0 py-8">
         {/* Back Button */}
         <Link href="/repository" className="inline-flex items-center text-sky-600 hover:text-sky-700 mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại CSDL bài báo
