@@ -2,6 +2,7 @@
 import { getServerSession } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSignedImageUrl } from '@/lib/image-utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,17 @@ import Link from 'next/link'
 import { ArrowLeft, Edit, BookOpen, Calendar, FileText, Hash, Layers, ExternalLink, Info } from 'lucide-react'
 
 const PUBLISH_ROLES = ['EIC', 'SYSADMIN']
+
+/** Dòng bài viết đã chuẩn hóa để hiển thị, gộp từ cả Article và JournalArticle. */
+type IssueArticleRow = {
+  id: string
+  title: string
+  authorLabel: string
+  pageLabel: string
+  categoryName: string | null
+  doi: string | null
+  href: string
+}
 
 export default async function IssueDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession()
@@ -30,6 +42,19 @@ export default async function IssueDetailPage({ params }: { params: { id: string
         },
         orderBy: { pages: 'asc' },
       },
+      // Số nhập từ kho số hóa (corpus) chứa bài trong JournalArticle, không phải Article.
+      // Phải lấy cả nguồn này, nếu không các số corpus sẽ hiển thị "chưa có bài viết"
+      // dù danh sách bên ngoài đếm hàng chục bài.
+      journalArticles: {
+        select: {
+          id: true,
+          title: true,
+          authorsText: true,
+          pageStart: true,
+          pageEnd: true,
+        },
+        orderBy: { pageStart: 'asc' },
+      },
     },
   })
 
@@ -41,6 +66,30 @@ export default async function IssueDetailPage({ params }: { params: { id: string
   const canPublish = PUBLISH_ROLES.includes(session.role)
   const volumeNo = issue.volume?.volumeNo ?? issue.year
   const issueLabel = `Tập ${volumeNo}, Số ${issue.number}/${issue.year}`
+  // coverImage là path tương đối; resolve qua /uploads để ảnh hiển thị đúng.
+  const coverUrl = issue.coverImage ? await getSignedImageUrl(issue.coverImage) : null
+
+  // Gộp 2 nguồn bài của một số về một danh sách hiển thị thống nhất.
+  // Hai nguồn không chồng lấn theo dữ liệu thực tế (xem lib/issue-utils.ts).
+  const articleRows: IssueArticleRow[] = issue.articles.map((article, index) => ({
+    id: article.id,
+    title: article.submission.title,
+    authorLabel: article.submission.author.fullName,
+    pageLabel: article.pages || `#${index + 1}`,
+    categoryName: article.submission.category?.name ?? null,
+    doi: article.doiLocal ?? null,
+    href: `/articles/${article.id}`,
+  }))
+  const journalRows: IssueArticleRow[] = issue.journalArticles.map(ja => ({
+    id: ja.id,
+    title: ja.title,
+    authorLabel: ja.authorsText,
+    pageLabel: ja.pageEnd ? `${ja.pageStart}–${ja.pageEnd}` : `${ja.pageStart}`,
+    categoryName: null,
+    doi: null,
+    href: `/journal-articles/${ja.id}`,
+  }))
+  const issueArticles = [...articleRows, ...journalRows]
 
   return (
     <div className="space-y-6">
@@ -124,7 +173,7 @@ export default async function IssueDetailPage({ params }: { params: { id: string
               <PublishIssueButton
                 issueId={issue.id}
                 issueLabel={issueLabel}
-                articleCount={issue.articles.length}
+                articleCount={issueArticles.length}
               />
             )}
           </div>
@@ -133,7 +182,7 @@ export default async function IssueDetailPage({ params }: { params: { id: string
 
       {/* KPI */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <BrandStatCard label="Bài viết trong số" value={issue.articles.length} icon={FileText} tone="green" />
+        <BrandStatCard label="Bài viết trong số" value={issueArticles.length} icon={FileText} tone="green" />
         <BrandStatCard label="Tập (Volume)" value={volumeNo} icon={Layers} tone="gold" />
         <BrandStatCard label="Số (Issue)" value={issue.number} icon={Hash} tone="sky" />
         <BrandStatCard label="Năm xuất bản" value={issue.year} icon={Calendar} tone="slate" />
@@ -143,12 +192,12 @@ export default async function IssueDetailPage({ params }: { params: { id: string
       {!isPublished && (
         <div className="flex items-start gap-2 rounded-lg border border-[#E5C86E]/50 bg-[#E5C86E]/10 px-4 py-3 text-sm text-[#8a6a14] dark:text-[#E5C86E]">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          {issue.articles.length === 0 ? (
+          {issueArticles.length === 0 ? (
             <span>Số tạp chí chưa có bài viết. Hãy gán bài từ Hàng đợi sản xuất trước khi xuất bản.</span>
           ) : canPublish ? (
-            <span>Số đã sẵn sàng. Tổng biên tập có thể bấm “Xuất bản số” để công bố toàn bộ {issue.articles.length} bài viết.</span>
+            <span>Số đã sẵn sàng. Tổng biên tập có thể bấm “Xuất bản số” để công bố toàn bộ {issueArticles.length} bài viết.</span>
           ) : (
-            <span>Số đã có {issue.articles.length} bài viết. Chỉ Tổng biên tập (EIC) có quyền xuất bản chính thức.</span>
+            <span>Số đã có {issueArticles.length} bài viết. Chỉ Tổng biên tập (EIC) có quyền xuất bản chính thức.</span>
           )}
         </div>
       )}
@@ -161,10 +210,10 @@ export default async function IssueDetailPage({ params }: { params: { id: string
               <CardTitle className="text-base">Ảnh bìa</CardTitle>
             </CardHeader>
             <CardContent>
-              {issue.coverImage ? (
+              {coverUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={issue.coverImage}
+                  src={coverUrl}
                   alt={`Bìa ${issueLabel} — Tạp chí Nghệ thuật Quân sự Việt Nam`}
                   className="w-full rounded-lg border shadow-sm"
                 />
@@ -213,11 +262,11 @@ export default async function IssueDetailPage({ params }: { params: { id: string
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
-                Bài viết trong số này ({issue.articles.length})
+                Bài viết trong số này ({issueArticles.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {issue.articles.length === 0 ? (
+              {issueArticles.length === 0 ? (
                 <div className="rounded-xl border-2 border-dashed py-12 text-center text-muted-foreground">
                   <BookOpen className="mx-auto mb-3 h-12 w-12 opacity-30" />
                   <p className="font-medium text-foreground">Chưa có bài viết nào</p>
@@ -225,38 +274,38 @@ export default async function IssueDetailPage({ params }: { params: { id: string
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {issue.articles.map((article, index) => (
+                  {issueArticles.map((article, index) => (
                     <div
                       key={article.id}
                       className="flex items-start gap-3 rounded-lg border border-border/60 p-4 transition-colors hover:border-[#1E3924]/30 hover:bg-[#1E3924]/[0.03]"
                     >
                       <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-md bg-[#1E3924]/5 font-mono text-xs font-medium text-[#1E3924] dark:bg-[#1E3924]/30 dark:text-emerald-200">
-                        {article.pages || `#${index + 1}`}
+                        {article.pageLabel || `#${index + 1}`}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="mb-1 font-medium leading-snug">
                           <Link
-                            href={`/articles/${article.id}`}
+                            href={article.href}
                             target="_blank"
                             className="transition-colors hover:text-[#1E3924] hover:underline dark:hover:text-emerald-300"
                           >
-                            {article.submission.title}
+                            {article.title}
                           </Link>
                         </h4>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <span>{article.submission.author.fullName}</span>
-                          {article.submission.category && (
+                          <span>{article.authorLabel}</span>
+                          {article.categoryName && (
                             <>
                               <span>•</span>
                               <Badge variant="outline" className="text-xs">
-                                {article.submission.category.name}
+                                {article.categoryName}
                               </Badge>
                             </>
                           )}
-                          {article.doiLocal && (
+                          {article.doi && (
                             <>
                               <span>•</span>
-                              <span className="font-mono text-xs">DOI: {article.doiLocal}</span>
+                              <span className="font-mono text-xs">DOI: {article.doi}</span>
                             </>
                           )}
                         </div>

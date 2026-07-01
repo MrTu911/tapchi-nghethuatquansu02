@@ -3,6 +3,7 @@ import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
+import { getSignedImageUrl } from '@/lib/image-utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,18 @@ export default async function IssuesManagementPage() {
   const publishedCount = issues.filter(i => i.status === 'PUBLISHED').length
   const draftCount = issues.filter(i => i.status === 'DRAFT').length
   const totalArticles = issues.reduce((sum, i) => sum + getIssueArticleCount(i), 0)
+
+  // coverImage lưu path tương đối (vd "issues/so-6-2026/cover.jpg") — phải resolve
+  // qua /uploads mới hiển thị được, nếu không trình duyệt sẽ resolve tương đối trang
+  // hiện tại và trả 404.
+  const coverUrlById = new Map<string, string>()
+  await Promise.all(
+    issues.map(async issue => {
+      if (issue.coverImage) {
+        coverUrlById.set(issue.id, await getSignedImageUrl(issue.coverImage))
+      }
+    }),
+  )
 
   return (
     <div className="space-y-6">
@@ -85,6 +98,7 @@ export default async function IssuesManagementPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {issues.map(issue => {
             const isPublished = issue.status === 'PUBLISHED'
+            const coverUrl = coverUrlById.get(issue.id)
             return (
               <Card
                 key={issue.id}
@@ -92,10 +106,10 @@ export default async function IssuesManagementPage() {
               >
                 {/* Ảnh bìa */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-[#1E3924]/90 to-[#244a2c]">
-                  {issue.coverImage ? (
+                  {coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={issue.coverImage}
+                      src={coverUrl}
                       alt={`Bìa Tập ${issue.volume?.volumeNo ?? '—'}, Số ${issue.number}/${issue.year} — Tạp chí Nghệ thuật Quân sự Việt Nam`}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />

@@ -1,5 +1,3 @@
-'use client'
-
 import type { LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -10,6 +8,12 @@ import { cn } from '@/lib/utils'
  * Áp palette thương hiệu NTQS (xanh quân sự #1E3924 + vàng đồng #E5C86E) làm
  * tông chủ đạo, kèm vài tông phụ ngữ nghĩa (emerald = thành công, rose = cảnh
  * báo...). Card có dải accent dọc bên trái + bong bóng icon để dễ quét nhìn.
+ *
+ * Là "shared component" (KHÔNG khai báo 'use client'): thuần trình bày, không
+ * dùng hook/handler/browser API. Nhờ vậy các Server Component (managing,
+ * deputy, security, issues...) truyền thẳng `icon` lucide (forwardRef) mà không
+ * vướng lỗi "Functions cannot be passed to Client Components"; đồng thời các
+ * Client Component vẫn import và dùng bình thường.
  */
 export type BrandTone = 'green' | 'gold' | 'emerald' | 'sky' | 'amber' | 'rose' | 'slate'
 
