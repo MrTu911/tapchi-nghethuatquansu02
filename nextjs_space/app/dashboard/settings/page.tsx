@@ -151,8 +151,8 @@ export default function DashboardSettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-          <SettingsIcon className="w-8 h-8 text-blue-600" />
+        <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent flex items-center gap-2">
+          <SettingsIcon className="w-8 h-8 text-brand" />
           Cài đặt cá nhân
         </h1>
         <p className="text-sm text-muted-foreground mt-1">

@@ -40,8 +40,8 @@ export default async function HelpCenterPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-800 to-amber-500 bg-clip-text text-transparent flex items-center gap-2">
-          <BookOpen className="h-7 w-7 text-emerald-700" />
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent flex items-center gap-2">
+          <BookOpen className="h-7 w-7 text-brand" />
           Trung tâm Hướng dẫn
         </h1>
         <p className="text-muted-foreground mt-1">

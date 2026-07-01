@@ -3,6 +3,7 @@ import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { ISSUE_ARTICLE_COUNT_SELECT, getIssueArticleCount } from '@/lib/issue-utils'
+import { PENDING_DECISION_WHERE } from '@/lib/submission-queries'
 import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import {
   BookOpen, FileText, CheckCircle, ClipboardList, Clock, Layers,
@@ -37,9 +38,7 @@ export default async function ManagingEditorDashboardPage() {
   ] = await Promise.all([
     prisma.submission.count({ where: { status: 'NEW' } }),
     prisma.submission.count({ where: { status: 'UNDER_REVIEW' } }),
-    prisma.submission.count({
-      where: { status: 'UNDER_REVIEW', reviews: { every: { submittedAt: { not: null } } } },
-    }),
+    prisma.submission.count({ where: PENDING_DECISION_WHERE }),
     prisma.submission.count({ where: { status: 'ACCEPTED' } }),
     prisma.submission.count({ where: { status: 'IN_PRODUCTION' } }),
     prisma.issue.count(),
@@ -73,7 +72,7 @@ export default async function ManagingEditorDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-800 to-amber-500 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent">
             Dashboard Thư ký tòa soạn
           </h1>
           <p className="text-muted-foreground mt-1">

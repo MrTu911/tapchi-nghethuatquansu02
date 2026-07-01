@@ -449,7 +449,7 @@ export default function SiteSettingsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent">
               Cài đặt Website
             </h1>
             <p className="text-muted-foreground mt-2">

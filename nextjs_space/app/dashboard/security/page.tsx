@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import Link from 'next/link'
 import {
-  ShieldAlert, Activity, FileLock, Lock, AlertTriangle, ArrowRight, CheckCircle, Clock,
+  ShieldAlert, UserX, FileLock, Lock, ArrowRight, CheckCircle,
 } from 'lucide-react'
 
 /**
@@ -22,10 +22,11 @@ export default async function SecurityDashboardPage() {
 
   const now = new Date()
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [
     pendingAlerts,
-    activeSessions,
+    failedLogins24h,
     auditToday,
     classifiedActive,
     classifiedList,
@@ -33,7 +34,10 @@ export default async function SecurityDashboardPage() {
     recentAudit,
   ] = await Promise.all([
     prisma.securityAlert.count({ where: { status: 'PENDING' } }),
-    prisma.userSession.count({ where: { expiresAt: { gt: now } } }),
+    // Dấu hiệu dò mật khẩu (brute-force): số lần đăng nhập thất bại trong 24h.
+    // Thay cho "phiên đang hoạt động" cũ — UserSession không được ghi ở luồng login
+    // (auth dùng JWT cookie), nên KPI đó luôn ~0 và gây hiểu nhầm.
+    prisma.auditLog.count({ where: { action: 'LOGIN_FAILED', createdAt: { gte: last24h } } }),
     prisma.auditLog.count({ where: { createdAt: { gte: startToday } } }),
     prisma.submission.count({
       where: { securityLevel: { in: ['SECRET', 'TOP_SECRET'] }, status: { in: ['UNDER_REVIEW', 'ACCEPTED'] } },
@@ -59,9 +63,13 @@ export default async function SecurityDashboardPage() {
     MEDIUM: 'bg-amber-100 text-amber-700', LOW: 'bg-slate-100 text-slate-700',
   }
 
+  const statusLabel: Record<string, string> = {
+    PENDING: 'Chờ xử lý', IN_PROGRESS: 'Đang xử lý', RESOLVED: 'Đã xử lý', DISMISSED: 'Bỏ qua',
+  }
+
   const kpis: { label: string; value: number; icon: typeof Lock; tone: BrandTone; hint: string }[] = [
     { label: 'Cảnh báo chờ xử lý', value: pendingAlerts, icon: ShieldAlert, tone: 'rose', hint: 'Cần xử lý' },
-    { label: 'Phiên đang hoạt động', value: activeSessions, icon: Activity, tone: 'sky', hint: 'Đang đăng nhập' },
+    { label: 'Đăng nhập thất bại (24h)', value: failedLogins24h, icon: UserX, tone: 'amber', hint: 'Dấu hiệu dò mật khẩu' },
     { label: 'Sự kiện kiểm toán hôm nay', value: auditToday, icon: FileLock, tone: 'green', hint: 'Thao tác nhạy cảm' },
     { label: 'Bài mật đang xử lý', value: classifiedActive, icon: Lock, tone: 'amber', hint: 'SECRET/TOP_SECRET' },
   ]
@@ -69,8 +77,8 @@ export default async function SecurityDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-rose-700 to-amber-500 bg-clip-text text-transparent flex items-center gap-2">
-          <ShieldAlert className="h-7 w-7 text-rose-700" />
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent flex items-center gap-2">
+          <ShieldAlert className="h-7 w-7 text-rose-600" />
           Kiểm định Bảo mật
         </h1>
         <p className="text-muted-foreground mt-1">
@@ -147,7 +155,9 @@ export default async function SecurityDashboardPage() {
                     <div className="flex items-center gap-2">
                       <Badge className={`text-[10px] py-0 ${severityColor[a.severity] || 'bg-slate-100 text-slate-700'}`}>{a.severity}</Badge>
                       <span className="text-xs font-medium">{a.type}</span>
-                      {a.status === 'PENDING' && <Clock className="h-3 w-3 text-amber-500" />}
+                      <Badge variant={a.status === 'PENDING' ? 'default' : 'secondary'} className="text-[10px] py-0 ml-auto">
+                        {statusLabel[a.status] ?? a.status}
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.description}</p>
                   </div>

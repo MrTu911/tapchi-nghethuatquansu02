@@ -1,6 +1,7 @@
 import { getServerSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { PENDING_DECISION_WHERE } from '@/lib/submission-queries'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,9 +44,7 @@ export default async function EICDashboardPage() {
     prisma.submission.count({ where: { createdAt: { gte: lastMonthStart, lt: thisMonthStart } } }),
     prisma.issue.count({ where: { status: 'PUBLISHED' } }),
     prisma.user.count({ where: { role: 'REVIEWER', isActive: true } }),
-    prisma.submission.count({
-      where: { status: 'UNDER_REVIEW', reviews: { every: { submittedAt: { not: null } } } },
-    }),
+    prisma.submission.count({ where: PENDING_DECISION_WHERE }),
     prisma.submission.count({
       where: {
         status: 'UNDER_REVIEW',
@@ -55,10 +54,7 @@ export default async function EICDashboardPage() {
     prisma.submission.count({ where: { status: { in: ['ACCEPTED', 'PUBLISHED'] } } }),
     prisma.submission.count({ where: { status: 'REJECTED' } }),
     prisma.submission.findMany({
-      where: {
-        status: 'UNDER_REVIEW',
-        reviews: { every: { submittedAt: { not: null } } },
-      },
+      where: PENDING_DECISION_WHERE,
       select: {
         id: true, title: true, code: true, createdAt: true,
         reviews: { select: { submittedAt: true } },
@@ -192,7 +188,7 @@ export default async function EICDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-800 to-amber-500 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-brand to-gold bg-clip-text text-transparent">
             Dashboard Tổng biên tập
           </h1>
           <p className="text-muted-foreground mt-1">
