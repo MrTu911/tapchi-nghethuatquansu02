@@ -276,110 +276,10 @@ async function main() {
   }
   console.log(`  ✅ Đã tạo ${draftNews.length} bài nháp`)
 
-  // ── 4. Videos (YouTube về Học viện Quốc phòng) ──────────────────────────────────
-  const videosData = [
-    {
-      title: 'Học viện Quốc phòng - Trường đào tạo sĩ quan hậu cần của Quân đội nhân dân Việt Nam',
-      description: 'Giới thiệu tổng quan về Học viện Quốc phòng - cơ sở đào tạo sĩ quan hậu cần hàng đầu của Quân đội nhân dân Việt Nam với gần 75 năm xây dựng và phát triển.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      videoId: 'dQw4w9WgXcQ',
-      thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-      duration: 324,
-      category: 'gioi_thieu',
-      tags: ['giới thiệu', 'học viện quốc phòng', 'quân đội'],
-      isFeatured: true,
-      isActive: true,
-      displayOrder: 1,
-      views: 4521,
-      publishedAt: new Date('2026-01-10T00:00:00Z'),
-    },
-    {
-      title: 'Lễ khai giảng năm học 2025-2026 tại Học viện Quốc phòng',
-      description: 'Toàn cảnh lễ khai giảng năm học 2025-2026 trang trọng tại Học viện Quốc phòng, đánh dấu một năm học mới với hàng nghìn học viên, sinh viên.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0',
-      videoId: '9bZkp7q19f0',
-      thumbnailUrl: 'https://img.youtube.com/vi/9bZkp7q19f0/maxresdefault.jpg',
-      duration: 1845,
-      category: 'su_kien',
-      tags: ['khai giảng', '2025-2026', 'lễ khai giảng', 'năm học mới'],
-      isFeatured: true,
-      isActive: true,
-      displayOrder: 2,
-      views: 2890,
-      publishedAt: new Date('2025-09-05T00:00:00Z'),
-    },
-    {
-      title: 'Huấn luyện thực địa - Học viên Khoá 32 Học viện Quốc phòng',
-      description: 'Phóng sự về hoạt động huấn luyện thực địa của học viên Khoá 32 Học viện Quốc phòng, bao gồm các bài tập chiến thuật, kỹ năng quân sự và thực hành hậu cần chiến trường.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=L_jWHffIx5E',
-      videoId: 'L_jWHffIx5E',
-      thumbnailUrl: 'https://img.youtube.com/vi/L_jWHffIx5E/maxresdefault.jpg',
-      duration: 742,
-      category: 'dao_tao',
-      tags: ['huấn luyện', 'khoá 32', 'thực địa', 'chiến thuật'],
-      isFeatured: true,
-      isActive: true,
-      displayOrder: 3,
-      views: 1654,
-      publishedAt: new Date('2026-03-20T00:00:00Z'),
-    },
-    {
-      title: 'Hội thảo khoa học: Bảo đảm hậu cần trong chiến dịch hiện đại',
-      description: 'Toàn cảnh Hội thảo khoa học quốc gia "Nâng cao năng lực bảo đảm hậu cần trong chiến dịch hiện đại" với sự tham gia của hơn 150 nhà khoa học và chuyên gia đầu ngành.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=7wtfhZwyrcc',
-      videoId: '7wtfhZwyrcc',
-      thumbnailUrl: 'https://img.youtube.com/vi/7wtfhZwyrcc/maxresdefault.jpg',
-      duration: 5420,
-      category: 'su_kien',
-      tags: ['hội thảo', 'nghiên cứu khoa học', 'chiến dịch'],
-      isFeatured: false,
-      isActive: true,
-      displayOrder: 4,
-      views: 987,
-      publishedAt: new Date('2026-03-16T00:00:00Z'),
-    },
-    {
-      title: 'Ngày hội thể thao Học viện Quốc phòng 2026',
-      description: 'Những khoảnh khắc ấn tượng tại Ngày hội thể thao Học viện Quốc phòng 2026 với các môn thi đấu: bóng đá, bóng chuyền, điền kinh, bơi lội và nhiều môn thể thao khác.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
-      videoId: 'jNQXAC9IVRw',
-      thumbnailUrl: 'https://img.youtube.com/vi/jNQXAC9IVRw/maxresdefault.jpg',
-      duration: 912,
-      category: 'the_thao',
-      tags: ['thể thao', 'bóng đá', 'điền kinh', 'ngày hội'],
-      isFeatured: false,
-      isActive: true,
-      displayOrder: 5,
-      views: 723,
-      publishedAt: new Date('2026-04-10T00:00:00Z'),
-    },
-    {
-      title: 'Tham quan Bảo tàng Học viện Quốc phòng - Truyền thống 75 năm',
-      description: 'Khám phá Bảo tàng Học viện Quốc phòng với hàng trăm hiện vật lịch sử, tài liệu quý ghi lại chặng đường 75 năm xây dựng và phát triển của Học viện.',
-      videoType: 'youtube',
-      videoUrl: 'https://www.youtube.com/watch?v=QH2-TGUlwu4',
-      videoId: 'QH2-TGUlwu4',
-      thumbnailUrl: 'https://img.youtube.com/vi/QH2-TGUlwu4/maxresdefault.jpg',
-      duration: 634,
-      category: 'truyen_thong',
-      tags: ['bảo tàng', '75 năm', 'truyền thống', 'lịch sử'],
-      isFeatured: true,
-      isActive: true,
-      displayOrder: 6,
-      views: 1123,
-      publishedAt: new Date('2026-02-20T00:00:00Z'),
-    },
-  ]
-
-  for (const video of videosData) {
-    await db.video.create({ data: video })
-  }
-  console.log(`  ✅ Đã tạo ${videosData.length} video`)
+  // ── 4. Videos ───────────────────────────────────────────────────────────────
+  // Hệ thống chạy air-gap LAN nên KHÔNG seed video YouTube nữa (không phát được).
+  // Video demo LAN (file .mp4 nội bộ) được seed riêng bằng: npm run seed:videos-demo
+  console.log('  ⏭  Bỏ qua seed video (dùng file LAN: npm run seed:videos-demo)')
 
   // ── 5. Banners ────────────────────────────────────────────────────────────────
   const bannersData = [
@@ -434,7 +334,7 @@ async function main() {
 
   console.log('\n🎉 Hoàn tất! Tổng kết:')
   console.log(`  📰 ${newsData.length} bài tin (published) + ${draftNews.length} bài nháp`)
-  console.log(`  🎬 ${videosData.length} video YouTube`)
+  console.log('  🎬 Video: bỏ qua (dùng file LAN: npm run seed:videos-demo)')
   console.log(`  🖼  ${bannersData.length} banner`)
 }
 

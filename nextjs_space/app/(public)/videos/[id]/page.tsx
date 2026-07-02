@@ -6,7 +6,6 @@ import { Eye, Calendar, Clock, Tag, ChevronRight, Play, Film, ArrowLeft } from '
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { VideoDetailPlayer } from '@/components/video-detail-player'
-import { getYouTubeThumbnail } from '@/lib/youtube'
 
 const ShareButton = dynamic(
   () => import('@/components/share-button').then((m) => ({ default: m.ShareButton })),
@@ -21,15 +20,7 @@ interface VideoDetailPageProps {
 // HELPERS
 // ============================================================================
 
-function getThumbnail(video: {
-  videoType: string
-  videoUrl: string
-  videoId: string | null
-  thumbnailUrl: string | null
-}): string {
-  if (video.videoType === 'youtube') {
-    return getYouTubeThumbnail(video.videoUrl, video.videoId)
-  }
+function getThumbnail(video: { thumbnailUrl: string | null }): string {
   return video.thumbnailUrl || ''
 }
 
@@ -126,11 +117,8 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
           <div className="lg:col-span-2 space-y-5">
             <VideoDetailPlayer
               id={video.id}
-              videoType={video.videoType}
-              videoUrl={video.videoUrl}
-              videoId={video.videoId}
+              videoUrl={video.cloudStoragePath || video.videoUrl}
               thumbnailUrl={video.thumbnailUrl}
-              title={video.title}
             />
 
             {/* Title + meta */}

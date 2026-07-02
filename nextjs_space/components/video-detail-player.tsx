@@ -1,29 +1,18 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { getYouTubeEmbedUrl } from '@/lib/youtube'
 
 interface VideoDetailPlayerProps {
   id: string
-  videoType: string
   videoUrl: string
-  videoId?: string | null
   thumbnailUrl?: string | null
-  title: string
 }
 
 /**
- * Trình phát video trên trang chi tiết công khai. Tăng lượt xem đúng 1 lần khi
- * mở trang (gọi GET /api/videos/[id] có side-effect increment ở backend).
+ * Trình phát video nội bộ (LAN) trên trang chi tiết công khai. Tăng lượt xem đúng
+ * 1 lần khi mở trang (gọi GET /api/videos/[id] có side-effect increment ở backend).
  */
-export function VideoDetailPlayer({
-  id,
-  videoType,
-  videoUrl,
-  videoId,
-  thumbnailUrl,
-  title,
-}: VideoDetailPlayerProps) {
+export function VideoDetailPlayer({ id, videoUrl, thumbnailUrl }: VideoDetailPlayerProps) {
   const countedRef = useRef(false)
 
   useEffect(() => {
@@ -32,29 +21,17 @@ export function VideoDetailPlayer({
     fetch(`/api/videos/${id}`).catch(() => undefined)
   }, [id])
 
-  const isUpload = videoType === 'upload'
-
   return (
     <div className="aspect-video w-full bg-black rounded-xl overflow-hidden shadow-lg">
-      {isUpload ? (
-        <video
-          src={videoUrl}
-          poster={thumbnailUrl || undefined}
-          controls
-          autoPlay
-          playsInline
-          className="w-full h-full"
-          controlsList="nodownload"
-        />
-      ) : (
-        <iframe
-          src={getYouTubeEmbedUrl(videoUrl, videoId)}
-          title={title}
-          className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      )}
+      <video
+        src={videoUrl}
+        poster={thumbnailUrl || undefined}
+        controls
+        autoPlay
+        playsInline
+        className="w-full h-full"
+        controlsList="nodownload"
+      />
     </div>
   )
 }

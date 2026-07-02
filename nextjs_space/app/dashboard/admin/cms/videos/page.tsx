@@ -18,18 +18,16 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import {
-  PlusCircle, Edit, Trash2, Eye, Loader2, Youtube, Upload, X,
+  PlusCircle, Edit, Trash2, Eye, Loader2, Upload, X,
   Play, FileVideo, LayoutGrid, List, Star, Activity, Maximize2, Camera, Check,
-  Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RefreshCw,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useChunkedVideoUpload } from '@/hooks/use-chunked-video-upload'
 import { VideoUploadProgress } from '@/components/dashboard/video-upload-progress'
-import { extractYouTubeId, getYouTubeThumbnail, getYouTubeEmbedUrl } from '@/lib/youtube'
 
 interface Video {
   id: string
@@ -51,8 +49,8 @@ interface Video {
   createdAt: string
 }
 
-function getEmbedUrl(video: Video): string {
-  if (video.videoType === 'youtube') return getYouTubeEmbedUrl(video.videoUrl, video.videoId, true)
+/** Nguồn phát cho video upload nội bộ (LAN). */
+function getPlaybackUrl(video: Video): string {
   return video.cloudStoragePath || video.videoUrl
 }
 
@@ -110,7 +108,6 @@ export default function VideosManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingVideo, setEditingVideo] = useState<Video | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [uploadMethod, setUploadMethod] = useState<'file' | 'youtube'>('youtube')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [deleteVideoId, setDeleteVideoId] = useState<string | null>(null)
@@ -127,7 +124,7 @@ export default function VideosManagementPage() {
 
   // Tìm kiếm + lọc + phân trang (client-side trên danh sách đã tải)
   const [keyword, setKeyword] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'youtube' | 'upload'>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [page, setPage] = useState(1)
   const pageSize = 12
@@ -136,7 +133,6 @@ export default function VideosManagementPage() {
     title: '',
     titleEn: '',
     description: '',
-    videoUrl: '',
     category: '',
     tags: '',
     isFeatured: false,
@@ -146,7 +142,7 @@ export default function VideosManagementPage() {
 
   useEffect(() => { fetchVideos() }, [])
   // Quay về trang 1 khi đổi bộ lọc/từ khóa
-  useEffect(() => { setPage(1) }, [keyword, filterType, filterStatus])
+  useEffect(() => { setPage(1) }, [keyword, filterCategory, filterStatus])
 
   const fetchVideos = async () => {
     try {
@@ -162,14 +158,15 @@ export default function VideosManagementPage() {
   }
 
   const handleOpenDialog = (video?: Video) => {
+    // Xóa mọi trạng thái file/upload còn sót từ lần mở trước
+    handleRemoveFile()
+    uploader.reset()
     if (video) {
       setEditingVideo(video)
-      setUploadMethod(video.videoType === 'upload' ? 'file' : 'youtube')
       setFormData({
         title: video.title,
         titleEn: video.titleEn || '',
         description: video.description || '',
-        videoUrl: video.videoType === 'youtube' ? video.videoUrl : '',
         category: video.category || '',
         tags: video.tags?.join(', ') || '',
         isFeatured: video.isFeatured,
@@ -178,9 +175,7 @@ export default function VideosManagementPage() {
       })
     } else {
       setEditingVideo(null)
-      setSelectedFile(null)
-      setVideoPreview(null)
-      setFormData({ title: '', titleEn: '', description: '', videoUrl: '', category: '', tags: '', isFeatured: false, isActive: true, displayOrder: 0 })
+      setFormData({ title: '', titleEn: '', description: '', category: '', tags: '', isFeatured: false, isActive: true, displayOrder: 0 })
     }
     setIsDialogOpen(true)
   }
@@ -220,14 +215,23 @@ export default function VideosManagementPage() {
   const parseTags = () =>
     formData.tags ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean) : []
 
+  /** Đặt ảnh đại diện từ khung hình đã chụp (best-effort — ảnh đại diện là phụ). */
+  const uploadAutoThumbnail = async (videoId: string) => {
+    if (!autoThumbBlob) return
+    try {
+      const fd = new FormData()
+      fd.append('thumbnail', autoThumbBlob, 'thumbnail.jpg')
+      await fetch(`/api/videos/${videoId}/thumbnail`, { method: 'POST', body: fd })
+    } catch { /* ảnh đại diện là phụ */ }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.title) { toast.error('Vui lòng nhập tiêu đề'); return }
-    if (uploadMethod === 'youtube' && !formData.videoUrl) { toast.error('Vui lòng nhập URL YouTube'); return }
-    if (uploadMethod === 'file' && !selectedFile && !editingVideo) { toast.error('Vui lòng chọn file video'); return }
+    if (!formData.title.trim()) { toast.error('Vui lòng nhập tiêu đề'); return }
 
-    // Upload file mới qua luồng chunked/resumable (không giới hạn dung lượng)
-    if (uploadMethod === 'file' && selectedFile && !editingVideo) {
+    // ---- Thêm mới: bắt buộc chọn file video ----
+    if (!editingVideo) {
+      if (!selectedFile) { toast.error('Vui lòng chọn file video để tải lên'); return }
       const video = await uploader.start(selectedFile, {
         title: formData.title,
         titleEn: formData.titleEn || undefined,
@@ -240,15 +244,8 @@ export default function VideosManagementPage() {
         duration: autoDurationSec ?? undefined,
       })
       if (video) {
-        // Tự đặt ảnh đại diện từ khung hình đã chụp (nếu có) — best-effort
-        if (autoThumbBlob) {
-          try {
-            const fd = new FormData()
-            fd.append('thumbnail', autoThumbBlob, 'thumbnail.jpg')
-            await fetch(`/api/videos/${video.id}/thumbnail`, { method: 'POST', body: fd })
-          } catch { /* ảnh đại diện là phụ */ }
-        }
-        toast.success('Upload video thành công!')
+        await uploadAutoThumbnail(video.id)
+        toast.success('Tải lên video thành công!')
         setIsDialogOpen(false)
         handleRemoveFile()
         uploader.reset()
@@ -259,7 +256,22 @@ export default function VideosManagementPage() {
       return
     }
 
-    // Tạo mới YouTube hoặc cập nhật metadata (PUT)
+    // ---- Chỉnh sửa: nếu có file mới -> thay file trước (luồng chunked) ----
+    if (selectedFile) {
+      const replaced = await uploader.start(selectedFile, {
+        title: formData.title, // server bỏ qua khi có replaceVideoId
+        replaceVideoId: editingVideo.id,
+        duration: autoDurationSec ?? undefined,
+      })
+      if (!replaced) {
+        if (uploader.error) toast.error(uploader.error)
+        return
+      }
+      // Cập nhật ảnh đại diện theo file mới (nếu chụp được)
+      await uploadAutoThumbnail(editingVideo.id)
+    }
+
+    // ---- Cập nhật metadata (PUT) ----
     setIsSubmitting(true)
     try {
       const payload: any = {
@@ -271,22 +283,29 @@ export default function VideosManagementPage() {
         isFeatured: formData.isFeatured,
         isActive: formData.isActive,
         displayOrder: formData.displayOrder,
-        publishedAt: formData.isActive ? new Date().toISOString() : null,
+      }
+      // publishedAt: kích hoạt lần đầu -> đặt now; tắt -> null; đã publish rồi thì giữ nguyên
+      if (!formData.isActive) {
+        payload.publishedAt = null
+      } else if (!editingVideo.publishedAt) {
+        payload.publishedAt = new Date().toISOString()
       }
 
-      // Chỉ gán videoType/URL cho YouTube — giữ nguyên cho video upload khi chỉnh sửa
-      if (!editingVideo || editingVideo.videoType === 'youtube') {
-        payload.videoType = 'youtube'
-        payload.videoUrl = formData.videoUrl
-        payload.videoId = extractYouTubeId(formData.videoUrl)
-      }
-
-      const url = editingVideo ? `/api/videos/${editingVideo.id}` : '/api/videos'
-      const method = editingVideo ? 'PUT' : 'POST'
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const res = await fetch(`/api/videos/${editingVideo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
       const data = await res.json()
-      if (data.success) { toast.success(editingVideo ? 'Cập nhật thành công' : 'Thêm mới thành công'); setIsDialogOpen(false); fetchVideos() }
-      else toast.error(data.error || 'Có lỗi xảy ra')
+      if (data.success) {
+        toast.success('Cập nhật thành công')
+        setIsDialogOpen(false)
+        handleRemoveFile()
+        uploader.reset()
+        fetchVideos()
+      } else {
+        toast.error(data.error || 'Có lỗi xảy ra')
+      }
     } catch { toast.error('Không thể thực hiện') }
     finally { setIsSubmitting(false) }
   }
@@ -363,26 +382,28 @@ export default function VideosManagementPage() {
     totalViews: videos.reduce((sum, v) => sum + v.views, 0),
   }
 
-  // Lọc theo từ khóa + loại + trạng thái, rồi phân trang
+  // Danh mục có thật trong dữ liệu (cho dropdown lọc)
+  const categoryOptions = Array.from(
+    new Set(videos.map((v) => (v.category || '').trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, 'vi'))
+
+  // Lọc theo từ khóa + danh mục + trạng thái, rồi phân trang
   const filteredVideos = videos.filter((v) => {
     const kw = keyword.trim().toLowerCase()
     const matchKw = !kw ||
       v.title.toLowerCase().includes(kw) ||
       (v.titleEn || '').toLowerCase().includes(kw) ||
       (v.description || '').toLowerCase().includes(kw)
-    const matchType = filterType === 'all' || v.videoType === filterType
+    const matchCategory = filterCategory === 'all' || (v.category || '') === filterCategory
     const matchStatus = filterStatus === 'all' || (filterStatus === 'active' ? v.isActive : !v.isActive)
-    return matchKw && matchType && matchStatus
+    return matchKw && matchCategory && matchStatus
   })
   const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const pagedVideos = filteredVideos.slice((safePage - 1) * pageSize, safePage * pageSize)
-  const hasActiveFilter = keyword.trim() !== '' || filterType !== 'all' || filterStatus !== 'all'
 
-  const getThumbnail = (video: Video) => {
-    if (video.videoType === 'youtube') return getYouTubeThumbnail(video.videoUrl, video.videoId)
-    return video.thumbnailUrl || ''
-  }
+  // Ảnh đại diện video upload nội bộ (không dùng thumbnail ngoài Internet)
+  const getThumbnail = (video: Video) => video.thumbnailUrl || ''
 
   return (
     <div className="space-y-5">
@@ -392,7 +413,7 @@ export default function VideosManagementPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             Quản lý Video
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Upload video hoặc nhúng từ YouTube</p>
+          <p className="text-sm text-gray-500 mt-0.5">Tải lên và phát video trên mạng nội bộ (LAN)</p>
         </div>
         <Button
           onClick={() => handleOpenDialog()}
@@ -433,13 +454,14 @@ export default function VideosManagementPage() {
           />
         </div>
         <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as 'all' | 'youtube' | 'upload')}
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
           className="h-9 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 text-sm text-gray-700 dark:text-gray-200"
         >
-          <option value="all">Tất cả loại</option>
-          <option value="youtube">YouTube</option>
-          <option value="upload">Upload</option>
+          <option value="all">Tất cả danh mục</option>
+          {categoryOptions.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
         </select>
         <select
           value={filterStatus}
@@ -488,7 +510,7 @@ export default function VideosManagementPage() {
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center h-48 gap-3">
           <Search className="h-10 w-10 text-gray-300" />
           <p className="text-gray-400">Không tìm thấy video phù hợp bộ lọc</p>
-          <Button onClick={() => { setKeyword(''); setFilterType('all'); setFilterStatus('all') }} size="sm" variant="outline">
+          <Button onClick={() => { setKeyword(''); setFilterCategory('all'); setFilterStatus('all') }} size="sm" variant="outline">
             Xóa bộ lọc
           </Button>
         </div>
@@ -507,9 +529,9 @@ export default function VideosManagementPage() {
                   {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt={video.title} className="w-full h-full object-cover" />
-                  ) : video.videoType === 'upload' && video.cloudStoragePath ? (
+                  ) : getPlaybackUrl(video) ? (
                     <video
-                      src={video.cloudStoragePath}
+                      src={getPlaybackUrl(video)}
                       className="w-full h-full object-cover"
                       muted
                       preload="metadata"
@@ -535,7 +557,7 @@ export default function VideosManagementPage() {
                     </div>
                   </button>
                   {/* Camera badge — capture thumbnail */}
-                  {video.videoType === 'upload' && !video.thumbnailUrl && (
+                  {!video.thumbnailUrl && (
                     <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
                         <Camera className="w-2.5 h-2.5" /> Chưa có ảnh
@@ -544,13 +566,9 @@ export default function VideosManagementPage() {
                   )}
                   {/* Badges */}
                   <div className="absolute top-2 left-2 flex gap-1">
-                    {video.videoType === 'youtube' ? (
-                      <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                        <Youtube className="w-2.5 h-2.5" /> YT
-                      </span>
-                    ) : (
-                      <span className="bg-sky-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                        Upload
+                    {video.category && (
+                      <span className="bg-[#295232] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        {video.category}
                       </span>
                     )}
                     {video.isFeatured && (
@@ -619,9 +637,9 @@ export default function VideosManagementPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                <TableHead className="w-20">Thumbnail</TableHead>
+                <TableHead className="w-20">Ảnh</TableHead>
                 <TableHead>Tiêu đề</TableHead>
-                <TableHead className="w-24">Loại</TableHead>
+                <TableHead className="w-32">Danh mục</TableHead>
                 <TableHead className="w-28">Trạng thái</TableHead>
                 <TableHead className="w-24 text-center">Lượt xem</TableHead>
                 <TableHead className="w-28">Ngày</TableHead>
@@ -657,9 +675,11 @@ export default function VideosManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={video.videoType === 'youtube' ? 'default' : 'secondary'} className="text-xs">
-                        {video.videoType === 'youtube' ? 'YouTube' : 'Upload'}
-                      </Badge>
+                      {video.category ? (
+                        <Badge variant="secondary" className="text-xs">{video.category}</Badge>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {video.isActive ? (
@@ -757,79 +777,56 @@ export default function VideosManagementPage() {
           <DialogHeader>
             <DialogTitle>{editingVideo ? 'Chỉnh sửa Video' : 'Thêm Video Mới'}</DialogTitle>
             <DialogDescription>
-              {editingVideo ? 'Cập nhật thông tin video.' : 'Tải lên video hoặc nhúng từ YouTube.'}
+              {editingVideo ? 'Cập nhật thông tin hoặc thay thế file video.' : 'Tải lên file video để phát trên mạng nội bộ (LAN).'}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {!editingVideo && (
-              <Tabs value={uploadMethod} onValueChange={(v) => setUploadMethod(v as 'file' | 'youtube')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="youtube"><Youtube className="h-4 w-4 mr-2" />YouTube URL</TabsTrigger>
-                  <TabsTrigger value="file"><Upload className="h-4 w-4 mr-2" />Upload File</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="youtube" className="space-y-3 mt-4">
-                  <div>
-                    <Label>URL YouTube</Label>
-                    <Input
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      value={formData.videoUrl}
-                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                      className="mt-1.5"
-                    />
-                    {formData.videoUrl && extractYouTubeId(formData.videoUrl) && (
-                      <div className="mt-2 aspect-video rounded-lg overflow-hidden bg-gray-900">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${extractYouTubeId(formData.videoUrl)}`}
-                          className="w-full h-full"
-                          allowFullScreen
-                        />
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="file" className="space-y-3 mt-4">
-                  <div>
-                    <Label>Chọn video (MP4, WebM, OGG, MOV, AVI, MKV — không giới hạn dung lượng)</Label>
-                    <Input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="video/*"
-                      onChange={handleFileChange}
-                      className="mt-1.5"
-                      disabled={uploader.isActive}
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      File lớn được tải lên theo từng phần, có thể tạm dừng / tiếp tục.
-                    </p>
-                  </div>
-                  {videoPreview && !uploader.isActive && uploader.status !== 'error' && (
-                    <div className="relative">
-                      <video src={videoPreview} controls className="w-full rounded-lg max-h-64" />
-                      <Button type="button" variant="destructive" size="sm" onClick={handleRemoveFile} className="absolute top-2 right-2 h-7 w-7 p-0">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                  {(uploader.isActive || uploader.status === 'error') && (
-                    <VideoUploadProgress
-                      status={uploader.status}
-                      progress={uploader.progress}
-                      uploadedBytes={uploader.uploadedBytes}
-                      totalBytes={uploader.totalBytes}
-                      speedBps={uploader.speedBps}
-                      etaSec={uploader.etaSec}
-                      error={uploader.error}
-                      onPause={uploader.pause}
-                      onResume={uploader.resume}
-                      onCancel={uploader.cancel}
-                    />
-                  )}
-                </TabsContent>
-              </Tabs>
-            )}
+            {/* Khu vực tải lên / thay thế file video (LAN) */}
+            <div className="space-y-3 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-4">
+              <Label className="flex items-center gap-2 text-[#295232]">
+                {editingVideo ? <RefreshCw className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                {editingVideo ? 'Thay thế file video (tùy chọn)' : 'Chọn file video *'}
+              </Label>
+              <p className="text-xs text-gray-400">
+                MP4, WebM, OGG, MOV, AVI, MKV — không giới hạn dung lượng. File lớn tải theo từng phần, có thể tạm dừng / tiếp tục.
+                {editingVideo && ' Bỏ trống nếu chỉ sửa thông tin.'}
+              </p>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                onChange={handleFileChange}
+                disabled={uploader.isActive}
+              />
+              {videoPreview && !uploader.isActive && uploader.status !== 'error' && (
+                <div className="relative">
+                  <video src={videoPreview} controls className="w-full rounded-lg max-h-64" />
+                  <Button type="button" variant="destructive" size="sm" onClick={handleRemoveFile} className="absolute top-2 right-2 h-7 w-7 p-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {editingVideo && !videoPreview && !uploader.isActive && (
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <FileVideo className="h-3.5 w-3.5" /> Đang dùng file hiện tại — chọn file mới để thay thế.
+                </p>
+              )}
+              {(uploader.isActive || uploader.status === 'error') && (
+                <VideoUploadProgress
+                  status={uploader.status}
+                  progress={uploader.progress}
+                  uploadedBytes={uploader.uploadedBytes}
+                  totalBytes={uploader.totalBytes}
+                  speedBps={uploader.speedBps}
+                  etaSec={uploader.etaSec}
+                  error={uploader.error}
+                  onPause={uploader.pause}
+                  onResume={uploader.resume}
+                  onCancel={uploader.cancel}
+                />
+              )}
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -948,32 +945,21 @@ export default function VideosManagementPage() {
             className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden w-full max-w-4xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Player */}
+            {/* Player — video nội bộ (LAN) */}
             <div className="aspect-video bg-black">
-              {previewVideo.videoType === 'upload' ? (
-                <video
-                  ref={previewVideoRef}
-                  key={previewVideo.id}
-                  src={getEmbedUrl(previewVideo)}
-                  controls
-                  autoPlay
-                  className="w-full h-full"
-                  controlsList="nodownload"
-                />
-              ) : (
-                <iframe
-                  key={previewVideo.id}
-                  src={getEmbedUrl(previewVideo)}
-                  title={previewVideo.title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              )}
+              <video
+                ref={previewVideoRef}
+                key={previewVideo.id}
+                src={getPlaybackUrl(previewVideo)}
+                controls
+                autoPlay
+                className="w-full h-full"
+                controlsList="nodownload"
+              />
             </div>
 
-            {/* Thumbnail capture strip — only for upload type */}
-            {previewVideo.videoType === 'upload' && (
+            {/* Thumbnail capture strip */}
+            {(
               <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3">
                 <Button
                   size="sm"
@@ -1028,12 +1014,10 @@ export default function VideosManagementPage() {
             <div className="p-4 flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  {previewVideo.videoType === 'youtube' ? (
-                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                      <Youtube className="w-2.5 h-2.5" /> YouTube
+                  {previewVideo.category && (
+                    <span className="bg-[#295232]/10 text-[#295232] text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      {previewVideo.category}
                     </span>
-                  ) : (
-                    <span className="bg-sky-100 text-sky-700 text-[10px] font-bold px-1.5 py-0.5 rounded">Upload</span>
                   )}
                   {previewVideo.isFeatured && (
                     <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded">⭐ Nổi bật</span>

@@ -28,6 +28,9 @@ export interface VideoUploadMetadata {
   isActive?: boolean
   displayOrder?: number
   duration?: number // thời lượng (giây), đọc từ thẻ video phía client
+  // Nếu có: thay file cho video đã tồn tại (chỉ đổi file + thời lượng, giữ metadata).
+  // Khi đó title và các trường khác được bỏ qua ở server.
+  replaceVideoId?: string
 }
 
 const MAX_CHUNK_RETRIES = 4
@@ -196,20 +199,27 @@ export function useChunkedVideoUpload() {
 
         if (cancelledRef.current) return null
 
-        // 3) complete
+        // 3) complete — thay file bản ghi cũ (replaceVideoId) hoặc tạo mới
         setStatus('completing')
-        const result = await apiPostJson('?action=complete', {
-          uploadId: init.uploadId,
-          title: metadata.title,
-          titleEn: metadata.titleEn,
-          description: metadata.description,
-          category: metadata.category,
-          tags: metadata.tags ?? [],
-          isFeatured: metadata.isFeatured ?? false,
-          isActive: metadata.isActive ?? true,
-          displayOrder: metadata.displayOrder ?? 0,
-          duration: metadata.duration,
-        })
+        const completeBody = metadata.replaceVideoId
+          ? {
+              uploadId: init.uploadId,
+              replaceVideoId: metadata.replaceVideoId,
+              duration: metadata.duration,
+            }
+          : {
+              uploadId: init.uploadId,
+              title: metadata.title,
+              titleEn: metadata.titleEn,
+              description: metadata.description,
+              category: metadata.category,
+              tags: metadata.tags ?? [],
+              isFeatured: metadata.isFeatured ?? false,
+              isActive: metadata.isActive ?? true,
+              displayOrder: metadata.displayOrder ?? 0,
+              duration: metadata.duration,
+            }
+        const result = await apiPostJson('?action=complete', completeBody)
         setStatus('done')
         setSpeedBps(0)
         return result.video

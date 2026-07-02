@@ -49,8 +49,8 @@ const fallbackMenuItems: NavigationItem[] = [
 ]
 
 // Ẩn khỏi menu điều hướng (vẫn giữ route + bản ghi DB, chỉ không hiển thị).
-const HIDDEN_MENU_IDS = new Set(['videos', 'podcasts'])
-const HIDDEN_MENU_URLS = new Set(['/videos', '/podcasts'])
+const HIDDEN_MENU_IDS = new Set(['podcasts'])
+const HIDDEN_MENU_URLS = new Set(['/podcasts'])
 
 function hideMenuItems(items: NavigationItem[]): NavigationItem[] {
   return items
@@ -112,6 +112,19 @@ export function Header() {
               items.splice(archiveIdx + 1, 0, libraryItem)
             } else {
               items.push(libraryItem)
+            }
+          }
+          // Inject "VIDEO" sau "TIN TỨC" nếu menu DB chưa có
+          if (!items.find((i: any) => i.id === 'videos' || i.url === '/videos')) {
+            const videoItem = {
+              id: 'videos', label: 'VIDEO', url: '/videos',
+              target: '_self', isActive: true,
+            }
+            const newsIdx = items.findIndex((i: any) => i.id === 'news' || i.url === '/news')
+            if (newsIdx >= 0) {
+              items.splice(newsIdx + 1, 0, videoItem)
+            } else {
+              items.push(videoItem)
             }
           }
           setMenuItems(hideMenuItems(items))

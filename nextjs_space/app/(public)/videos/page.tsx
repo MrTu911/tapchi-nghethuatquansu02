@@ -5,7 +5,6 @@ import { Play, Eye, Calendar, Search, Film, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
-import { getYouTubeThumbnail } from '@/lib/youtube'
 
 interface Video {
   id: string
@@ -23,11 +22,14 @@ interface Video {
   publishedAt?: string
 }
 
+/** Ảnh đại diện video nội bộ (LAN); rỗng thì fallback sang khung hình <video>. */
 function getThumbnail(video: Video): string {
-  if (video.videoType === 'youtube') {
-    return getYouTubeThumbnail(video.videoUrl, video.videoId)
-  }
   return video.thumbnailUrl || ''
+}
+
+/** Nguồn phát video nội bộ (LAN). */
+function getPlaybackUrl(video: Video): string {
+  return video.cloudStoragePath || video.videoUrl || ''
 }
 
 function formatDate(iso?: string) {
@@ -47,9 +49,9 @@ function VideoCard({ video }: { video: Video }) {
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        ) : video.videoType === 'upload' && video.cloudStoragePath ? (
+        ) : getPlaybackUrl(video) ? (
           <video
-            src={video.cloudStoragePath}
+            src={getPlaybackUrl(video)}
             className="w-full h-full object-cover"
             muted
             preload="metadata"
@@ -71,9 +73,6 @@ function VideoCard({ video }: { video: Video }) {
         </div>
         {/* Badges */}
         <div className="absolute top-2 left-2 flex gap-1">
-          {video.videoType === 'youtube' && (
-            <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">YouTube</span>
-          )}
           {video.isFeatured && (
             <span className="bg-[#D4A843] text-[#1E293B] text-[10px] font-bold px-1.5 py-0.5 rounded">⭐ Nổi bật</span>
           )}
@@ -101,13 +100,13 @@ function VideoCard({ video }: { video: Video }) {
   )
 }
 
-const CATEGORIES = ['Tất cả', 'giới thiệu', 'văn hóa', 'khoa học', 'lịch sử', 'phân tích', 'công nghệ']
+const ALL_CATEGORIES = 'Tất cả'
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('Tất cả')
+  const [category, setCategory] = useState(ALL_CATEGORIES)
 
   const fetchVideos = useCallback(async () => {
     try {
@@ -122,11 +121,18 @@ export default function VideosPage() {
 
   useEffect(() => { fetchVideos() }, [fetchVideos])
 
+  // Danh mục lấy từ chính dữ liệu (không hardcode) để chip lọc luôn khớp thực tế
+  const categories = [
+    ALL_CATEGORIES,
+    ...Array.from(new Set(videos.map((v) => (v.category || '').trim()).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'vi')),
+  ]
+
   const filtered = videos.filter((v) => {
     const matchSearch = !search ||
       v.title.toLowerCase().includes(search.toLowerCase()) ||
       (v.description || '').toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'Tất cả' || v.category === category
+    const matchCat = category === ALL_CATEGORIES || v.category === category
     return matchSearch && matchCat
   })
 
@@ -165,7 +171,7 @@ export default function VideosPage() {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}

@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
 import { saveFile, getFileUrl } from '@/lib/local-storage'
-import { resolveYouTubeId } from '@/lib/youtube'
 
 /**
  * GET /api/videos
@@ -65,7 +64,9 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/videos
- * Create a new video - Supports both YouTube URLs and direct file uploads
+ * Tạo video mới từ file upload nội bộ (LAN). Chỉ hỗ trợ multipart/form-data.
+ * File lớn nên đi qua luồng chunked/resumable /api/videos/upload.
+ * Hệ thống chạy air-gap LAN nên KHÔNG hỗ trợ nhúng YouTube/Vimeo.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -75,8 +76,8 @@ export async function POST(request: NextRequest) {
     }
 
     const contentType = request.headers.get('content-type') || ''
-    
-    // Handle file upload (multipart/form-data)
+
+    // Chỉ chấp nhận upload file (multipart/form-data) — không nhúng YouTube/Vimeo
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData()
       const file = formData.get('file') as File | null
@@ -142,73 +143,7 @@ export async function POST(request: NextRequest) {
       return successResponse({ video })
     }
 
-    // Handle JSON data (YouTube embed)
-    const body = await request.json()
-    const {
-      title,
-      titleEn,
-      description,
-      descriptionEn,
-      videoType,
-      videoUrl,
-      videoId,
-      thumbnailUrl,
-      duration,
-      category,
-      tags,
-      isFeatured,
-      isActive,
-      displayOrder,
-      publishedAt,
-    } = body
-
-    // Validate required fields for YouTube
-    if (!title || !videoUrl) {
-      return errorResponse('Missing required fields: title and videoUrl', 400)
-    }
-
-    // Validate video type
-    if (!['youtube', 'vimeo', 'upload', 'embed'].includes(videoType)) {
-      return errorResponse('Invalid videoType. Must be: youtube, vimeo, upload, or embed', 400)
-    }
-
-    // Trích + làm sạch video ID cho YouTube (cắt bỏ ?si=... của link youtu.be)
-    let extractedVideoId = videoId
-    if (videoType === 'youtube') {
-      extractedVideoId = resolveYouTubeId(videoUrl, videoId)
-    }
-
-    const video = await prisma.video.create({
-      data: {
-        title,
-        titleEn,
-        description,
-        descriptionEn,
-        videoType,
-        videoUrl,
-        videoId: extractedVideoId,
-        thumbnailUrl,
-        duration: duration ? parseInt(duration) : null,
-        category,
-        tags: tags || [],
-        isFeatured: isFeatured || false,
-        isActive: isActive !== undefined ? isActive : true,
-        displayOrder: displayOrder || 0,
-        publishedAt: publishedAt ? new Date(publishedAt) : null,
-        createdBy: session.uid,
-      },
-    })
-
-    // Log audit event
-    await logAudit({
-      actorId: session.uid,
-      action: AuditEventType.SETTINGS_CHANGED,
-      object: 'Video',
-      before: null,
-      after: { id: video.id, title: video.title }
-    })
-
-    return successResponse({ video })
+    return errorResponse('Chỉ hỗ trợ tải lên file video (multipart/form-data)', 400)
   } catch (error) {
     console.error('Error creating video:', error)
     return errorResponse('Failed to create video', 500)

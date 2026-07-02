@@ -9,6 +9,7 @@ import {
   finalizeUpload,
   getUploadStatus,
   abortUpload,
+  deleteStoredVideoFile,
   VideoUploadError,
 } from '@/lib/services/video-upload-service'
 
@@ -17,7 +18,8 @@ import {
  *
  * POST ?action=init     body JSON   { fileName, mimeType, totalSize }            -> { uploadId, chunkSize }
  * POST ?action=chunk    query uploadId, offset; body = binary chunk             -> { received, totalSize }
- * POST ?action=complete body JSON   { uploadId, title, ...metadata }            -> { video }
+ * POST ?action=complete body JSON   { uploadId, title, ...metadata }            -> { video }  (tạo mới)
+ *                        body JSON   { uploadId, replaceVideoId }               -> { video }  (thay file bản ghi cũ)
  * POST ?action=abort    query uploadId                                          -> { aborted: true }
  * GET  ?uploadId=...                                                            -> { received, totalSize }
  */
@@ -78,7 +80,44 @@ export async function POST(request: NextRequest) {
 
     if (action === 'complete') {
       const body = await request.json()
-      const { uploadId, title } = body
+      const { uploadId, replaceVideoId } = body
+
+      // ---- Thay file cho video đã có (chỉ đổi file + thời lượng, giữ metadata) ----
+      if (replaceVideoId) {
+        const existing = await prisma.video.findUnique({ where: { id: replaceVideoId } })
+        if (!existing) {
+          // Không tạo rác: hủy phần tạm đã upload trước khi báo lỗi
+          await abortUpload({ uploadId, userId: session.uid }).catch(() => undefined)
+          return errorResponse('Video cần thay thế không tồn tại', 404)
+        }
+
+        const finalized = await finalizeUpload({ uploadId, userId: session.uid })
+        // Xóa file cũ trên đĩa (best-effort) để tránh orphan
+        await deleteStoredVideoFile(existing.cloudStoragePath || existing.videoUrl)
+
+        const video = await prisma.video.update({
+          where: { id: replaceVideoId },
+          data: {
+            videoType: 'upload',
+            videoUrl: finalized.publicUrl,
+            cloudStoragePath: finalized.publicUrl,
+            duration: body.duration ? Math.round(Number(body.duration)) : existing.duration,
+          },
+        })
+
+        await logAudit({
+          actorId: session.uid,
+          action: AuditEventType.SETTINGS_CHANGED,
+          object: 'Video',
+          before: { id: existing.id, videoUrl: existing.videoUrl },
+          after: { id: video.id, videoUrl: video.videoUrl, fileSize: finalized.fileSize },
+        })
+
+        return successResponse({ video })
+      }
+
+      // ---- Tạo video mới ----
+      const { title } = body
       if (!title) {
         return errorResponse('Thiếu tiêu đề video', 400)
       }

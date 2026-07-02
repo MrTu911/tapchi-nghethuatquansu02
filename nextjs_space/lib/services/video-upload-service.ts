@@ -16,7 +16,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { randomUUID } from 'crypto'
-import { getAbsolutePath, getFileUrl } from '@/lib/local-storage'
+import { getAbsolutePath, getFileUrl, cleanupTempFiles, deleteFile } from '@/lib/local-storage'
 
 // Kích thước phần đề xuất cho client (8MB) — đủ nhỏ để tránh giới hạn proxy,
 // đủ lớn để throughput tốt.
@@ -137,6 +137,9 @@ export async function initUpload(input: {
 
   const uploadId = randomUUID()
   await ensureDir(getAbsolutePath(TEMP_CATEGORY))
+
+  // Reap các phiên upload dở dang bị bỏ rơi (>24h) — best-effort, không chặn init.
+  cleanupTempFiles(24).catch(() => undefined)
 
   // Tạo file part rỗng
   await fs.writeFile(partPath(uploadId), Buffer.alloc(0))
@@ -268,4 +271,34 @@ export async function abortUpload(input: {
   assertOwnership(meta, userId)
   await fs.unlink(partPath(uploadId)).catch(() => undefined)
   await fs.unlink(metaPath(uploadId)).catch(() => undefined)
+}
+
+// ============================================================================
+// FILE CLEANUP HELPERS (dùng chung cho xóa/thay file video nội bộ)
+// ============================================================================
+
+/**
+ * Chuyển URL công khai (/uploads/videos/uploads/x.mp4) về đường dẫn tương đối mà
+ * lib/local-storage hiểu (videos/uploads/x.mp4). Trả null nếu không phải file nội bộ
+ * (vd link ngoài) — khi đó không có gì để xóa trên đĩa.
+ */
+export function toStorageRelativePath(url: string | null | undefined): string | null {
+  if (!url) return null
+  const prefix = '/uploads/'
+  if (!url.startsWith(prefix)) return null
+  return url.slice(prefix.length)
+}
+
+/**
+ * Xóa file video nội bộ theo URL công khai (best-effort). Không ném lỗi — dùng khi
+ * xóa/thay bản ghi để tránh orphan trên đĩa nhưng không chặn thao tác DB.
+ */
+export async function deleteStoredVideoFile(url: string | null | undefined): Promise<void> {
+  const relativePath = toStorageRelativePath(url)
+  if (!relativePath) return
+  try {
+    await deleteFile(relativePath)
+  } catch (error) {
+    console.error('Video file cleanup failed:', relativePath, error)
+  }
 }

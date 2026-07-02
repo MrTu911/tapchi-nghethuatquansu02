@@ -4,6 +4,7 @@ import { join } from 'path'
 import { getServerSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
+import { deleteStoredVideoFile } from '@/lib/services/video-upload-service'
 
 export async function POST(
   request: NextRequest,
@@ -32,6 +33,9 @@ export async function POST(
     await writeFile(join(dir, filename), buffer)
 
     const thumbnailUrl = `/uploads/images/thumbnails/${filename}`
+
+    // Dọn ảnh đại diện cũ (best-effort) để tránh orphan trên đĩa
+    await deleteStoredVideoFile(video.thumbnailUrl)
 
     await prisma.video.update({
       where: { id },

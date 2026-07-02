@@ -3,19 +3,7 @@ import { getServerSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { successResponse, errorResponse } from '@/lib/responses'
 import { logAudit, AuditEventType } from '@/lib/audit-logger'
-import { deleteFile } from '@/lib/local-storage'
-import { resolveYouTubeId } from '@/lib/youtube'
-
-/**
- * Chuyển URL công khai (/uploads/videos/uploads/x.mp4) về đường dẫn tương đối
- * mà lib/local-storage hiểu (videos/uploads/x.mp4). Trả null nếu không phải file nội bộ.
- */
-function toStorageRelativePath(url: string | null): string | null {
-  if (!url) return null
-  const prefix = '/uploads/'
-  if (!url.startsWith(prefix)) return null
-  return url.slice(prefix.length)
-}
+import { deleteStoredVideoFile } from '@/lib/services/video-upload-service'
 
 /**
  * GET /api/videos/[id]
@@ -75,20 +63,13 @@ export async function PUT(
       return errorResponse('Video not found', 404)
     }
 
-    // Trích + làm sạch video ID cho YouTube (cắt bỏ ?si=... của link youtu.be)
-    let extractedVideoId = body.videoId
-    if (body.videoType === 'youtube' && body.videoUrl) {
-      extractedVideoId = resolveYouTubeId(body.videoUrl, body.videoId)
-    }
-
+    // Chỉ cập nhật metadata cho video upload nội bộ (LAN). Thay file video đi qua
+    // luồng chunked /api/videos/upload (action=complete + replaceVideoId).
     const updateData: any = {}
     if (body.title !== undefined) updateData.title = body.title
     if (body.titleEn !== undefined) updateData.titleEn = body.titleEn
     if (body.description !== undefined) updateData.description = body.description
     if (body.descriptionEn !== undefined) updateData.descriptionEn = body.descriptionEn
-    if (body.videoType !== undefined) updateData.videoType = body.videoType
-    if (body.videoUrl !== undefined) updateData.videoUrl = body.videoUrl
-    if (extractedVideoId !== undefined) updateData.videoId = extractedVideoId
     if (body.thumbnailUrl !== undefined) updateData.thumbnailUrl = body.thumbnailUrl
     if (body.duration !== undefined) updateData.duration = body.duration ? parseInt(body.duration) : null
     if (body.category !== undefined) updateData.category = body.category
@@ -144,18 +125,12 @@ export async function DELETE(
 
     await prisma.video.delete({ where: { id } })
 
-    // Dọn file vật lý nếu là video upload nội bộ (tránh orphan trên đĩa).
-    // Không chặn response nếu xóa file lỗi — bản ghi DB đã xóa thành công.
+    // Dọn file vật lý (best-effort) — không chặn response vì bản ghi DB đã xóa thành công.
+    // Xóa cả file video và file ảnh đại diện nội bộ để tránh orphan trên đĩa.
     if (video.videoType === 'upload') {
-      const relativePath = toStorageRelativePath(video.cloudStoragePath || video.videoUrl)
-      if (relativePath) {
-        try {
-          await deleteFile(relativePath)
-        } catch (fileError) {
-          console.error('Video DB deleted but file cleanup failed:', relativePath, fileError)
-        }
-      }
+      await deleteStoredVideoFile(video.cloudStoragePath || video.videoUrl)
     }
+    await deleteStoredVideoFile(video.thumbnailUrl)
 
     // Log audit event
     await logAudit({

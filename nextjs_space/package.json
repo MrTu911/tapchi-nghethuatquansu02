@@ -40,7 +40,9 @@
     "journal:build-issue-pdfs": "tsx --require dotenv/config scripts/journal/build-issue-pdfs.ts",
     "seed:demo-accounts": "tsx --require dotenv/config scripts/seed-demo-accounts.ts",
     "verify:roles": "tsx --require dotenv/config scripts/verify-role-access.ts",
-    "smoke:roles": "tsx --require dotenv/config scripts/smoke/role-flow-smoke.ts"
+    "smoke:roles": "tsx --require dotenv/config scripts/smoke/role-flow-smoke.ts",
+    "seed:videos-demo": "tsx --require dotenv/config prisma/seed-videos-demo.ts",
+    "db:cleanup-youtube": "tsx --require dotenv/config prisma/cleanup-youtube-videos.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"

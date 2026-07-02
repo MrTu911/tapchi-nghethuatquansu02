@@ -3,17 +3,13 @@
 import { useState, useEffect } from 'react'
 import { Play, Loader2, Eye, Calendar, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { getYouTubeEmbedUrl, getYouTubeThumbnail } from '@/lib/youtube'
 
 interface VideoItem {
   id: string
   title: string
   description?: string
-  embedUrl: string
+  playbackUrl: string
   thumbnailUrl?: string
-  videoType?: string
-  videoUrl?: string
-  videoId?: string
   views?: number
   publishedAt?: string
 }
@@ -44,22 +40,15 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
         const data = await response.json()
         if (data.success && data.data.videos?.length > 0) {
           const transformed: VideoItem[] = data.data.videos.map((v: {
-            id: string; title: string; description?: string; videoType: string;
-            videoUrl: string; videoId?: string; thumbnailUrl?: string;
+            id: string; title: string; description?: string;
+            videoUrl: string; cloudStoragePath?: string; thumbnailUrl?: string;
             views?: number; publishedAt?: string;
           }) => ({
             id: v.id,
             title: v.title,
             description: v.description,
-            embedUrl: v.videoType === 'youtube'
-              ? getYouTubeEmbedUrl(v.videoUrl, v.videoId)
-              : v.videoUrl,
-            thumbnailUrl: v.videoType === 'youtube'
-              ? getYouTubeThumbnail(v.videoUrl, v.videoId)
-              : v.thumbnailUrl || '',
-            videoType: v.videoType,
-            videoUrl: v.videoUrl,
-            videoId: v.videoId,
+            playbackUrl: v.cloudStoragePath || v.videoUrl,
+            thumbnailUrl: v.thumbnailUrl || '',
             views: v.views || 0,
             publishedAt: v.publishedAt,
           }))
@@ -82,7 +71,7 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
   if (loading) {
     return (
       <div className="bg-neutral-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-8 flex items-center justify-center min-h-[200px]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#8B1A1A]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#295232]" />
       </div>
     )
   }
@@ -95,15 +84,15 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
         {/* Section header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="w-1 h-6 bg-[#8B1A1A] rounded-full inline-block" />
-            <Play className="w-4 h-4 text-[#8B1A1A]" fill="#8B1A1A" />
+            <span className="w-1 h-6 bg-[#295232] rounded-full inline-block" />
+            <Play className="w-4 h-4 text-[#295232]" fill="#295232" />
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
               Tin Tức Video
             </h2>
           </div>
           <Link
             href="/videos"
-            className="text-xs text-[#8B1A1A] hover:underline flex items-center gap-0.5 font-medium"
+            className="text-xs text-[#295232] hover:underline flex items-center gap-0.5 font-medium"
           >
             Xem tất cả <ChevronRight className="w-3 h-3" />
           </Link>
@@ -115,24 +104,14 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
           {/* Main player */}
           <div className="space-y-3">
             <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-md">
-              {mainVideo.videoType === 'upload' ? (
-                <video
-                  key={mainVideo.id}
-                  src={mainVideo.embedUrl}
-                  controls
-                  className="w-full h-full"
-                  controlsList="nodownload"
-                />
-              ) : (
-                <iframe
-                  key={mainVideo.id}
-                  src={mainVideo.embedUrl}
-                  title={mainVideo.title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              )}
+              <video
+                key={mainVideo.id}
+                src={mainVideo.playbackUrl}
+                poster={mainVideo.thumbnailUrl || undefined}
+                controls
+                className="w-full h-full"
+                controlsList="nodownload"
+              />
             </div>
             <div>
               <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 leading-snug">
@@ -171,8 +150,8 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
                   onClick={() => setSelectedVideo(video)}
                   className={`flex gap-2.5 p-2 rounded-lg text-left transition-all w-full ${
                     isActive
-                      ? 'border-l-4 border-[#8B1A1A] bg-[#FDF5E6] dark:bg-[#6B1313]/40 border-t border-r border-b border-[#8B1A1A]/20'
-                      : 'border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-[#FDF5E6] dark:hover:bg-gray-700 hover:border-[#8B1A1A]/20'
+                      ? 'border-l-4 border-[#295232] bg-[#295232]/5 dark:bg-[#295232]/30 border-t border-r border-b border-[#295232]/20'
+                      : 'border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-[#295232]/5 dark:hover:bg-gray-700 hover:border-[#295232]/20'
                   }`}
                 >
                   <div className="relative w-20 h-[52px] flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
@@ -183,9 +162,9 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
                         alt={video.title}
                         className="w-full h-full object-cover"
                       />
-                    ) : video.videoType === 'upload' && video.videoUrl ? (
+                    ) : video.playbackUrl ? (
                       <video
-                        src={video.videoUrl}
+                        src={video.playbackUrl}
                         className="w-full h-full object-cover"
                         muted
                         preload="metadata"
@@ -206,7 +185,7 @@ export default function VideoSection({ videos: propVideos }: VideoSectionProps) 
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-semibold line-clamp-2 leading-snug ${
-                      isActive ? 'text-[#8B1A1A] dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'
+                      isActive ? 'text-[#295232] dark:text-[#E5C86E]' : 'text-gray-700 dark:text-gray-300'
                     }`}>
                       {video.title}
                     </p>
