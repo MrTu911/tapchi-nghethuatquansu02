@@ -31,23 +31,19 @@ export interface Conversation {
   participants: ConversationParticipant[];
   messages: LastMessage[];
   unreadCount?: number;
-  submissionId?: string | null;
-  submissionCode?: string | null;
-  submissionStatus?: string | null;
-  submissionTitle?: string | null;
 }
 
-async function fetchConversations(tab: 'chat' | 'submission'): Promise<Conversation[]> {
-  const res = await fetch(`/api/chat/conversations?tab=${tab}`);
+async function fetchConversations(): Promise<Conversation[]> {
+  const res = await fetch('/api/chat/conversations');
   const data = await res.json();
   if (!data.success) throw new Error(data.error ?? 'Không thể tải hội thoại');
   return Array.isArray(data.data) ? data.data : [];
 }
 
-export function useConversations(tab: 'chat' | 'submission' = 'chat') {
+export function useConversations() {
   return useQuery({
-    queryKey: ['conversations', tab],
-    queryFn: () => fetchConversations(tab),
+    queryKey: ['conversations'],
+    queryFn: fetchConversations,
     refetchInterval: 8000,
     staleTime: 4000,
   });

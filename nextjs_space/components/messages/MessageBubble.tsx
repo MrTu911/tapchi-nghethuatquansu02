@@ -88,12 +88,12 @@ export function MessageBubble({ message, isOwn, showSenderInfo }: Props) {
           className={`flex items-center gap-1 mt-1 px-1 ${isOwn ? 'justify-end' : 'justify-start'}`}
         >
           <span className="text-[10px] text-muted-foreground">{formatTime(message.createdAt)}</span>
-          {isOwn && (
-            <span>
+          {isOwn && !isOptimistic && (
+            <span title={message.isRead ? 'Đã xem' : 'Đã gửi'}>
               {message.isRead ? (
-                <CheckCheck className="h-3 w-3 text-blue-500" />
+                <CheckCheck className="h-3.5 w-3.5 text-accent" />
               ) : (
-                <Check className="h-3 w-3 text-muted-foreground" />
+                <Check className="h-3.5 w-3.5 text-muted-foreground/70" />
               )}
             </span>
           )}

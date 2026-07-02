@@ -184,6 +184,26 @@
     --accent-foreground: 133 40% 12%;
     --ring: 45 60% 50%;
   }
+
+  /* ── Scope theme thương hiệu cho khu vực NHẮN TIN ────────────────────
+     Trang /dashboard/messages dùng chung cho mọi vai trò nên áp palette
+     NTQS (xanh quân sự #1E3924 + vàng đồng #E5C86E) qua .theme-messages
+     ở root MessagesLayout để giữ identity nhất quán toàn dashboard. */
+  .theme-messages {
+    --primary: 133 31% 17%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 70% 66%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 133 31% 25%;
+  }
+
+  .dark .theme-messages {
+    --primary: 138 40% 32%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 45 60% 58%;
+    --accent-foreground: 133 40% 12%;
+    --ring: 45 60% 50%;
+  }
 }
 
 @layer base {

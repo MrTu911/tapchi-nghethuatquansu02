@@ -12,7 +12,8 @@ interface Props {
   placeholder?: string;
 }
 
-const MAX_CHARS = 2000;
+// Khớp với giới hạn phía API (zod max 5000) để tránh lệch validation.
+const MAX_CHARS = 5000;
 
 export function MessageInput({
   value,
@@ -59,7 +60,7 @@ export function MessageInput({
             placeholder={placeholder}
             disabled={disabled || isSending}
             rows={1}
-            className="w-full resize-none min-h-[42px] max-h-[160px] text-sm py-2.5 px-4 rounded-2xl border bg-muted/40 hover:bg-muted/60 focus:bg-background outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-60"
+            className="w-full resize-none min-h-[42px] max-h-[160px] text-sm py-2.5 px-4 rounded-2xl border bg-muted/40 hover:bg-muted/60 focus:bg-background outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-60"
           />
           {nearLimit && (
             <span className="absolute bottom-2.5 right-4 text-[10px] text-muted-foreground/70 pointer-events-none">
@@ -74,7 +75,7 @@ export function MessageInput({
           aria-label="Gửi tin nhắn"
           className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all ${
             canSend
-              ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow-md active:scale-95'
+              ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow-md ring-1 ring-accent/40 hover:ring-accent/70 active:scale-95'
               : 'bg-muted text-muted-foreground cursor-not-allowed'
           }`}
         >

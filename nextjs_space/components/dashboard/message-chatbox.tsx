@@ -66,8 +66,8 @@ export default function MessageChatbox({
 
   useEffect(() => {
     fetchMessages()
-    // Poll for new messages every 30 seconds
-    const interval = setInterval(fetchMessages, 30000)
+    // Poll for new messages every 15 seconds
+    const interval = setInterval(fetchMessages, 15000)
     return () => clearInterval(interval)
   }, [submissionId])
 
@@ -85,12 +85,8 @@ export default function MessageChatbox({
     setIsSending(true)
 
     try {
-      // Determine receiver: if current user is author, send to editors, else send to author
-      const isAuthor = currentUserId === authorId
-      const receiverId = isAuthor 
-        ? messages.find(m => m.sender.role.includes('EDITOR'))?.senderId || authorId 
-        : authorId
-
+      // Người nhận được xác định ở server theo ngữ cảnh bài nộp
+      // (tác giả ↔ biên tập viên phụ trách) — client không tự đoán nữa.
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -98,7 +94,6 @@ export default function MessageChatbox({
         },
         body: JSON.stringify({
           submissionId,
-          receiverId,
           message: newMessage.trim()
         })
       })
@@ -186,7 +181,7 @@ export default function MessageChatbox({
                     className={`flex items-start gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className={isOwnMessage ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'}>
+                      <AvatarFallback className={isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}>
                         {getInitials(msg.sender.fullName)}
                       </AvatarFallback>
                     </Avatar>
@@ -201,9 +196,9 @@ export default function MessageChatbox({
                       
                       <div
                         className={`
-                          inline-block max-w-[80%] p-3 rounded-lg text-sm
-                          ${isOwnMessage 
-                            ? 'bg-blue-500 text-white ml-auto' 
+                          inline-block max-w-[80%] p-3 rounded-lg text-sm shadow-sm
+                          ${isOwnMessage
+                            ? 'bg-primary text-primary-foreground ml-auto'
                             : 'bg-white border'}
                         `}
                       >

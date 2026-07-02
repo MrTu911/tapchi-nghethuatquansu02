@@ -10,7 +10,7 @@ export function EmptyConversationState({
   return (
     <div className="flex flex-col items-center justify-center h-full text-muted-foreground select-none px-6 bg-muted/10">
       <div className="relative mb-6">
-        <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shadow-inner">
+        <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border border-accent/20 flex items-center justify-center shadow-inner">
           <svg
             className="h-10 w-10 text-primary/30"
             fill="none"
@@ -22,8 +22,8 @@ export function EmptyConversationState({
           </svg>
         </div>
         {/* Decorative dots */}
-        <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary/20" />
-        <div className="absolute -bottom-1 -left-1 h-2 w-2 rounded-full bg-primary/15" />
+        <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-accent/60" />
+        <div className="absolute -bottom-1 -left-1 h-2 w-2 rounded-full bg-primary/20" />
       </div>
       <p className="text-base font-semibold text-foreground/60">{title}</p>
       <p className="text-sm mt-1 text-center text-muted-foreground/60 max-w-xs">{description}</p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessagesSquare } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { ChatArea } from './ChatArea';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -17,6 +17,8 @@ export function MessagesLayout() {
   const [session, setSession] = useState<SessionUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  // Trên mobile chỉ hiện được 1 cột: 'list' (danh sách) hoặc 'chat' (khu chat).
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -29,6 +31,16 @@ export function MessagesLayout() {
       .catch(() => {})
       .finally(() => setSessionLoading(false));
   }, []);
+
+  const handleSelect = (conv: Conversation) => {
+    setActiveConversation(conv);
+    setMobileView('chat');
+  };
+
+  const handleLeft = (conversationId: string) => {
+    setActiveConversation((prev) => (prev?.id === conversationId ? null : prev));
+    setMobileView('list');
+  };
 
   if (sessionLoading) {
     return (
@@ -47,17 +59,18 @@ export function MessagesLayout() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
+    <div className="theme-messages flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
       {/* Page header */}
       <div className="flex items-center justify-between px-1 pb-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center shadow-sm">
-            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md ring-2 ring-accent/50">
+            <MessagesSquare className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Tin nhắn</h1>
+            <h1 className="text-xl font-bold tracking-tight">
+              Tin nhắn
+              <span className="inline-block ml-2 h-1 w-8 rounded-full bg-accent align-middle" />
+            </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Trò chuyện với biên tập viên và đồng nghiệp
             </p>
@@ -71,19 +84,32 @@ export function MessagesLayout() {
 
       {/* Main panel */}
       <div className="flex flex-1 overflow-hidden rounded-2xl border shadow-md bg-background">
-        {/* Sidebar */}
-        <div className="w-[300px] shrink-0 hidden md:block overflow-hidden">
+        {/* Sidebar — mobile: ẩn khi đang xem chat; desktop: luôn hiện */}
+        <div
+          className={`${
+            mobileView === 'chat' ? 'hidden' : 'block'
+          } md:block w-full md:w-[300px] shrink-0 overflow-hidden`}
+        >
           <ConversationSidebar
             currentUserId={session.id}
             currentUserRole={session.role}
             activeConversationId={activeConversation?.id ?? null}
-            onSelect={(conv) => setActiveConversation(conv)}
+            onSelect={handleSelect}
           />
         </div>
 
-        {/* Chat area */}
-        <div className="flex-1 overflow-hidden">
-          <ChatArea conversation={activeConversation} currentUserId={session.id} />
+        {/* Chat area — mobile: ẩn khi đang xem danh sách; desktop: luôn hiện */}
+        <div
+          className={`${
+            mobileView === 'list' ? 'hidden' : 'block'
+          } md:block flex-1 overflow-hidden`}
+        >
+          <ChatArea
+            conversation={activeConversation}
+            currentUserId={session.id}
+            onBack={() => setMobileView('list')}
+            onLeft={handleLeft}
+          />
         </div>
       </div>
     </div>

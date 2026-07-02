@@ -28,9 +28,10 @@ export function useSendMessage(conversationId: string, currentUserId: string) {
       await qc.cancelQueries({ queryKey: ['messages', conversationId] });
       const previous = qc.getQueryData<ChatMessage[]>(['messages', conversationId]);
 
-      // Optimistic message placeholder
+      // Optimistic message placeholder — id phải duy nhất để tránh trùng React key
+      // khi gửi nhiều tin trong cùng một mili-giây.
       const optimistic: ChatMessage = {
-        id: `optimistic-${Date.now()}`,
+        id: `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         content,
         createdAt: new Date().toISOString(),
         isRead: false,

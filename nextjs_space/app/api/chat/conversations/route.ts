@@ -85,25 +85,40 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Tính số tin nhắn chưa đọc cho mỗi hội thoại
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const participant = conv.participants.find(p => p.userId === userId);
-        
-        const unreadCount = await prisma.chatMessage.count({
+    // Tính số tin nhắn chưa đọc cho mỗi hội thoại bằng MỘT truy vấn duy nhất
+    // (thay vì N count query) rồi đối chiếu với lastReadAt của từng hội thoại.
+    const conversationIds = conversations.map((c) => c.id);
+    const otherMessages = conversationIds.length
+      ? await prisma.chatMessage.findMany({
           where: {
-            conversationId: conv.id,
+            conversationId: { in: conversationIds },
             senderId: { not: userId },
-            createdAt: { gt: participant?.lastReadAt || new Date(0) },
           },
-        });
+          select: { conversationId: true, createdAt: true },
+        })
+      : [];
 
-        return {
-          ...conv,
-          unreadCount,
-        };
-      })
-    );
+    const lastReadByConversation = new Map<string, Date>();
+    for (const conv of conversations) {
+      const participant = conv.participants.find((p) => p.userId === userId);
+      lastReadByConversation.set(conv.id, participant?.lastReadAt ?? new Date(0));
+    }
+
+    const unreadCountByConversation = new Map<string, number>();
+    for (const msg of otherMessages) {
+      const lastReadAt = lastReadByConversation.get(msg.conversationId);
+      if (lastReadAt && msg.createdAt > lastReadAt) {
+        unreadCountByConversation.set(
+          msg.conversationId,
+          (unreadCountByConversation.get(msg.conversationId) ?? 0) + 1
+        );
+      }
+    }
+
+    const conversationsWithUnread = conversations.map((conv) => ({
+      ...conv,
+      unreadCount: unreadCountByConversation.get(conv.id) ?? 0,
+    }));
 
     return NextResponse.json({
       success: true,

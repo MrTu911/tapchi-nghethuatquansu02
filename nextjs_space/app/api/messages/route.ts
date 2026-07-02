@@ -94,11 +94,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { submissionId, receiverId, message } = body
+    // receiverId từ client KHÔNG được tin cậy — người nhận được xác định ở server
+    // theo ngữ cảnh bài nộp (tránh gửi nhầm / tự gửi cho mình).
+    const { submissionId, message } = body
 
-    if (!submissionId || !receiverId || !message?.trim()) {
+    if (!submissionId || !message?.trim()) {
       return NextResponse.json(
-        { error: 'submissionId, receiverId, and message are required' },
+        { error: 'submissionId and message are required' },
         { status: 400 }
       )
     }
@@ -106,13 +108,11 @@ export async function POST(request: NextRequest) {
     // Verify submission exists
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
-      include: {
-        author: {
-          select: {
-            id: true,
-            fullName: true
-          }
-        }
+      select: {
+        id: true,
+        title: true,
+        createdBy: true,
+        assignedEditorId: true,
       }
     })
 
@@ -120,13 +120,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
     }
 
-    // Verify receiver exists
-    const receiver = await prisma.user.findUnique({
-      where: { id: receiverId }
-    })
+    // Chỉ tác giả của bài HOẶC biên tập viên mới được gửi tin (chặn cả REVIEWER
+    // theo nguyên tắc phản biện kín). Đây là guard bảo mật ở backend.
+    const EDITOR_ROLES = ['SYSADMIN', 'EIC', 'DEPUTY_EIC', 'MANAGING_EDITOR', 'SECTION_EDITOR']
+    const isAuthor = submission.createdBy === session.uid
+    const isEditor = EDITOR_ROLES.includes(session.role)
 
-    if (!receiver) {
-      return NextResponse.json({ error: 'Receiver not found' }, { status: 404 })
+    if (!isAuthor && !isEditor) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Xác định người nhận ở server:
+    // - Tác giả gửi → biên tập viên phụ trách (fallback: Thư ký tòa soạn / Tổng biên tập)
+    // - Biên tập viên gửi → tác giả bài viết
+    let receiverId: string | null
+    if (isAuthor) {
+      receiverId = submission.assignedEditorId
+      if (!receiverId) {
+        const fallbackEditor =
+          (await prisma.user.findFirst({
+            where: { isActive: true, role: 'MANAGING_EDITOR' },
+            select: { id: true },
+          })) ??
+          (await prisma.user.findFirst({
+            where: { isActive: true, role: 'EIC' },
+            select: { id: true },
+          }))
+        receiverId = fallbackEditor?.id ?? null
+      }
+    } else {
+      receiverId = submission.createdBy
+    }
+
+    if (!receiverId || receiverId === session.uid) {
+      return NextResponse.json(
+        { error: 'Chưa xác định được người nhận cho bài viết này' },
+        { status: 409 }
+      )
     }
 
     // Create message

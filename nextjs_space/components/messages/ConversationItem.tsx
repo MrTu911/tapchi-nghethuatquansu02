@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Users, FileText } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { getInitials } from '@/lib/chat-guard';
 import type { Conversation } from '@/hooks/messages/useConversations';
 
@@ -35,7 +35,7 @@ function AvatarInitials({ name }: { name: string }) {
   const gradient = getAvatarColor(name);
   return (
     <div
-      className={`h-11 w-11 rounded-full bg-gradient-to-br ${gradient} text-white text-sm font-semibold flex items-center justify-center shrink-0 shadow-sm`}
+      className={`h-11 w-11 rounded-full bg-gradient-to-br ${gradient} text-white text-sm font-semibold flex items-center justify-center shrink-0 shadow-sm ring-2 ring-white/70 dark:ring-black/20`}
     >
       {initials}
     </div>
@@ -67,28 +67,29 @@ export function ConversationItem({ conversation, currentUserId, isActive, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 rounded-xl flex gap-3 items-center transition-all focus:outline-none group ${
+      className={`relative w-full text-left pl-4 pr-3 py-2.5 rounded-xl flex gap-3 items-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 group ${
         isActive
           ? 'bg-primary/10 shadow-sm'
           : 'hover:bg-muted/60'
       }`}
     >
+      {/* Thanh nhấn vàng đồng khi đang chọn */}
+      {isActive && (
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-accent" />
+      )}
+
       {/* Avatar */}
       <div className="relative shrink-0">
         {conversation.type === 'group' ? (
-          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shadow-sm">
+          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-sm ring-2 ring-white/70 dark:ring-black/20">
             <Users className="h-5 w-5 text-white" />
-          </div>
-        ) : conversation.submissionId ? (
-          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-sm">
-            <FileText className="h-5 w-5 text-white" />
           </div>
         ) : (
           <AvatarInitials name={avatarName} />
         )}
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 border-2 border-background flex items-center justify-center">
-            <span className="text-[8px] text-white font-bold leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 border-2 border-background flex items-center justify-center">
+            <span className="text-[9px] text-white font-bold leading-none">
               {unread > 9 ? '9+' : unread}
             </span>
           </span>
@@ -110,21 +111,14 @@ export function ConversationItem({ conversation, currentUserId, isActive, onClic
         </div>
 
         {lastMsgPreview ? (
-          <p className={`text-xs truncate ${unread > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
-            {lastMsgPreview}
-          </p>
-        ) : conversation.submissionCode ? (
-          <p className="text-xs text-blue-500 truncate font-medium">
-            {conversation.submissionCode}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className={`text-xs truncate flex-1 ${unread > 0 ? 'text-foreground/80 font-medium' : 'text-muted-foreground'}`}>
+              {lastMsgPreview}
+            </p>
+            {unread > 0 && <span className="h-2 w-2 rounded-full bg-accent shrink-0" />}
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground/60 italic">Chưa có tin nhắn</p>
-        )}
-
-        {lastMsgPreview && conversation.submissionCode && (
-          <p className="text-[10px] text-blue-500/80 truncate mt-0.5 font-medium">
-            {conversation.submissionCode}
-          </p>
         )}
       </div>
     </button>

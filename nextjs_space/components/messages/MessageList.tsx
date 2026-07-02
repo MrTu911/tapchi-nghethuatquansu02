@@ -26,9 +26,33 @@ function getDayLabel(dateStr: string): string {
 export function MessageList({ messages, currentUserId, isLoading, error, onRetry }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const lastMsg = messages[messages.length - 1];
+  const lastId = lastMsg?.id;
+  const isOwnLast = lastMsg?.sender.id === currentUserId;
+
+  // Cuộn xuống khi có tin mới, nhưng KHÔNG giật khi người dùng đang đọc lịch sử:
+  // chỉ tự cuộn nếu đang ở gần đáy, hoặc tin mới nhất là của chính mình.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    const bottom = bottomRef.current;
+    if (!bottom) return;
+    const viewport = bottom.closest(
+      '[data-radix-scroll-area-viewport]'
+    ) as HTMLElement | null;
+
+    if (!viewport) {
+      bottom.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    const distanceFromBottom =
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    const nearBottom = distanceFromBottom < 160;
+
+    if (nearBottom || isOwnLast) {
+      bottom.scrollIntoView({ behavior: 'smooth' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastId, messages.length]);
 
   if (isLoading && messages.length === 0) {
     return (
@@ -56,8 +80,8 @@ export function MessageList({ messages, currentUserId, isLoading, error, onRetry
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground select-none">
-        <div className="h-14 w-14 rounded-full bg-muted/60 flex items-center justify-center mb-3 shadow-inner">
-          <MessageSquare className="h-7 w-7 opacity-30" />
+        <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-3 shadow-inner">
+          <MessageSquare className="h-7 w-7 text-primary/40" />
         </div>
         <p className="text-sm font-medium text-foreground/50">Chưa có tin nhắn nào</p>
         <p className="text-xs mt-1 text-muted-foreground/60">Hãy bắt đầu cuộc trò chuyện</p>
@@ -68,7 +92,7 @@ export function MessageList({ messages, currentUserId, isLoading, error, onRetry
   let lastDate: Date | null = null;
 
   return (
-    <div className="flex flex-col gap-1 px-5 py-5">
+    <div className="flex flex-col gap-1 px-4 md:px-5 py-5">
       {messages.map((msg, idx) => {
         const msgDate = new Date(msg.createdAt);
         const showDayDivider = !lastDate || !isSameDay(msgDate, lastDate);
@@ -84,7 +108,7 @@ export function MessageList({ messages, currentUserId, isLoading, error, onRetry
             {showDayDivider && (
               <div className="flex items-center gap-3 my-4">
                 <div className="flex-1 h-px bg-border/60" />
-                <span className="text-[11px] text-muted-foreground bg-background px-3 py-1 rounded-full border border-border/40 font-medium">
+                <span className="text-[11px] text-foreground/60 bg-background px-3 py-1 rounded-full border border-accent/30 font-medium shadow-sm">
                   {getDayLabel(msg.createdAt)}
                 </span>
                 <div className="flex-1 h-px bg-border/60" />
