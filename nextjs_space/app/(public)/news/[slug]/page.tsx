@@ -11,6 +11,7 @@ import {
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { getNewsCategoryLabel } from '@/lib/news-constants'
 
 interface NewsDetailPageProps {
   params: { slug: string }
@@ -31,22 +32,6 @@ export async function generateMetadata({ params }: NewsDetailPageProps): Promise
       publishedTime: news.publishedAt?.toISOString(),
     },
   }
-}
-
-const NEWS_CATEGORIES: Record<string, string> = {
-  announcement: 'Thông báo',
-  event: 'Sự kiện',
-  call_for_paper: 'Call for Papers',
-  policy: 'Chính sách',
-  research_news: 'Tin nghiên cứu',
-  interview: 'Phỏng vấn',
-  award: 'Giải thưởng',
-  conference: 'Hội thảo',
-}
-
-function getCategoryLabel(category?: string | null) {
-  if (!category) return 'Chưa phân loại'
-  return NEWS_CATEGORIES[category] || category
 }
 
 function estimateReadTime(content?: string | null) {
@@ -101,7 +86,7 @@ export default async function NewsDetailPage({ params }: NewsDetailPageProps) {
         <Link href="/news" className="hover:text-[#295232] transition-colors">Tin tức</Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-gray-600 dark:text-gray-300 line-clamp-1 max-w-[200px]">
-          {getCategoryLabel(news.category)}
+          {getNewsCategoryLabel(news.category)}
         </span>
       </div>
 
@@ -128,7 +113,7 @@ export default async function NewsDetailPage({ params }: NewsDetailPageProps) {
             {/* Category + featured */}
             <div className="flex items-center gap-2 mb-3">
               <span className="bg-[#D4A843] text-[#1E293B] text-xs font-bold px-3 py-1 rounded-full">
-                {getCategoryLabel(news.category)}
+                {getNewsCategoryLabel(news.category)}
               </span>
               {news.isFeatured && (
                 <span className="bg-[#295232] text-white text-xs font-bold px-3 py-1 rounded-full">

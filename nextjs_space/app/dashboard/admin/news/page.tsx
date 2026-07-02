@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -27,6 +27,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { BrandStatCard, type BrandTone } from '@/components/dashboard/brand-stat-card'
 import { getImageUrl } from '@/lib/image-utils-client'
 import {
   NEWS_CATEGORIES, NEWS_SORT_OPTIONS, getNewsCategoryBadgeClass, getNewsCategoryLabel,
@@ -85,18 +86,16 @@ export default function NewsManagementPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const counts = await Promise.all([
-        fetch('/api/news?limit=1').then((r) => r.json()),
-        fetch('/api/news?limit=1&isPublished=true').then((r) => r.json()),
-        fetch('/api/news?limit=1&isPublished=false').then((r) => r.json()),
-        fetch('/api/news?limit=1&isFeatured=true').then((r) => r.json()),
-      ])
-      setStats({
-        total: counts[0]?.data?.pagination?.total ?? 0,
-        published: counts[1]?.data?.pagination?.total ?? 0,
-        draft: counts[2]?.data?.pagination?.total ?? 0,
-        featured: counts[3]?.data?.pagination?.total ?? 0,
-      })
+      const res = await fetch('/api/news/stats')
+      const data = await res.json()
+      if (data.success) {
+        setStats({
+          total: data.data.total ?? 0,
+          published: data.data.published ?? 0,
+          draft: data.data.draft ?? 0,
+          featured: data.data.featured ?? 0,
+        })
+      }
     } catch {
       /* stats không quan trọng — bỏ qua lỗi nhẹ */
     }
@@ -191,104 +190,174 @@ export default function NewsManagementPage() {
     setPage(1)
   }
 
-  const statCards = [
-    { label: 'Tổng số', value: stats.total, icon: Newspaper, color: 'text-gray-600', bg: 'bg-gray-50 dark:bg-gray-800' },
-    { label: 'Đã đăng', value: stats.published, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'Bản nháp', value: stats.draft, icon: FileEdit, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-    { label: 'Nổi bật', value: stats.featured, icon: Star, color: 'text-[#D4A843]', bg: 'bg-[#FFF3CC]/60 dark:bg-yellow-900/20' },
+  // ── Thẻ KPI bấm-để-lọc ─────────────────────────────────────────────────────
+  const statCards: {
+    label: string; value: number; icon: typeof Newspaper; tone: BrandTone
+    hint: string; active: boolean; onClick: () => void
+  }[] = [
+    {
+      label: 'Tổng số', value: stats.total, icon: Newspaper, tone: 'green',
+      hint: 'Tất cả tin tức', active: !hasActiveFilters, onClick: clearFilters,
+    },
+    {
+      label: 'Đã đăng', value: stats.published, icon: CheckCircle2, tone: 'emerald',
+      hint: 'Hiển thị công khai', active: statusFilter === 'published',
+      onClick: () => { setStatusFilter((s) => (s === 'published' ? 'all' : 'published')); setFeaturedOnly(false); setPage(1) },
+    },
+    {
+      label: 'Bản nháp', value: stats.draft, icon: FileEdit, tone: 'amber',
+      hint: 'Chưa xuất bản', active: statusFilter === 'draft',
+      onClick: () => { setStatusFilter((s) => (s === 'draft' ? 'all' : 'draft')); setFeaturedOnly(false); setPage(1) },
+    },
+    {
+      label: 'Nổi bật', value: stats.featured, icon: Star, tone: 'gold',
+      hint: 'Ưu tiên trang chủ', active: featuredOnly,
+      onClick: () => { setFeaturedOnly((v) => !v); setPage(1) },
+    },
   ]
+
+  // ── Chip filter đang áp dụng ────────────────────────────────────────────────
+  const activeChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (keyword) {
+    activeChips.push({ key: 'kw', label: `Từ khóa: "${keyword}"`, onRemove: () => { setSearchInput(''); setKeyword(''); setPage(1) } })
+  }
+  if (categoryFilter !== 'all') {
+    activeChips.push({ key: 'cat', label: `Danh mục: ${getNewsCategoryLabel(categoryFilter)}`, onRemove: () => { setCategoryFilter('all'); setPage(1) } })
+  }
+  if (statusFilter !== 'all') {
+    activeChips.push({ key: 'st', label: `Trạng thái: ${statusFilter === 'published' ? 'Đã đăng' : 'Bản nháp'}`, onRemove: () => { setStatusFilter('all'); setPage(1) } })
+  }
+  if (featuredOnly) {
+    activeChips.push({ key: 'ft', label: 'Chỉ tin nổi bật', onRemove: () => { setFeaturedOnly(false); setPage(1) } })
+  }
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-5">
         {/* Header */}
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-              Quản lý Tin tức
-            </h1>
-            <p className="mt-0.5 text-sm text-gray-500">
-              Quản lý tin tức, thông báo, sự kiện của Tạp chí Nghệ thuật Quân sự Việt Nam
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#1E3924]/10 dark:bg-[#1E3924]/40">
+              <Newspaper className="h-6 w-6 text-[#1E3924] dark:text-[#E5C86E]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#1E3924] dark:text-[#E5C86E]">
+                Quản lý Tin tức
+              </h1>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                Tin tức, thông báo, sự kiện của Tạp chí Nghệ thuật Quân sự Việt Nam
+              </p>
+            </div>
           </div>
           <Button
             onClick={() => router.push('/dashboard/admin/news/create')}
-            className="bg-[#1E3924] text-white hover:bg-[#295232]"
+            className="bg-[#1E3924] text-white shadow-sm hover:bg-[#295232]"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Tạo tin mới
           </Button>
         </div>
 
-        {/* Stats */}
+        {/* Stats — bấm để lọc nhanh */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {statCards.map((s) => (
-            <div key={s.label} className={`${s.bg} rounded-xl border border-gray-100 p-4 dark:border-gray-700`}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500">{s.label}</p>
-                <s.icon className={`h-4 w-4 ${s.color}`} />
-              </div>
-              <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
-            </div>
+            <button
+              key={s.label}
+              type="button"
+              onClick={s.onClick}
+              aria-pressed={s.active}
+              className="rounded-lg text-left transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3924]/40 active:scale-[0.99]"
+            >
+              <BrandStatCard
+                label={s.label}
+                value={s.value.toLocaleString('vi-VN')}
+                icon={s.icon}
+                tone={s.tone}
+                hint={s.hint}
+                className={cn(
+                  'cursor-pointer',
+                  s.active && 'ring-2 ring-[#1E3924] ring-offset-1 dark:ring-[#E5C86E]'
+                )}
+              />
+            </button>
           ))}
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Tìm theo tiêu đề, tóm tắt..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+        <Card className="border-gray-100 dark:border-gray-700">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Tìm theo tiêu đề, tóm tắt..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1) }}>
-            <SelectTrigger className="lg:w-44"><SelectValue placeholder="Danh mục" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả danh mục</SelectItem>
-              {NEWS_CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1) }}>
+                <SelectTrigger className="lg:w-44"><SelectValue placeholder="Danh mục" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả danh mục</SelectItem>
+                  {NEWS_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
-            <SelectTrigger className="lg:w-36"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="published">Đã đăng</SelectItem>
-              <SelectItem value="draft">Bản nháp</SelectItem>
-            </SelectContent>
-          </Select>
+              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+                <SelectTrigger className="lg:w-36"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="published">Đã đăng</SelectItem>
+                  <SelectItem value="draft">Bản nháp</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Select value={sort} onValueChange={(v) => { setSort(v as NewsSortOption); setPage(1) }}>
-            <SelectTrigger className="lg:w-44"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
-            <SelectContent>
-              {NEWS_SORT_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select value={sort} onValueChange={(v) => { setSort(v as NewsSortOption); setPage(1) }}>
+                <SelectTrigger className="lg:w-44"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+                <SelectContent>
+                  {NEWS_SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Button
-            type="button"
-            variant={featuredOnly ? 'default' : 'outline'}
-            className={cn(featuredOnly && 'bg-[#D4A843] text-white hover:bg-[#c29a36]')}
-            onClick={() => { setFeaturedOnly((v) => !v); setPage(1) }}
-          >
-            <Star className="mr-2 h-4 w-4" fill={featuredOnly ? 'currentColor' : 'none'} />
-            Nổi bật
-          </Button>
+              <Button
+                type="button"
+                variant={featuredOnly ? 'default' : 'outline'}
+                className={cn(featuredOnly && 'bg-[#D4A843] text-white hover:bg-[#c29a36]')}
+                onClick={() => { setFeaturedOnly((v) => !v); setPage(1) }}
+              >
+                <Star className="mr-2 h-4 w-4" fill={featuredOnly ? 'currentColor' : 'none'} />
+                Nổi bật
+              </Button>
+            </div>
 
-          {hasActiveFilters && (
-            <Button type="button" variant="ghost" onClick={clearFilters} title="Xóa bộ lọc">
-              <X className="mr-1 h-4 w-4" /> Xóa lọc
-            </Button>
-          )}
-        </div>
+            {/* Chip filter đang áp dụng */}
+            {activeChips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                <span className="text-xs font-medium text-gray-400">Đang lọc:</span>
+                {activeChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={chip.onRemove}
+                    className="inline-flex items-center gap-1 rounded-full bg-[#1E3924]/8 px-2.5 py-1 text-xs font-medium text-[#1E3924] transition-colors hover:bg-[#1E3924]/15 dark:bg-[#1E3924]/40 dark:text-emerald-300"
+                  >
+                    {chip.label}
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs text-gray-500" onClick={clearFilters}>
+                  Xóa tất cả
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Table */}
         <Card className="overflow-hidden border-gray-100 dark:border-gray-700">
@@ -300,183 +369,200 @@ export default function NewsManagementPage() {
               </div>
             ) : news.length === 0 ? (
               <div className="p-12 text-center">
-                <Newspaper className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-gray-400">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#1E3924]/8 dark:bg-[#1E3924]/40">
+                  <Newspaper className="h-8 w-8 text-[#1E3924]/50 dark:text-emerald-400/60" />
+                </div>
+                <p className="font-medium text-gray-600 dark:text-gray-300">
                   {hasActiveFilters ? 'Không có tin tức phù hợp bộ lọc' : 'Chưa có tin tức nào'}
                 </p>
-                {hasActiveFilters && (
-                  <Button variant="link" className="mt-1 text-[#1E3924]" onClick={clearFilters}>
-                    Xóa bộ lọc
-                  </Button>
-                )}
+                <div className="mt-3">
+                  {hasActiveFilters ? (
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      <X className="mr-1 h-4 w-4" /> Xóa bộ lọc
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="bg-[#1E3924] text-white hover:bg-[#295232]"
+                      onClick={() => router.push('/dashboard/admin/news/create')}
+                    >
+                      <PlusCircle className="mr-1 h-4 w-4" /> Tạo tin đầu tiên
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                    <TableHead className="w-14">Ảnh</TableHead>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead className="w-32">Danh mục</TableHead>
-                    <TableHead className="w-28">Tác giả</TableHead>
-                    <TableHead className="w-28">Trạng thái</TableHead>
-                    <TableHead className="w-20 text-center">Lượt xem</TableHead>
-                    <TableHead className="w-28">Ngày</TableHead>
-                    <TableHead className="w-40 text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {news.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className={cn('group', item.isFeatured && 'border-l-2 border-l-[#D4A843]')}
-                    >
-                      {/* Thumbnail */}
-                      <TableCell>
-                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
-                          {item.coverImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.coverImageSigned || getImageUrl(item.coverImage)}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                            />
-                          ) : (
-                            <FileText className="h-4 w-4 text-gray-300" />
-                          )}
-                        </div>
-                      </TableCell>
-
-                      {/* Title */}
-                      <TableCell>
-                        <button
-                          onClick={() => router.push(`/dashboard/admin/news/${item.id}`)}
-                          className="space-y-0.5 text-left"
-                        >
-                          <div className="line-clamp-1 font-medium text-gray-800 group-hover:text-[#1E3924] dark:text-gray-200 dark:group-hover:text-emerald-400">
-                            {item.title}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#1E3924]/5 hover:bg-[#1E3924]/5 dark:bg-gray-800/50">
+                      <TableHead className="w-14">Ảnh</TableHead>
+                      <TableHead className="min-w-[220px]">Tiêu đề</TableHead>
+                      <TableHead className="w-32">Danh mục</TableHead>
+                      <TableHead className="w-28">Tác giả</TableHead>
+                      <TableHead className="w-28">Trạng thái</TableHead>
+                      <TableHead className="w-20 text-center">Lượt xem</TableHead>
+                      <TableHead className="w-28">Ngày</TableHead>
+                      <TableHead className="w-40 text-right">Thao tác</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {news.map((item) => (
+                      <TableRow
+                        key={item.id}
+                        className={cn(
+                          'group transition-colors hover:bg-[#1E3924]/[0.03] dark:hover:bg-gray-800/40',
+                          item.isFeatured && 'border-l-2 border-l-[#D4A843]'
+                        )}
+                      >
+                        {/* Thumbnail */}
+                        <TableCell>
+                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+                            {item.coverImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.coverImageSigned || getImageUrl(item.coverImage)}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            ) : (
+                              <FileText className="h-4 w-4 text-gray-300" />
+                            )}
                           </div>
-                          {item.titleEn && (
-                            <div className="line-clamp-1 text-xs italic text-gray-400">{item.titleEn}</div>
-                          )}
-                          {item.isFeatured && (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#D4A843]">
-                              <Star className="h-2.5 w-2.5" fill="currentColor" /> Nổi bật
+                        </TableCell>
+
+                        {/* Title */}
+                        <TableCell>
+                          <button
+                            onClick={() => router.push(`/dashboard/admin/news/${item.id}`)}
+                            className="space-y-0.5 text-left"
+                          >
+                            <div className="line-clamp-1 font-medium text-gray-800 group-hover:text-[#1E3924] dark:text-gray-200 dark:group-hover:text-emerald-400">
+                              {item.title}
+                            </div>
+                            {item.titleEn && (
+                              <div className="line-clamp-1 text-xs italic text-gray-400">{item.titleEn}</div>
+                            )}
+                            {item.isFeatured && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#D4A843]">
+                                <Star className="h-2.5 w-2.5" fill="currentColor" /> Nổi bật
+                              </span>
+                            )}
+                          </button>
+                        </TableCell>
+
+                        {/* Category */}
+                        <TableCell>
+                          <Badge variant="outline" className={cn('text-xs', getNewsCategoryBadgeClass(item.category))}>
+                            {getNewsCategoryLabel(item.category)}
+                          </Badge>
+                        </TableCell>
+
+                        {/* Author */}
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                            <span className="max-w-[80px] truncate text-sm text-gray-600 dark:text-gray-300">
+                              {item.author?.fullName || '—'}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell>
+                          {item.isPublished ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                              Đã đăng
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                              Nháp
                             </span>
                           )}
-                        </button>
-                      </TableCell>
+                        </TableCell>
 
-                      {/* Category */}
-                      <TableCell>
-                        <Badge variant="outline" className={cn('text-xs', getNewsCategoryBadgeClass(item.category))}>
-                          {getNewsCategoryLabel(item.category)}
-                        </Badge>
-                      </TableCell>
+                        {/* Views */}
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-500">
+                            <Eye className="h-3.5 w-3.5" />
+                            {item.views.toLocaleString()}
+                          </div>
+                        </TableCell>
 
-                      {/* Author */}
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <User className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-                          <span className="max-w-[80px] truncate text-sm text-gray-600 dark:text-gray-300">
-                            {item.author?.fullName || '—'}
-                          </span>
-                        </div>
-                      </TableCell>
+                        {/* Date */}
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            {format(new Date(item.publishedAt || item.createdAt), 'dd/MM/yyyy', { locale: vi })}
+                          </div>
+                        </TableCell>
 
-                      {/* Status */}
-                      <TableCell>
-                        {item.isPublished ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                            Đã đăng
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                            Nháp
-                          </span>
-                        )}
-                      </TableCell>
+                        {/* Actions */}
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {busyId === item.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
+                            ) : (
+                              <>
+                                <IconAction
+                                  tooltip={item.isPublished ? 'Chuyển về nháp' : 'Xuất bản ngay'}
+                                  onClick={() => patchNews(
+                                    item.id,
+                                    { isPublished: !item.isPublished },
+                                    item.isPublished ? 'Đã chuyển về nháp' : 'Đã xuất bản',
+                                  )}
+                                  className={item.isPublished ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'}
+                                >
+                                  {item.isPublished ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                                </IconAction>
 
-                      {/* Views */}
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1 text-sm text-gray-500">
-                          <Eye className="h-3.5 w-3.5" />
-                          {item.views.toLocaleString()}
-                        </div>
-                      </TableCell>
+                                <IconAction
+                                  tooltip={item.isFeatured ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}
+                                  onClick={() => patchNews(
+                                    item.id,
+                                    { isFeatured: !item.isFeatured },
+                                    item.isFeatured ? 'Đã bỏ nổi bật' : 'Đã đánh dấu nổi bật',
+                                  )}
+                                  className={item.isFeatured ? 'text-[#D4A843]' : 'text-gray-300 hover:text-[#D4A843]'}
+                                >
+                                  <Star className="h-3.5 w-3.5" fill={item.isFeatured ? 'currentColor' : 'none'} />
+                                </IconAction>
 
-                      {/* Date */}
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Calendar className="h-3 w-3 flex-shrink-0" />
-                          {format(new Date(item.publishedAt || item.createdAt), 'dd/MM/yyyy', { locale: vi })}
-                        </div>
-                      </TableCell>
-
-                      {/* Actions */}
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {busyId === item.id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
-                          ) : (
-                            <>
-                              <IconAction
-                                tooltip={item.isPublished ? 'Chuyển về nháp' : 'Xuất bản ngay'}
-                                onClick={() => patchNews(
-                                  item.id,
-                                  { isPublished: !item.isPublished },
-                                  item.isPublished ? 'Đã chuyển về nháp' : 'Đã xuất bản',
+                                {item.isPublished && (
+                                  <Link href={`/news/${item.slug}`} target="_blank">
+                                    <IconAction tooltip="Xem trên trang công khai" className="text-gray-400 hover:text-sky-600">
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </IconAction>
+                                  </Link>
                                 )}
-                                className={item.isPublished ? 'text-amber-500 hover:text-amber-600' : 'text-emerald-500 hover:text-emerald-600'}
-                              >
-                                {item.isPublished ? <Undo2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-                              </IconAction>
 
-                              <IconAction
-                                tooltip={item.isFeatured ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}
-                                onClick={() => patchNews(
-                                  item.id,
-                                  { isFeatured: !item.isFeatured },
-                                  item.isFeatured ? 'Đã bỏ nổi bật' : 'Đã đánh dấu nổi bật',
-                                )}
-                                className={item.isFeatured ? 'text-[#D4A843]' : 'text-gray-300 hover:text-[#D4A843]'}
-                              >
-                                <Star className="h-3.5 w-3.5" fill={item.isFeatured ? 'currentColor' : 'none'} />
-                              </IconAction>
+                                <IconAction
+                                  tooltip="Chỉnh sửa"
+                                  onClick={() => router.push(`/dashboard/admin/news/${item.id}`)}
+                                  className="text-gray-400 hover:text-[#1E3924]"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </IconAction>
 
-                              {item.isPublished && (
-                                <Link href={`/news/${item.slug}`} target="_blank">
-                                  <IconAction tooltip="Xem trên trang công khai" className="text-gray-400 hover:text-sky-600">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </IconAction>
-                                </Link>
-                              )}
-
-                              <IconAction
-                                tooltip="Chỉnh sửa"
-                                onClick={() => router.push(`/dashboard/admin/news/${item.id}`)}
-                                className="text-gray-400 hover:text-[#1E3924]"
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </IconAction>
-
-                              <IconAction
-                                tooltip="Xóa"
-                                onClick={() => setDeleteId(item.id)}
-                                className="text-gray-300 hover:text-red-500"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </IconAction>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                                <IconAction
+                                  tooltip="Xóa"
+                                  onClick={() => setDeleteId(item.id)}
+                                  className="text-gray-300 hover:text-red-500"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </IconAction>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -485,7 +571,8 @@ export default function NewsManagementPage() {
         {!loading && news.length > 0 && (
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
             <p className="text-sm text-gray-500">
-              Trang {page}/{totalPages} · {total.toLocaleString()} tin
+              Trang <span className="font-semibold text-gray-700 dark:text-gray-200">{page}</span>/{totalPages}
+              {' · '}{total.toLocaleString()} tin
             </p>
             <div className="flex items-center gap-2">
               <Button

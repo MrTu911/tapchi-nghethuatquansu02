@@ -1,5 +1,5 @@
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getServerSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -187,7 +187,8 @@ export async function POST(req: NextRequest) {
       ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined
     });
 
-    return NextResponse.json({ success: true, data: news }, { status: 201 });
+    // Chuẩn response nhất quán với GET/PUT/PATCH: data.news
+    return successResponse({ news }, 'Tạo tin tức thành công', 201);
   } catch (error: any) {
     return errorResponse('Lỗi khi tạo tin tức', 500, error.message);
   }
