@@ -34,26 +34,29 @@ interface IngestStatus {
   splitErrors: number
   extractedFromPdf: number
   ocrApplied: number
+  tcvn3Applied?: number
   lowQuality: number
   duplicatesFlagged: { articleId: string; title: string; slug: string; severity: number; matches: { title: string; severity: number; type: string }[] }[]
   errors: string[]
   epubUrl?: string
   libraryUrl?: string
+  awaitingPublish?: boolean
 }
 
 const PHASE_LABELS: Record<string, string> = {
   CREATED: 'Khởi tạo',
   SPLITTING: 'Tách PDF từng bài',
-  EXTRACTING: 'Trích toàn văn / OCR',
+  EXTRACTING: 'Trích toàn văn (tự nhận dạng TCVN3 / OCR)',
+  EXTRACT_IMAGES: 'Trích ảnh minh họa',
   IMPORTING: 'Nhập bản chuẩn',
   EPUB: 'Sinh EPUB',
   DUPLICATE_CHECK: 'Đối chiếu trùng lặp',
-  PUBLISHING: 'Xuất bản',
+  READY: 'Sẵn sàng biên tập',
   DONE: 'Hoàn tất',
   FAILED: 'Lỗi',
 }
-const OCR_PHASES = ['CREATED', 'SPLITTING', 'EXTRACTING', 'EPUB', 'DUPLICATE_CHECK', 'PUBLISHING', 'DONE']
-const CORPUS_PHASES = ['CREATED', 'IMPORTING', 'EPUB', 'DUPLICATE_CHECK', 'PUBLISHING', 'DONE']
+const OCR_PHASES = ['CREATED', 'SPLITTING', 'EXTRACTING', 'EXTRACT_IMAGES', 'EPUB', 'DUPLICATE_CHECK', 'READY']
+const CORPUS_PHASES = ['CREATED', 'IMPORTING', 'EPUB', 'DUPLICATE_CHECK', 'READY']
 
 const currentYear = new Date().getFullYear()
 
@@ -73,14 +76,16 @@ export default function IssueIngestPage() {
   const [ocr, setOcr] = useState(true)
   const [tocPages, setTocPages] = useState('4')
 
-  // File + kết quả bóc tách (luồng OCR)
+  // File + kết quả bóc tách (luồng số hóa)
   const [file, setFile] = useState<File | null>(null)
+  const [images, setImages] = useState<File[]>([])
   const [cover, setCover] = useState<File | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [fileUrl, setFileUrl] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [engine, setEngine] = useState<string>('')
+  const [encodingLabel, setEncodingLabel] = useState<string>('')
   const [totalPdfPages, setTotalPdfPages] = useState(0)
   const [articles, setArticles] = useState<DraftArticleRow[]>([])
 
@@ -112,13 +117,14 @@ export default function IssueIngestPage() {
 
   // ── Luồng OCR: upload + bóc tách mục lục ───────────────────────────────────
   const handleExtract = async () => {
-    if (!file) return toast.error('Vui lòng chọn file PDF số báo')
+    if (!file && images.length === 0) return toast.error('Chọn file PDF số báo hoặc ảnh scan')
     if (!number || !year) return toast.error('Vui lòng nhập số và năm xuất bản')
 
     setExtracting(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      if (file) fd.append('file', file)
+      else images.forEach((img) => fd.append('images', img))
       if (cover) fd.append('cover', cover)
       fd.append('tocPages', tocPages)
 
@@ -130,6 +136,7 @@ export default function IssueIngestPage() {
       setFileUrl(data.fileUrl)
       setCoverUrl(data.coverUrl ?? null)
       setEngine(data.engine)
+      setEncodingLabel(data.encodingLabel ?? '')
       setTotalPdfPages(data.totalPdfPages)
       setArticles(data.articles ?? [])
 
@@ -239,6 +246,7 @@ export default function IssueIngestPage() {
     setStatus(null)
     setSlug('')
     setFile(null)
+    setImages([])
     setCover(null)
     setArticles([])
     setFileUrl('')
@@ -277,24 +285,31 @@ export default function IssueIngestPage() {
         </div>
       </div>
 
-      {/* Bước 0: chọn cách số hóa */}
+      {/* Bước 0: chọn cách số hóa — mặc định số hóa từ PDF/ảnh (một luồng). */}
       {!mode && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <ModeCard
             recommended
-            icon={Sparkles}
-            title="Nhập bản chuẩn (tcvn3-extractor)"
-            desc="Văn bản đã trích chính xác từng ký tự (glyph-perfect) cho PDF font cũ TCVN3."
-            points={['Toàn văn chính xác cao', 'Có sẵn mục lục, chuyên mục & tác giả', 'Nhanh — không cần OCR lại']}
-            onClick={() => { setMode('corpus'); setStep('upload') }}
-          />
-          <ModeCard
             icon={ScanLine}
-            title="Số hóa tự động (OCR)"
-            desc="Tải PDF số báo → tự tách từng bài và OCR tiếng Việt. Dùng khi chưa có bản chuẩn."
-            points={['Tự bóc tách mục lục', 'OCR tiếng Việt (PDF scan/font cũ)', 'Biên tập viên xác nhận trước khi chạy']}
+            title="Số hóa số báo từ PDF hoặc ảnh"
+            desc="Tải PDF số báo (hoặc ảnh scan) → tự tách từng bài, tự nhận dạng font cũ TCVN3 và chuyển mã, OCR khi cần. Biên tập viên kiểm tra & sửa trước khi xuất bản."
+            points={['Nhận cả PDF lẫn ảnh scan', 'Tự chuyển mã TCVN3 → Unicode (không cần công cụ ngoài)', 'OCR tiếng Việt dự phòng', 'Dừng ở nháp để biên tập, rồi mới xuất bản']}
             onClick={() => { setMode('ocr'); setStep('upload') }}
           />
+          <details className="rounded-xl border border-border/70 bg-muted/30 p-4">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+              Nâng cao: nhập bản chuẩn corpus.json (đã có sẵn bản trích)
+            </summary>
+            <div className="mt-3">
+              <ModeCard
+                icon={Sparkles}
+                title="Nhập bản chuẩn (corpus.json)"
+                desc="Dùng khi bạn đã có sẵn file corpus.json trích chuẩn từng ký tự cho một số. Bỏ qua bước tách/OCR."
+                points={['Toàn văn có sẵn, nhập nhanh', 'Vẫn dừng ở nháp để kiểm tra & xuất bản']}
+                onClick={() => { setMode('corpus'); setStep('upload') }}
+              />
+            </div>
+          </details>
         </div>
       )}
 
@@ -341,16 +356,27 @@ export default function IssueIngestPage() {
               <label className="flex items-center gap-2 text-sm">
                 <Switch checked={isSpecial} onCheckedChange={setIsSpecial} /> Số đặc biệt
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={ocr} onCheckedChange={setOcr} /> Bật OCR tiếng Việt (PDF scan/font cũ)
-              </label>
+              <span className="text-xs text-muted-foreground">
+                Engine text tự chọn: trích trực tiếp → chuyển mã TCVN3 → OCR (không cần bật/tắt).
+              </span>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>File PDF số báo *</Label>
-                <Input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <Label>Nguồn số báo * — PDF hoặc ảnh scan</Label>
+                <Input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    const pdf = files.find((f) => f.type === 'application/pdf')
+                    if (pdf) { setFile(pdf); setImages([]) }
+                    else { setImages(files.filter((f) => f.type.startsWith('image/'))); setFile(null) }
+                  }}
+                />
                 {file && <p className="text-xs text-muted-foreground"><FileText className="mr-1 inline h-3 w-3" />{file.name}</p>}
+                {images.length > 0 && <p className="text-xs text-muted-foreground"><FileText className="mr-1 inline h-3 w-3" />{images.length} ảnh scan</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Ảnh bìa (tuỳ chọn)</Label>
@@ -374,8 +400,9 @@ export default function IssueIngestPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
               <span>2. Kiểm tra & xác nhận danh sách bài</span>
-              <span className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
-                <Badge variant="outline">Nguồn: {engine || 'n/a'}</Badge>
+              <span className="flex flex-wrap items-center gap-2 text-sm font-normal text-muted-foreground">
+                {encodingLabel && <Badge className="bg-[#1E3924] text-white">Nhận dạng: {encodingLabel}</Badge>}
+                <Badge variant="outline">Nguồn text: {engine || 'n/a'}</Badge>
                 <Badge variant="outline">{totalPdfPages} trang PDF</Badge>
               </span>
             </CardTitle>
@@ -450,7 +477,7 @@ export default function IssueIngestPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               {status.status === 'done' ? (
-                <><CheckCircle2 className="h-5 w-5 text-emerald-600" /> Hoàn tất số hóa</>
+                <><CheckCircle2 className="h-5 w-5 text-emerald-600" /> Sẵn sàng biên tập — chưa xuất bản</>
               ) : (
                 <><AlertTriangle className="h-5 w-5 text-destructive" /> Số hóa thất bại</>
               )}
@@ -489,10 +516,27 @@ export default function IssueIngestPage() {
               </div>
             )}
 
+            {status.status === 'done' && (
+              <div className="rounded-lg border border-[#E5C86E]/50 bg-[#E5C86E]/10 p-4 text-sm">
+                <p className="font-medium text-[#1E3924] dark:text-emerald-100">Bước tiếp theo: kiểm tra & biên tập</p>
+                <p className="mt-1 text-muted-foreground">
+                  Số đang ở trạng thái <b>nháp</b>. Hãy kiểm tra/sửa toàn văn, mục lục, ảnh minh họa,
+                  tải ảnh đầu/cuối số rồi bấm <b>Xuất bản</b> ở trang biên tập.
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3">
-              {status.libraryUrl && (
+              {status.status === 'done' && (
                 <Button asChild className="bg-[#1E3924] text-white hover:bg-[#1E3924]/90">
-                  <Link href={status.libraryUrl} target="_blank"><BookOpen className="mr-2 h-4 w-4" /> Mở trình đọc số</Link>
+                  <Link href={`/dashboard/repository/ingest/${slug}/review`}>
+                    <ArrowRight className="mr-2 h-4 w-4" /> Kiểm tra &amp; biên tập
+                  </Link>
+                </Button>
+              )}
+              {status.libraryUrl && (
+                <Button variant="outline" asChild>
+                  <Link href={status.libraryUrl} target="_blank"><BookOpen className="mr-2 h-4 w-4" /> Xem trình đọc (nháp)</Link>
                 </Button>
               )}
               {status.epubUrl && (
@@ -500,9 +544,6 @@ export default function IssueIngestPage() {
                   <a href={status.epubUrl} download><Download className="mr-2 h-4 w-4" /> Tải EPUB</a>
                 </Button>
               )}
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/repository"><Database className="mr-2 h-4 w-4" /> Về CSDL bài báo</Link>
-              </Button>
               <Button variant="ghost" onClick={resetWizard}>Số hóa số khác</Button>
             </div>
           </CardContent>

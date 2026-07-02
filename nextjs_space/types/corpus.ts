@@ -8,9 +8,21 @@ export interface CorpusAuthor {
 }
 
 export interface CorpusParagraph {
-  type: 'p' | 'h2'
+  type: 'p' | 'h2' | 'image'
+  /** Với type 'image': để trống (dùng src). Với 'p'/'h2': nội dung text. */
   text: string
   pdf_chars?: number
+  /** Chỉ dùng khi type='image': đường dẫn ảnh tương đối trong gói số (vd 'articles_img/<slug>/img-001.png'). */
+  src?: string
+  /** Chú thích ảnh (tuỳ chọn). */
+  caption?: string
+}
+
+/** Trang ảnh chèn đầu/cuối số cho EPUB + bản đọc (do biên tập viên tải lên). */
+export interface CorpusImagePage {
+  /** Đường dẫn ảnh tương đối trong gói số (vd 'matter/front-01.jpg'). */
+  src: string
+  caption?: string
 }
 
 export interface CorpusArticle {
@@ -60,4 +72,8 @@ export interface Corpus {
   issue: CorpusIssue
   sections: CorpusSection[]
   articles: CorpusArticle[]
+  /** Ảnh trang đầu số (sau bìa) — cho EPUB + bản đọc. */
+  frontMatter?: CorpusImagePage[]
+  /** Ảnh trang cuối số. */
+  backMatter?: CorpusImagePage[]
 }

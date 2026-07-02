@@ -23,6 +23,8 @@
     "journal:split-issue": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts",
     "journal:split-issue:replace": "tsx --require dotenv/config scripts/journal/split-issue-articles.ts --replace",
     "journal:build-corpus": "tsx --require dotenv/config scripts/journal/build-corpus.ts",
+    "journal:probe-encoding": "tsx --require dotenv/config scripts/journal/probe-encoding.ts",
+    "journal:build-vi-dict": "tsx --require dotenv/config scripts/journal/build-vi-dictionary.ts",
     "journal:build-epub": "tsx --require dotenv/config scripts/journal/build-epub.ts",
     "journal:import-corpus": "tsx --require dotenv/config scripts/journal/import-corpus.ts",
     "journal:ingest-corpus": "tsx --require dotenv/config scripts/journal/ingest-corpus.ts",

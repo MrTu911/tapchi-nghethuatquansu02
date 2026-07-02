@@ -17,9 +17,8 @@ import { promises as fs } from 'fs'
 import os from 'os'
 import path from 'path'
 import { PDFDocument } from 'pdf-lib'
-import { extractPdfText } from '@/lib/pdf-metadata'
-import { ocrPdfToText, isOcrAvailable } from '@/lib/ocr/pdf-ocr'
-import { looksLikeVietnameseProse } from '@/lib/pdf-text-quality'
+import { extractVietnameseText } from '@/lib/services/journal-text-extract.service'
+import { detectPdfEncoding } from '@/lib/pdf-encoding-detect'
 
 export interface DraftArticle {
   title: string
@@ -32,7 +31,10 @@ export interface DraftArticle {
 
 export interface TocExtractResult {
   rawText: string
-  engine: 'pdf-parse' | 'ocr' | 'none'
+  engine: 'pdftotext' | 'tcvn3' | 'ocr' | 'none'
+  /** Dạng chữ nhận dạng được từ font (TCVN3/Unicode/scan…) — hiển thị cho biên tập viên. */
+  encoding: 'tcvn3' | 'vni' | 'vps' | 'unicode' | 'image' | 'unknown'
+  encodingLabel: string
   totalPdfPages: number
   articles: DraftArticle[]
 }
@@ -196,7 +198,7 @@ async function buildTocSubPdf(srcPdf: PDFDocument, tocPages: number): Promise<Ui
 
 /**
  * Trích danh sách draft bài báo từ trang mục lục của PDF số báo.
- * Ưu tiên text trực tiếp; nếu là rác (font TCVN3) thì OCR tiếng Việt vài trang đầu.
+ * Tự chọn engine (pdftotext → chuyển mã TCVN3 → OCR) trên vài trang đầu.
  */
 export async function extractTocDraft(
   sourcePdfPath: string,
@@ -209,34 +211,27 @@ export async function extractTocDraft(
 
   const subBytes = await buildTocSubPdf(srcPdf, tocPages)
 
-  let rawText = await extractPdfText(Buffer.from(subBytes))
-  let engine: TocExtractResult['engine'] = 'pdf-parse'
-
-  if (!looksLikeVietnameseProse(rawText)) {
-    if (await isOcrAvailable()) {
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ntqs-toc-'))
-      const tmpPath = path.join(tmpDir, 'toc.pdf')
-      try {
-        await fs.writeFile(tmpPath, subBytes)
-        const ocrResult = await ocrPdfToText(tmpPath)
-        if (ocrResult.text.trim()) {
-          rawText = ocrResult.text
-          engine = 'ocr'
-        } else {
-          engine = 'none'
-        }
-      } finally {
-        await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
-      }
-    } else if (!rawText.trim()) {
-      engine = 'none'
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ntqs-toc-'))
+  const tmpPath = path.join(tmpDir, 'toc.pdf')
+  try {
+    await fs.writeFile(tmpPath, subBytes)
+    // Nhận dạng dạng chữ trên TOÀN số (không chỉ trang mục lục) để nhãn đúng số báo.
+    const detected = await detectPdfEncoding(sourcePdfPath)
+    const res = await extractVietnameseText(tmpPath, { ocr: true })
+    const engine: TocExtractResult['engine'] =
+      res.source === 'none' ? 'none'
+        : res.source.startsWith('ocr') ? 'ocr'
+          : res.source === 'tcvn3-convert' ? 'tcvn3'
+            : 'pdftotext'
+    return {
+      rawText: res.text,
+      engine,
+      encoding: detected.encoding,
+      encodingLabel: detected.label,
+      totalPdfPages,
+      articles: parseTocText(res.text),
     }
-  }
-
-  return {
-    rawText,
-    engine,
-    totalPdfPages,
-    articles: parseTocText(rawText),
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
 }

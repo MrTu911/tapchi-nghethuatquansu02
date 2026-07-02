@@ -81,8 +81,14 @@ export default function Article({ article, C, issueId }: { article: CorpusArticl
 
       {/* BODY */}
       <div className="ntqs-body">
-        {article.body.paragraphs.filter(p => p.text && p.text.trim().length > 0).map((p, i) =>
-          p.type === 'h2' ? (
+        {article.body.paragraphs.filter(p => (p.type === 'image' && p.src) || (p.text && p.text.trim().length > 0)).map((p, i) =>
+          p.type === 'image' && p.src ? (
+            <figure key={i} style={{ margin: '1em 0', textAlign: 'center', breakInside: 'avoid' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/data/issues/${issueId}/${p.src}`} alt={p.caption || 'Hình'} style={{ maxWidth: '100%', height: 'auto' }} />
+              {p.caption ? <figcaption style={{ fontSize: '0.9em', color: '#666', fontStyle: 'italic', marginTop: 4 }}>{p.caption}</figcaption> : null}
+            </figure>
+          ) : p.type === 'h2' ? (
             <h2 key={i}>{p.text}</h2>
           ) : (
             <p key={i} className={i === 0 ? 'ntqs-first-para' : ''}>

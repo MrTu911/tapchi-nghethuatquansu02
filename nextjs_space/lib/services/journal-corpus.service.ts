@@ -21,10 +21,9 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import sharp from 'sharp'
 import { prisma } from '@/lib/prisma'
-import { extractPdfText } from '@/lib/pdf-metadata'
-import { ocrPdfToText } from '@/lib/ocr/pdf-ocr'
 import { resolveStoredFileToAbsolute } from '@/lib/storage-path'
-import { looksLikeVietnameseProse } from '@/lib/pdf-text-quality'
+import { extractVietnameseText } from '@/lib/services/journal-text-extract.service'
+import { readImagesLayout } from '@/lib/services/journal-images-layout.service'
 import { slugify } from '@/lib/services/journal-issue-import.service'
 import type {
   Corpus,
@@ -51,8 +50,10 @@ export interface CorpusBuildSummary {
   generated: number
   skipped: { title: string; reason: string }[]
   extractedFromPdf: number
-  /** Bài lấy được toàn văn nhờ OCR (PDF font cũ). */
+  /** Bài lấy được toàn văn nhờ OCR (PDF scan/ảnh). */
   ocrApplied: number
+  /** Bài lấy được toàn văn nhờ chuyển mã TCVN3 (font cũ có lớp text). */
+  tcvn3Applied: number
   /** Bài có PDF nhưng text trích ra không đọc được (kể cả OCR) → body để trống, vẫn có nút Tải PDF. */
   lowQualityText: number
   coverGenerated: boolean
@@ -78,6 +79,7 @@ export async function buildIssueCorpus(
   const skipped: CorpusBuildSummary['skipped'] = []
   let extractedFromPdf = 0
   let ocrApplied = 0
+  let tcvn3Applied = 0
   let lowQualityText = 0
 
   // Map article -> id corpus (art_001...) theo thứ tự pageStart
@@ -85,6 +87,9 @@ export async function buildIssueCorpus(
   issue.journalArticles.forEach((a, idx) => {
     articleIdByDbId.set(a.id, `art_${String(idx + 1).padStart(3, '0')}`)
   })
+
+  // Bố cục ảnh do BTV quyết (ảnh trong bài + ảnh đầu/cuối số) — sống sót qua rebuild.
+  const imagesLayout = await readImagesLayout(slug)
 
   const corpusArticles: CorpusArticle[] = []
 
@@ -111,10 +116,18 @@ export async function buildIssueCorpus(
 
     // Toàn văn: ưu tiên contentHtml/contentText; nếu chưa có thì trích từ PDF (và OCR nếu bật)
     const body = await resolveArticleBody(article, pdfSrc, options.ocr ?? false)
-    const { paragraphs, references } = body
+    const { references } = body
     if (body.didExtract) extractedFromPdf++
     if (body.ocrApplied) ocrApplied++
+    if (body.tcvn3Applied) tcvn3Applied++
     if (body.lowQuality) lowQualityText++
+
+    // Chèn ảnh minh họa (đã bật) vào cuối thân bài.
+    const enabledImages = (imagesLayout.articles[article.slug]?.images ?? []).filter((img) => img.enabled)
+    const paragraphs: CorpusParagraph[] = [
+      ...body.paragraphs,
+      ...enabledImages.map((img): CorpusParagraph => ({ type: 'image', text: '', src: img.file, caption: img.caption })),
+    ]
 
     corpusArticles.push(
       buildCorpusArticle(article, corpusId, pdfFileName, paragraphs, references),
@@ -130,6 +143,8 @@ export async function buildIssueCorpus(
     },
     sections: buildSections(issue.sections, issue.journalArticles, articleIdByDbId),
     articles: corpusArticles,
+    frontMatter: imagesLayout.frontMatter.map((m) => ({ src: m.file, caption: m.caption })),
+    backMatter: imagesLayout.backMatter.map((m) => ({ src: m.file, caption: m.caption })),
   }
 
   await fs.writeFile(
@@ -148,6 +163,7 @@ export async function buildIssueCorpus(
     skipped,
     extractedFromPdf,
     ocrApplied,
+    tcvn3Applied,
     lowQualityText,
     coverGenerated,
   }
@@ -250,8 +266,10 @@ function mapAuthor(author: JournalArticleWithRelations['authors'][number]): Corp
 interface ArticleBodyResult {
   paragraphs: CorpusParagraph[]
   references: string[]
+  /** Lấy được toàn văn từ lớp text PDF (pdftotext/pdf-parse/chuyển mã TCVN3). */
   didExtract: boolean
   ocrApplied: boolean
+  tcvn3Applied: boolean
   lowQuality: boolean
 }
 
@@ -260,33 +278,31 @@ async function resolveArticleBody(
   pdfAbsPath: string,
   ocr: boolean,
 ): Promise<ArticleBodyResult> {
-  // 1. Đã có nội dung số hóa trong DB → dùng luôn (giả định đã được duyệt/sạch)
+  // 1. Đã có nội dung số hóa trong DB → dùng luôn (đã được biên tập/duyệt).
+  //    QUAN TRỌNG: nhờ đây, bản BTV sửa tay (lưu vào contentText) được rebuild dùng lại,
+  //    không trích/OCR lại.
   if (article.contentHtml && article.contentHtml.trim()) {
-    return { ...splitBodyAndReferences(htmlToText(article.contentHtml)), didExtract: false, ocrApplied: false, lowQuality: false }
+    return { ...splitBodyAndReferences(htmlToText(article.contentHtml)), didExtract: false, ocrApplied: false, tcvn3Applied: false, lowQuality: false }
   }
   if (article.contentText && article.contentText.trim()) {
-    return { ...splitBodyAndReferences(article.contentText), didExtract: false, ocrApplied: false, lowQuality: false }
+    return { ...splitBodyAndReferences(article.contentText), didExtract: false, ocrApplied: false, tcvn3Applied: false, lowQuality: false }
   }
 
-  // 2. Trích text trực tiếp từ PDF
-  const rawText = await extractPdfText(await fs.readFile(pdfAbsPath))
-  if (looksLikeVietnameseProse(rawText)) {
-    await persistExtractedText(article.id, rawText, 'pdf-parse')
-    return { ...splitBodyAndReferences(rawText), didExtract: true, ocrApplied: false, lowQuality: false }
+  // 2. Trích tự chọn engine: pdftotext → chuyển mã TCVN3 → OCR.
+  const res = await extractVietnameseText(pdfAbsPath, { ocr })
+  if (res.lowQuality) {
+    // Không đọc được (kể cả OCR) → body để trống; reader vẫn có tóm tắt + nút Tải PDF.
+    await markExtractionStatus(article.id, ocr ? 'OCR_FAILED' : 'LOW_QUALITY')
+    return { paragraphs: [], references: [], didExtract: false, ocrApplied: false, tcvn3Applied: false, lowQuality: true }
   }
-
-  // 3. Text trực tiếp là rác (font TCVN3/glyph cũ). Nếu bật OCR → thử OCR tiếng Việt.
-  if (ocr) {
-    const ocrResult = await ocrPdfToText(pdfAbsPath)
-    if (looksLikeVietnameseProse(ocrResult.text)) {
-      await persistExtractedText(article.id, ocrResult.text, `ocr:${ocrResult.engine}`)
-      return { ...splitBodyAndReferences(ocrResult.text), didExtract: false, ocrApplied: true, lowQuality: false }
-    }
+  await persistExtractedText(article.id, res.text, res.source)
+  return {
+    ...splitBodyAndReferences(res.text),
+    didExtract: !res.ocrApplied,
+    ocrApplied: res.ocrApplied,
+    tcvn3Applied: res.tcvn3Applied,
+    lowQuality: false,
   }
-
-  // 4. Không đọc được (kể cả OCR) → body để trống; reader vẫn có tóm tắt + nút Tải PDF.
-  await markExtractionStatus(article.id, ocr ? 'OCR_FAILED' : 'LOW_QUALITY')
-  return { paragraphs: [], references: [], didExtract: false, ocrApplied: false, lowQuality: true }
 }
 
 async function persistExtractedText(articleId: string, text: string, source: string): Promise<void> {

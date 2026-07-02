@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
-import { saveFile, getFileUrl } from '@/lib/s3';
+// PHẢI dùng local-storage: app chạy local (USE_AWS=false). lib/s3.saveFile là thuần AWS
+// (không có nhánh local) → ghi nhầm lên S3 rồi đọc path local không tồn tại, làm VỠ ảnh bìa.
+import { saveFile, getFileUrl } from '@/lib/local-storage';
 import { successResponse, errorResponse } from '@/lib/responses';
 import { prisma } from '@/lib/prisma';
 import { logAudit, AuditEventType } from '@/lib/audit-logger';
@@ -108,7 +110,9 @@ export async function POST(req: NextRequest) {
         success: true,
         message: `Upload ${fileType === 'cover' ? 'ảnh bìa' : 'PDF'} thành công`,
         data: {
-          fileUrl: filePath,
+          // Lưu filePath trần trong DB (đồng nhất với issues/route.ts + issues/[id]); trả URL
+          // dùng được ngay cho client (getFileUrl ép '/uploads/...').
+          fileUrl: getFileUrl(filePath, true),
           fileName: file.name,
         },
       },

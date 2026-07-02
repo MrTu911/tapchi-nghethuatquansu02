@@ -24,6 +24,7 @@ import type { Corpus } from '@/types/corpus'
 import { buildUnambiguousUserNameMap, matchUserId } from '@/lib/services/journal-author-linker'
 import { splitIssueArticles } from '@/lib/services/journal-split.service'
 import { buildIssueCorpus } from '@/lib/services/journal-corpus.service'
+import { extractIssueArticleImages } from '@/lib/services/journal-article-images.service'
 import { buildIssueEpub } from '@/lib/services/journal-epub.service'
 import { checkTextsAgainstCorpus } from '@/lib/plagiarism'
 import { matchSeverity, type PlagiarismMatch } from '@/lib/plagiarism/scoring'
@@ -54,9 +55,11 @@ export type IngestPhase =
   | 'CREATED'
   | 'SPLITTING'
   | 'EXTRACTING'
+  | 'EXTRACT_IMAGES'
   | 'IMPORTING'
   | 'EPUB'
   | 'DUPLICATE_CHECK'
+  | 'READY'
   | 'PUBLISHING'
   | 'DONE'
   | 'FAILED'
@@ -80,6 +83,8 @@ export interface IngestStatus {
   splitErrors: number
   extractedFromPdf: number
   ocrApplied: number
+  /** Bài lấy được toàn văn nhờ chuyển mã TCVN3. */
+  tcvn3Applied?: number
   lowQuality: number
   duplicatesFlagged: DuplicateFlag[]
   errors: string[]
@@ -87,6 +92,10 @@ export interface IngestStatus {
   finishedAt?: string
   epubUrl?: string
   libraryUrl?: string
+  /** true = đã xử lý xong nhưng CHỜ biên tập viên kiểm tra & bấm Xuất bản (chưa PUBLISHED). */
+  awaitingPublish?: boolean
+  /** Thời điểm xuất bản (khi BTV bấm Xuất bản). */
+  publishedAt?: string
 }
 
 export interface IngestDraftInput {
@@ -353,33 +362,35 @@ export async function runIssueIngest(issueId: string, options: IngestRunOptions 
     const corpusSummary = await buildIssueCorpus(issueId, { ocr: options.ocr ?? true })
     status.extractedFromPdf = corpusSummary.extractedFromPdf
     status.ocrApplied = corpusSummary.ocrApplied
+    status.tcvn3Applied = corpusSummary.tcvn3Applied
     status.lowQuality = corpusSummary.lowQualityText
 
-    // 5. Sinh EPUB từ corpus
+    // 5. Trích ảnh nhúng từng bài (ứng viên — BTV duyệt/chú thích ở bước biên tập)
+    status.phase = 'EXTRACT_IMAGES'
+    status.message = 'Đang trích ảnh minh họa trong bài...'
+    await writeStatus(status)
+    await extractIssueArticleImages(slug, issueId).catch((e) => {
+      status.errors.push(`Trích ảnh lỗi (bỏ qua): ${e instanceof Error ? e.message : String(e)}`)
+    })
+
+    // 6. Sinh EPUB từ corpus
     status.phase = 'EPUB'
     status.message = 'Đang sinh file EPUB...'
     await writeStatus(status)
     const epub = await buildIssueEpub(slug)
     status.epubUrl = epub.epubUrl
 
-    // 6. Đối chiếu trùng với CSDL (bài DRAFT chưa publish → không tự khớp chính nó)
+    // 7. Đối chiếu trùng với CSDL (bài DRAFT chưa publish → không tự khớp chính nó)
     status.phase = 'DUPLICATE_CHECK'
     status.message = 'Đang đối chiếu trùng lặp với kho bài báo...'
     await writeStatus(status)
     status.duplicatesFlagged = await detectDuplicates(issueId)
 
-    // 7. Xuất bản (số + tất cả bài của số)
-    status.phase = 'PUBLISHING'
-    status.message = 'Đang xuất bản số báo...'
-    await writeStatus(status)
-    await prisma.$transaction([
-      prisma.issue.update({ where: { id: issueId }, data: { status: 'PUBLISHED' } }),
-      prisma.journalArticle.updateMany({ where: { issueId }, data: { status: 'PUBLISHED' } }),
-    ])
-
+    // 8. DỪNG ở nháp — KHÔNG tự xuất bản. Chờ biên tập viên kiểm tra & bấm Xuất bản.
     status.status = 'done'
-    status.phase = 'DONE'
-    status.message = 'Hoàn tất số hóa số báo.'
+    status.phase = 'READY'
+    status.awaitingPublish = true
+    status.message = 'Sẵn sàng biên tập — kiểm tra nội dung rồi bấm Xuất bản.'
     status.libraryUrl = `/library/${slug}`
     status.finishedAt = new Date().toISOString()
     await writeStatus(status)
@@ -479,24 +490,63 @@ export async function runCorpusIngest(slug: string): Promise<void> {
     await writeStatus(status)
     status.duplicatesFlagged = await detectDuplicates(summary.issueId)
 
-    // 4. Xuất bản (số + tất cả bài của số).
-    status.phase = 'PUBLISHING'
-    status.message = 'Đang xuất bản số báo...'
-    await writeStatus(status)
-    await prisma.$transaction([
-      prisma.issue.update({ where: { id: summary.issueId }, data: { status: 'PUBLISHED' } }),
-      prisma.journalArticle.updateMany({ where: { issueId: summary.issueId }, data: { status: 'PUBLISHED' } }),
-    ])
-
+    // 4. DỪNG ở nháp — KHÔNG tự xuất bản. Chờ biên tập viên kiểm tra & bấm Xuất bản.
     status.status = 'done'
-    status.phase = 'DONE'
-    status.message = 'Hoàn tất nhập bản chuẩn từ tcvn3-extractor.'
+    status.phase = 'READY'
+    status.awaitingPublish = true
+    status.message = 'Sẵn sàng biên tập — kiểm tra nội dung rồi bấm Xuất bản.'
     status.libraryUrl = `/library/${slug}`
     status.finishedAt = new Date().toISOString()
     await writeStatus(status)
   } catch (error) {
     await fail('Nhập bản chuẩn thất bại — xem chi tiết lỗi.', error)
   }
+}
+
+/**
+ * Dựng lại bản đọc (corpus.json) + EPUB từ nội dung hiện tại (đã biên tập) — KHÔNG đổi trạng
+ * thái xuất bản. Dùng cho nút "Lưu & dựng lại" ở bước review để xem trước.
+ */
+export async function rebuildDigitizedIssue(slug: string): Promise<{ issueId: string }> {
+  const issue = await prisma.issue.findUnique({ where: { slug }, select: { id: true } })
+  if (!issue) throw new Error(`Không tìm thấy số: ${slug}`)
+  await buildIssueCorpus(issue.id, { ocr: false })
+  await buildIssueEpub(slug)
+  return { issueId: issue.id }
+}
+
+/**
+ * XUẤT BẢN số đã số hóa (sau khi biên tập viên kiểm tra/sửa ở bước review).
+ * Dựng lại corpus (dùng contentText đã sửa) + EPUB kèm ảnh, rồi chuyển Issue + bài sang PUBLISHED.
+ * Trả về thông tin để route ghi audit.
+ */
+export async function publishDigitizedIssue(slug: string): Promise<{ issueId: string; totalArticles: number }> {
+  const issue = await prisma.issue.findUnique({ where: { slug }, select: { id: true, status: true } })
+  if (!issue) throw new Error(`Không tìm thấy số: ${slug}`)
+
+  // 1. Dựng lại bản đọc + EPUB từ nội dung hiện tại (đã biên tập).
+  await buildIssueCorpus(issue.id, { ocr: false })
+  await buildIssueEpub(slug)
+
+  // 2. Chuyển trạng thái sang PUBLISHED.
+  const [, updated] = await prisma.$transaction([
+    prisma.issue.update({ where: { id: issue.id }, data: { status: 'PUBLISHED' } }),
+    prisma.journalArticle.updateMany({ where: { issueId: issue.id }, data: { status: 'PUBLISHED' } }),
+  ])
+
+  // 3. Cập nhật status file.
+  const status = await getIngestStatus(slug)
+  if (status) {
+    status.status = 'done'
+    status.phase = 'DONE'
+    status.awaitingPublish = false
+    status.publishedAt = new Date().toISOString()
+    status.message = 'Đã xuất bản số báo.'
+    await writeStatus(status)
+  }
+
+  logger.info({ context: 'ingest.publishDigitizedIssue', slug, issueId: issue.id, articles: updated.count })
+  return { issueId: issue.id, totalArticles: updated.count }
 }
 
 /** Đối chiếu toàn văn từng bài của số với kho; trả các bài trùng cao với CSDL bài báo. */

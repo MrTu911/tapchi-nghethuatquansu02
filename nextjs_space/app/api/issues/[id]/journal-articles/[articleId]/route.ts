@@ -21,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ success: false, error: 'Không tìm thấy bài viết' }, { status: 404 })
     }
 
-    type PatchBody = { title?: string; sectionId?: string | null; authorsText?: string; pageStart?: number; pageEnd?: number | null; abstract?: string | null; keywords?: string[]; status?: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN'; journalType?: JournalClassification; journalNameOverride?: string | null }
+    type PatchBody = { title?: string; sectionId?: string | null; authorsText?: string; pageStart?: number; pageEnd?: number | null; abstract?: string | null; keywords?: string[]; status?: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN'; journalType?: JournalClassification; journalNameOverride?: string | null; contentText?: string }
     const body = await request.json() as PatchBody
 
     if (body.status === 'PUBLISHED' && !existing.thumbnailUrl) {
@@ -44,9 +44,21 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         ...(body.status      !== undefined ? { status:     body.status }      : {}),
         ...(body.journalType !== undefined ? { journalType: body.journalType } : {}),
         ...(body.journalNameOverride !== undefined ? { journalNameOverride: body.journalNameOverride } : {}),
+        // Biên tập viên sửa toàn văn ở bước review số hóa → nguồn manual-edit; rebuild corpus/EPUB dùng lại.
+        ...(body.contentText !== undefined ? { contentText: body.contentText, contentSource: 'manual-edit', extractionStatus: 'DONE' } : {}),
       },
       include: { authors: true, section: { select: { id: true, name: true } } },
     })
+
+    // Nếu sửa chuỗi tác giả → dựng lại danh sách tác giả structured (best-effort, tên tách theo ';' hoặc ',').
+    if (body.authorsText !== undefined) {
+      const names = body.authorsText.split(/[;\n]|,(?=\s*(?:Đại|Thượng|Trung|Thiếu|GS|PGS|TS|ThS|CN)\b)/)
+        .map((s) => s.trim()).filter(Boolean)
+      await prisma.journalArticleAuthor.deleteMany({ where: { articleId } })
+      for (let i = 0; i < names.length; i++) {
+        await prisma.journalArticleAuthor.create({ data: { articleId, name: names[i], order: i } })
+      }
+    }
 
     return NextResponse.json({ success: true, data: updated })
   } catch (error) {
