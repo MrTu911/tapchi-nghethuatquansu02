@@ -134,7 +134,7 @@ export default function VideosPage() {
   const rest = filtered.filter((v) => !v.isFeatured)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-paper">
       <div className="max-w-[1280px] mx-auto px-0 sm:px-0 py-8 space-y-8">
 
         {/* Page header */}

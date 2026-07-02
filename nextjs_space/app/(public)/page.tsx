@@ -431,7 +431,7 @@ export default async function HomePage() {
   }))
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-paper">
 
       {/* ── Ticker ─────────────────────────────────────────────── */}
       <div className="mx-0 sm:mx-0 sticky top-0 z-40">

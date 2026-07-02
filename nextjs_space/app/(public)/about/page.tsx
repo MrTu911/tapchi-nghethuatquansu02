@@ -123,7 +123,7 @@ export default async function AboutPage() {
   const hasCmsContent = !!cmsPage?.content
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-paper">
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="relative bg-gradient-to-br from-[#1a3d22] via-[#295232] to-[#3d6b4a] text-white overflow-hidden rounded-xl mb-8">

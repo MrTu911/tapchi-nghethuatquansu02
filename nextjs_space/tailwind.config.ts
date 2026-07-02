@@ -90,6 +90,13 @@ const config: Config = {
           DEFAULT: 'hsl(var(--gold))',
           foreground: 'hsl(var(--gold-foreground))',
         },
+        // Nền body khu vực công khai (kem giấy ấm #F4EFE3) để card trắng nổi rõ
+        paper: 'hsl(var(--paper))',
+        // Thanh chrome đỏ tươi (header nav + footer) #C62828 và biến thể sâu hơn #A81E1E
+        redbar: {
+          DEFAULT: 'hsl(var(--redbar))',
+          dark: 'hsl(var(--redbar-dark))',
+        },
       },
       keyframes: {
         'accordion-down': {

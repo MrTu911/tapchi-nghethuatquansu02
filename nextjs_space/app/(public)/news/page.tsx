@@ -87,7 +87,7 @@ export default async function NewsListPage({
   ])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-paper">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400 py-3">

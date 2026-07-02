@@ -54,6 +54,14 @@
     --brand-foreground: 0 0% 98%;
     --gold: 45 70% 66%;
     --gold-foreground: 133 40% 12%;
+
+    /* ── Nền body công khai + chrome đỏ tươi ─────────────────────────────
+       --paper #F4EFE3 (kem giấy ấm) làm nền trang để card trắng nổi rõ.
+       --redbar #C62828 (đỏ tươi đậm vừa) cho header nav + footer; chữ trắng
+       đạt ~5.6:1. --redbar-dark #A81E1E cho thanh phụ/submenu. */
+    --paper: 42 44% 92%;
+    --redbar: 0 66% 47%;
+    --redbar-dark: 0 70% 39%;
   }
 
   .dark {
@@ -90,6 +98,10 @@
     --brand-foreground: 0 0% 98%;
     --gold: 45 70% 66%;
     --gold-foreground: 133 40% 12%;
+
+    /* Nền body dark: trung tính, tối hơn card (gray-900) để vẫn tách lớp.
+       --redbar/--redbar-dark là chrome cố định, giữ nguyên ở dark. */
+    --paper: 220 16% 8%;
   }
 
   /* ── Scope theme thương hiệu cho khu vực TÁC GIẢ ─────────────────────

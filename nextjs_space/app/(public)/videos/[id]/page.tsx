@@ -110,7 +110,7 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
   const duration = formatDuration(video.duration)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-paper">
       <div className="max-w-6xl mx-auto px-0 sm:px-0 py-6 lg:py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-400 mb-5">

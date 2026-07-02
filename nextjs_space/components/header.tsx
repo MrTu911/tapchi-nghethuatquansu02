@@ -186,7 +186,7 @@ export function Header() {
 
       {/* Navigation */}
       <nav className="w-full">
-        <div className="w-full max-w-[1280px] mx-auto bg-[#8B1A1A]">
+        <div className="w-full max-w-[1280px] mx-auto bg-redbar">
           <div className="flex items-center justify-between h-14 px-4 sm:px-6">
 
             {/* Desktop Menu */}
@@ -216,7 +216,7 @@ export function Header() {
                                   href={child.url}
                                   target={child.target}
                                   rel={child.target === '_blank' ? 'noopener noreferrer' : undefined}
-                                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#FDF5E6] hover:text-[#8B1A1A] dark:hover:bg-gray-800 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
+                                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#FDF5E6] hover:text-redbar dark:hover:bg-gray-800 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
                                 >
                                   {child.label}
                                 </Link>
@@ -265,7 +265,7 @@ export function Header() {
                   type="submit"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-l-none rounded-r-md bg-white hover:bg-gray-100 text-[#8B1A1A] px-3 border-0"
+                  className="h-9 rounded-l-none rounded-r-md bg-white hover:bg-gray-100 text-redbar px-3 border-0"
                 >
                   <Search className="h-4 w-4" />
                 </Button>
@@ -298,7 +298,7 @@ export function Header() {
                               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {isOpen && (
-                              <div className="bg-[#6B1313] pl-4">
+                              <div className="bg-redbar-dark pl-4">
                                 {item.children!.map(child => (
                                   <Link
                                     key={child.id}
@@ -344,7 +344,7 @@ export function Header() {
                     type="submit"
                     variant="ghost"
                     size="sm"
-                    className="h-9 rounded-l-none rounded-r-md bg-white hover:bg-gray-100 text-[#8B1A1A] px-3"
+                    className="h-9 rounded-l-none rounded-r-md bg-white hover:bg-gray-100 text-redbar px-3"
                   >
                     <Search className="h-4 w-4" />
                   </Button>
