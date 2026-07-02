@@ -38,7 +38,7 @@ function PodcastCard({
     <div className="flex gap-3 items-start group">
       {/* Cover */}
       <button
-        className="relative shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900 dark:to-blue-900"
+        className="relative shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-[#1E3924] to-[#2f5a3a]"
         onClick={() => onPlay(podcast)}
         aria-label={isPlaying ? 'Dừng' : 'Phát'}
       >
@@ -50,7 +50,7 @@ function PodcastCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Music className="h-6 w-6 text-purple-400" />
+            <Music className="h-6 w-6 text-[#E5C86E]" />
           </div>
         )}
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -71,7 +71,7 @@ function PodcastCard({
       <div className="flex-1 min-w-0">
         <Link
           href={`/podcasts/${podcast.id}`}
-          className="block text-sm font-medium line-clamp-2 leading-snug hover:text-primary transition-colors"
+          className="block text-sm font-medium line-clamp-2 leading-snug hover:text-[#1E3924] dark:hover:text-[#E5C86E] transition-colors"
         >
           {podcast.title}
         </Link>
@@ -163,16 +163,16 @@ export default function PodcastSection() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-[#1E3924]/[0.06] to-[#E5C86E]/[0.14] dark:from-[#1E3924]/40 dark:to-[#1E3924]/10">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center">
-            <Headphones className="h-4 w-4 text-white" />
+          <div className="w-7 h-7 rounded-full bg-[#1E3924] flex items-center justify-center">
+            <Headphones className="h-4 w-4 text-[#E5C86E]" />
           </div>
-          <h2 className="font-bold text-base text-gray-900 dark:text-gray-100">Podcast</h2>
+          <h2 className="font-bold text-base text-[#1E3924] dark:text-[#E5C86E]">Podcast</h2>
         </div>
         <Link
           href="/podcasts"
-          className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium"
+          className="flex items-center gap-1 text-xs text-[#1E3924] dark:text-[#E5C86E] hover:underline font-medium"
         >
           Xem tất cả
           <ChevronRight className="h-3.5 w-3.5" />
@@ -209,22 +209,22 @@ export default function PodcastSection() {
 
       {/* Inline player bar — hiển thị khi đã chọn một tập */}
       {currentId && (
-        <div className="px-4 py-2 bg-purple-600 text-white flex items-center gap-2 text-xs">
+        <div className="px-4 py-2 bg-[#1E3924] text-white flex items-center gap-2 text-xs">
           <button
             onClick={toggleCurrent}
-            className="shrink-0 hover:opacity-80"
+            className="shrink-0 text-[#E5C86E] hover:opacity-80"
             aria-label={isPlaying ? 'Tạm dừng' : 'Phát tiếp'}
           >
             {isPlaying ? (
-              <Pause className="h-3.5 w-3.5" fill="white" />
+              <Pause className="h-3.5 w-3.5" fill="currentColor" />
             ) : (
-              <Play className="h-3.5 w-3.5" fill="white" />
+              <Play className="h-3.5 w-3.5" fill="currentColor" />
             )}
           </button>
           <span className="truncate flex-1">
             {podcasts.find(p => p.id === currentId)?.title}
           </span>
-          <Headphones className={`h-3.5 w-3.5 shrink-0 ${isPlaying ? 'animate-pulse' : 'opacity-60'}`} />
+          <Headphones className={`h-3.5 w-3.5 shrink-0 text-[#E5C86E] ${isPlaying ? 'animate-pulse' : 'opacity-60'}`} />
         </div>
       )}
     </section>

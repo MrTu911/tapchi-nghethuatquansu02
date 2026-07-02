@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const keyword = searchParams.get('keyword')
     const wantAdminView = searchParams.get('adminView') === 'true'
+    const wantStats = searchParams.get('includeStats') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1)
     const skip = (page - 1) * limit
@@ -71,6 +72,24 @@ export async function GET(request: NextRequest) {
       prisma.podcast.count({ where }),
     ])
 
+    // Thống kê KPI cho trang quản trị: tính trên TOÀN BỘ thư viện (không theo
+    // bộ lọc/phân trang) để số liệu ổn định. Chỉ tính khi có quyền quản trị.
+    let stats: { total: number; active: number; featured: number; totalPlays: number } | undefined
+    if (isAdminView && wantStats) {
+      const [libraryTotal, activeCount, featuredCount, playsAgg] = await Promise.all([
+        prisma.podcast.count(),
+        prisma.podcast.count({ where: { isActive: true } }),
+        prisma.podcast.count({ where: { isFeatured: true } }),
+        prisma.podcast.aggregate({ _sum: { plays: true } }),
+      ])
+      stats = {
+        total: libraryTotal,
+        active: activeCount,
+        featured: featuredCount,
+        totalPlays: playsAgg._sum.plays ?? 0,
+      }
+    }
+
     return successResponse({
       podcasts,
       pagination: {
@@ -79,6 +98,7 @@ export async function GET(request: NextRequest) {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+      ...(stats ? { stats } : {}),
     })
   } catch (error) {
     console.error('Error fetching podcasts:', error)
