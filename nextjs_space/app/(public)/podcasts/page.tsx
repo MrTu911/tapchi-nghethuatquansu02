@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Headphones, Search, Play, Music, Calendar, Mic, AlertCircle, RefreshCw, Star } from 'lucide-react'
+import { Headphones, Search, Play, Music, Calendar, Mic, AlertCircle, RefreshCw, Star, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
@@ -37,11 +37,15 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function PodcastCard({ podcast }: { podcast: Podcast }) {
+function PodcastCard({ podcast, highlight = false }: { podcast: Podcast; highlight?: boolean }) {
   return (
     <Link
       href={`/podcasts/${podcast.id}`}
-      className="group flex gap-4 rounded-xl border border-[#1E3924]/10 bg-white p-4 shadow-sm transition-all hover:border-[#1E3924]/30 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+      className={`group flex h-full gap-4 rounded-xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900 ${
+        highlight
+          ? 'border-[#E5C86E]/60 ring-1 ring-[#E5C86E]/40 dark:border-[#E5C86E]/40'
+          : 'border-[#1E3924]/10 hover:border-[#1E3924]/30 dark:border-gray-800'
+      }`}
     >
       {/* Cover */}
       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#1E3924] to-[#2f5a3a]">
@@ -63,20 +67,20 @@ function PodcastCard({ podcast }: { podcast: Podcast }) {
       </div>
 
       {/* Info */}
-      <div className="min-w-0 flex-1 space-y-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
           <h3 className="line-clamp-2 text-sm font-semibold transition-colors group-hover:text-[#1E3924] dark:group-hover:text-[#E5C86E]">
             {podcast.title}
           </h3>
           {podcast.isFeatured && (
-            <Badge className="shrink-0 bg-[#E5C86E] text-xs text-[#1E3924]">Nổi bật</Badge>
+            <Badge className="shrink-0 bg-[#E5C86E] text-xs text-[#1E3924] hover:bg-[#E5C86E]">Nổi bật</Badge>
           )}
         </div>
 
         {podcast.host && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Mic className="h-3 w-3" />
-            <span>{podcast.host}</span>
+            <span className="truncate">{podcast.host}</span>
           </div>
         )}
 
@@ -84,7 +88,7 @@ function PodcastCard({ podcast }: { podcast: Podcast }) {
           <p className="line-clamp-2 text-xs text-muted-foreground">{podcast.description}</p>
         )}
 
-        <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
           {(podcast.seasonNumber || podcast.episodeNumber) && (
             <span>
               {podcast.seasonNumber ? `S${podcast.seasonNumber} ` : ''}
@@ -111,6 +115,17 @@ function PodcastCard({ podcast }: { podcast: Podcast }) {
   )
 }
 
+function SectionHeading({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`h-5 w-1 rounded-full ${accent ? 'bg-[#E5C86E]' : 'bg-[#1E3924]/40'}`} />
+      <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-[#1E3924] dark:text-[#E5C86E]">
+        {children}
+      </h2>
+    </div>
+  )
+}
+
 export default function PodcastsPage() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [loading, setLoading] = useState(true)
@@ -124,7 +139,7 @@ export default function PodcastsPage() {
     setLoading(true)
     setError(false)
     try {
-      const params = new URLSearchParams({ isActive: 'true', page: String(p), limit: '15' })
+      const params = new URLSearchParams({ isActive: 'true', page: String(p), limit: '18' })
       if (kw) params.set('keyword', kw)
       const res = await fetch(`/api/podcasts?${params}`)
       const data = await res.json()
@@ -152,34 +167,48 @@ export default function PodcastsPage() {
     fetchPodcasts(1, keyword)
   }
 
-  const featured = podcasts.filter((p) => p.isFeatured)
+  // Dải "Nổi bật" chỉ hiển thị ở trang đầu khi không tìm kiếm; danh sách chính bỏ các tập đã nổi bật để tránh trùng.
+  const showFeatured = page === 1 && !keyword
+  const featured = showFeatured ? podcasts.filter((p) => p.isFeatured) : []
+  const mainList = showFeatured ? podcasts.filter((p) => !p.isFeatured) : podcasts
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-10">
+    <div className="mx-auto max-w-[1280px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="space-y-3 text-center">
-        <div className="mb-2 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#1E3924] to-[#2f5a3a] shadow-md">
-          <Headphones className="h-7 w-7 text-[#E5C86E]" />
+      <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#1E3924] to-[#2f5a3a] px-6 py-8 text-white shadow-sm sm:px-8 sm:py-10">
+        <div className="flex items-center gap-2 text-xs text-[#F9F9F9]/70">
+          <Link href="/" className="transition-colors hover:text-[#E5C86E]">Trang chủ</Link>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-[#F9F9F9]">Podcast</span>
         </div>
-        <h1 className="text-3xl font-bold text-[#1E3924] dark:text-[#E5C86E]">Podcast</h1>
-        <p className="text-muted-foreground">Lắng nghe các tập podcast về nghệ thuật quân sự, chiến lược, lịch sử và khoa học quốc phòng</p>
-      </div>
+        <div className="mt-3 flex items-start gap-4">
+          <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-[#E5C86E]/40">
+            <Headphones className="h-7 w-7 text-[#E5C86E]" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-bold sm:text-3xl">Podcast</h1>
+            <p className="max-w-2xl text-sm text-[#F9F9F9]/80">
+              Lắng nghe các tập podcast về nghệ thuật quân sự, chiến lược, lịch sử và khoa học quốc phòng.
+            </p>
+          </div>
+        </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Tìm kiếm podcast..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-      </form>
+        {/* Search */}
+        <form onSubmit={handleSearch} className="relative mt-5 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1E3924]/50" />
+          <Input
+            className="border-0 bg-white pl-9 text-[#1E3924] placeholder:text-[#1E3924]/50 focus-visible:ring-2 focus-visible:ring-[#E5C86E]"
+            placeholder="Tìm kiếm podcast..."
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </form>
+      </div>
 
       {/* List */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-28 animate-pulse rounded-xl bg-[#1E3924]/5 dark:bg-gray-800" />
           ))}
         </div>
@@ -203,32 +232,43 @@ export default function PodcastsPage() {
       ) : (
         <>
           {/* Dải nổi bật (chỉ ở trang đầu, không tìm kiếm) */}
-          {page === 1 && !keyword && featured.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#1E3924] dark:text-[#E5C86E]">
+          {featured.length > 0 && (
+            <section className="space-y-3">
+              <SectionHeading accent>
                 <Star className="h-4 w-4 fill-[#E5C86E] text-[#E5C86E]" />
                 Nổi bật
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {featured.slice(0, 2).map((podcast) => (
-                  <PodcastCard key={`feat-${podcast.id}`} podcast={podcast} />
+              </SectionHeading>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map((podcast) => (
+                  <PodcastCard key={`feat-${podcast.id}`} podcast={podcast} highlight />
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="text-sm text-muted-foreground">{total} tập podcast</div>
-          <div className="space-y-3">
-            {podcasts.map((podcast) => (
-              <PodcastCard key={podcast.id} podcast={podcast} />
-            ))}
-          </div>
+          {mainList.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                {featured.length > 0 ? (
+                  <SectionHeading>Tất cả tập podcast</SectionHeading>
+                ) : (
+                  <span />
+                )}
+                <span className="text-sm text-muted-foreground">{total} tập podcast</span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {mainList.map((podcast) => (
+                  <PodcastCard key={podcast.id} podcast={podcast} />
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 
       {/* Pagination */}
       {!error && totalPages > 1 && (
-        <div className="flex justify-center gap-2 pt-4">
+        <div className="flex justify-center gap-2 pt-2">
           <button
             disabled={page === 1}
             onClick={() => setPage((p) => p - 1)}
